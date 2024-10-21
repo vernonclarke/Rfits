@@ -7,7 +7,6 @@
    - [analysing `KineticsDataset_5P(5Hz).xlsx`](#analysing-KineticsDataset_5P(5Hz)xlsx)
 - [Contact](#Contact)
 
-
 ## Step-by-Step Guide
 
 The following code will analyse the datasets contained in the EXCEL spreadsheets `KineticsDataset_Single.xlsx` and `KineticsDataset_5P(5Hz).xlsx`
@@ -83,9 +82,6 @@ The following code will analyse the datasets contained in the EXCEL spreadsheets
    out4  <- analyse_PSC(response=data_sheet[,4], dt=dt, n=n, func=func, ylab=ylab, stimulation_time=stimulation_time, baseline=baseline, method=method, fit.limits=1500)
 
    out5  <- analyse_PSC(response=data_sheet[,5], dt=dt, n=n, func=func, ylab=ylab, stimulation_time=stimulation_time, baseline=baseline, method=method, fit.limits=1500) 
- 
-
-
    ```
 
    The R output will look like this:
@@ -128,25 +124,24 @@ The following code will analyse the datasets contained in the EXCEL spreadsheets
    # simply increase factor; higher upsampling may slow graphing process
    
    # set axes limits and labels for the graph
-   xlim=c(0, 2500); ylim=c(-0.05, 2)
-   xlab='time (ms)'; ylab=''
+   xlim <- c(0, 2500); ylim <- c(-0.05, 2)
+   xlab <- 'time (ms)'; ylab <- ''
+   plotsave <- FALSE
 
    smooth.plots(y=data_sheet[,1], fits=out1$fits, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
-     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace1.svg', save=FALSE)
+     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace1.svg', save=plotsave)
 
    smooth.plots(y=data_sheet[,2], fits=out2$fits, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
-     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace2.svg', save=FALSE)
+     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace2.svg', save=plotsave)
 
    smooth.plots(y=data_sheet[,3], fits=out3$fits, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
-     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace3.svg', save=FALSE)
+     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace3.svg', save=plotsave)
    
    smooth.plots(y=data_sheet[,4], fits=out4$fits, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
-     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace4.svg', save=FALSE)
+     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace4.svg', save=plotsave)
 
    smooth.plots(y=data_sheet[,5], fits=out5$fits, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
-     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace5.svg', save=FALSE)
-
-
+     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename='smoothtrace5.svg', save=plotsave)
    ```
    
    If using smooth.plots and save=TRUE no graphical output will appear but graphs will be saved in svg format in the current working directory (i.e. wd as defined above):
@@ -454,7 +449,7 @@ The following code will analyse the datasets contained in the EXCEL spreadsheets
       smooth.plots(y=data_sheet[,ii], fits=out_list[[ii]]$fits, N=N, IEI=IEI, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
      upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename=paste0('smoothtrain', ii,  '.svg'), save=FALSE)
    }
-    ```
+   ```
 
   If using smooth.plots and save=TRUE no graphical output will appear but graphs will be saved in svg format in the current working directory (i.e. wd as defined above):
 
