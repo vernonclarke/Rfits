@@ -28,6 +28,7 @@ Tamara analysis/**
 # Unignore specific files in the root directory
 !/nNLS functions.R
 !/NLS functions.R
+!/example.R
 
 # Unignore .R files in any subdirectory
 !**/*.R
