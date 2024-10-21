@@ -443,11 +443,12 @@ The following code will analyse the datasets contained in the EXCEL spreadsheets
    # set axes limits and labels for the graph
    xlim=c(0, 2500); ylim=c(-0.05, 2)
    xlab='time (ms)'; ylab=''
+   plotsave <- FALSE
 
    # use a loop to plot all as smooth plots
    for (ii in 1:length(out_list)) {
       smooth.plots(y=data_sheet[,ii], fits=out_list[[ii]]$fits, N=N, IEI=IEI, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, 
-     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename=paste0('smoothtrain', ii,  '.svg'), save=FALSE)
+     upsample.fit=c(upsample=TRUE, factor=100), xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, filename=paste0('smoothtrain', ii,  '.svg'), save=plotsave)
    }
    ```
 
