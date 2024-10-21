@@ -598,8 +598,6 @@ The following code will analyse the datasets contained in the EXCEL spreadsheets
 
 ## Contact
 
-If any bug fixes are necessary (most likely related to providing help on other operating systems), it will be provided as an update on the parent [`GitHub` page](https://github.com/vernonclarke/Rfits).
-
 For queries related to this repository, please [open an issue](https://github.com/vernonclarke/Rfits/issues) or [email](mailto:WOPR2@proton.me) directly 
 
 
