@@ -4,7 +4,7 @@
 ## Table of Contents
 - [Step-by-Step Guide](#Step-by-Step-Guide)
    - [analysing `KineticsDataset_Single.xlsx`](#analysing-KineticsDataset_Singlexlsx)
-   - [analysing `KineticsDataset_5P(5Hz).xlsx`](#analysing-KineticsDataset_5P(5Hz)xlsx)
+   - [analysing `KineticsDataset_5P(5Hz).xlsx`](#analysing-KineticsDataset_5P5Hzxlsx)
 - [Contact](#Contact)
 
 ## Step-by-Step Guide
