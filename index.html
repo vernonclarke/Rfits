@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KaTeX Rendering</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/contrib/auto-render.min.js" 
+    onload="renderMathInElement(document.body);"></script>
+</head>
+<body>
+
+<h1>Math with KaTeX</h1>
+
+<p>Here is an example of an equation rendered with KaTeX:</p>
+
+<p>Inline equation: <span class="math">\( y = A (1 - e^{-t/\tau_1}) e^{-t/\tau_2} \)</span></p>
+
+<p>Block equation:</p>
+
+<div class="math">
+  $$ y = A (1 - e^{-t/\tau_1}) e^{-t/\tau_2} $$
+</div>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+# Ignore all the specified folders
+Leila analysis/**
+Linqing analysis/**
+Marziyeh analysis/**
+Tamara analysis/**
+
+# Ignore specific file types
+**/*.RData
+**/*.ai
+**/*.svg
+**/*.abf
+**/*.DS_store
+**/*.Rapp.history
+
+# Ignore all .svg files in all directories
+**/*.svg
+
+# Don't ignore .svg files in the images/svg/ folder
+!images/**/*.svg
+
+# Ignore everything in the root directory 'Rfits'
+/Rfits/
+
+# Ignore specific file types in the repository
+*.R
+*.pdf
+
+# Unignore specific files in the root directory
+!/nNLS functions.R
+!/NLS functions.R
