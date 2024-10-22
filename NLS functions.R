@@ -2093,9 +2093,9 @@ WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude
   
   boxplot_values <- boxplot_calculator(data, type)
   
-  if (is.null(x_tick_interval)){
+  if (is.null(x_tick_interval)) {
     x_ticks <- unique(data$x)
-  }else{
+  } else {
     x_ticks <- seq(xrange[1], xrange[2], by = x_tick_interval)
   }
   xrange <- xrange + c(-wid, wid)
@@ -2106,7 +2106,8 @@ WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude
        main = main, xaxt = 'n', yaxt = 'n', bty = 'n', lwd = lwd)
   
   for (i in 1:nrow(boxplot_values)) {
-    current_x <- boxplot_values$x[i]
+    # Convert current_x to numeric for arithmetic operations
+    current_x <- as.numeric(boxplot_values$x[i])
     
     rect(current_x - wid, boxplot_values$Q1[i], current_x + wid, boxplot_values$Q3[i], col = 'white', lwd = lwd)
     segments(current_x, boxplot_values$Q1[i], current_x, boxplot_values$Min[i], lwd = lwd)
@@ -2117,11 +2118,11 @@ WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude
   }
   
   # Set the x-axis ticks
-  axis(1, at = x_ticks, labels = x_ticks, tcl = -tick_length)
+  axis(1, at = x_ticks, labels = x_ticks, tcl = -tick_length, lwd = lwd)
   
   # Set the y-axis ticks
   y_ticks <- seq(yrange[1], yrange[2], by = y_tick_interval)
-  axis(2, at = y_ticks, tcl = -tick_length, las = 1)
+  axis(2, at = y_ticks, tcl = -tick_length, las = 1, lwd = lwd)
 }
 
 
@@ -2209,6 +2210,84 @@ scatter_plot <- function(scatter, xlim=c(0, 400), ylim=c(0, 400), x_tick_interva
 }
 
 
+BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', 
+                    main = '', xrange = NULL, yrange = c(-400, 0), tick_length = 0.2, 
+                    x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, 
+                    type = 6, amount = 0.05, p.cex = 0.5, filename = 'boxplot.svg', 
+                    height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, save = FALSE) {
+  
+  # Parse the formula to extract response and predictors
+  response <- as.character(formula[[2]])
+  predictors <- all.vars(formula[[3]]) # Get the predictor variables
+  
+  # Check if the specified columns exist in the data
+  if (!all(c(response, predictors) %in% colnames(data))) {
+    stop("The specified response or predictor variables are not found in the data.")
+  }
+  
+  # Handle grouping if interaction is specified or random effects are included
+  if (any(grepl("\\|", predictors))) {
+    # Mixed effects formula with random effects
+    fixed_effects <- sub(" \\+ \\(1\\|.*\\)", "", predictors)
+    group_vars <- strsplit(fixed_effects, " \\* | \\+ ")[[1]]
+    subject_var <- gsub(".*\\|", "", predictors)
+    data$s <- as.factor(data[[subject_var]])
+  } else {
+    # Standard formula without random effects
+    group_vars <- predictors
+  }
+  
+  # Determine the number of grouping factors
+  if (length(group_vars) == 1) {
+    # Single grouping variable
+    data$x <- as.factor(data[[group_vars[1]]])
+  } else {
+    # Interaction of two grouping variables
+    data$x <- interaction(data[[group_vars[1]]], data[[group_vars[2]]], sep = " : ")
+  }
+  
+  # Set the response variable
+  data$y <- data[[response]]
+
+  # Set x range based on the unique levels of x
+  if (is.null(xrange)) {
+    xrange <- range(as.numeric(data$x)) + c(-wid, wid)
+  }
+  
+  # Handle saving the plot
+  if (save) {
+    svg(file = filename, width = width, height = height, bg = bg)
+  } else {
+    dev.new(width = width, height = height, noRStudioGD = TRUE)
+  }
+  
+  # Create the box plot using the WBplot function
+  WBplot(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main, 
+         xrange = xrange, yrange = yrange, tick_length = tick_length, 
+         x_tick_interval = x_tick_interval, y_tick_interval = y_tick_interval, lwd = lwd, type = type)
+  
+  # Jitter x-values for plotting individual points
+  set.seed(42)
+  data$x_jitter <- jitter(as.numeric(data$x), amount = amount)
+  
+  # Set the color with alpha transparency for the points
+  point_color <- rgb(169 / 255, 169 / 255, 169 / 255, alpha = alpha)  # darkgray with alpha transparency
+  points(data$x_jitter, data$y, pch = 19, col = point_color, lwd = lwd / 3, cex = p.cex)
+  
+  # Connect data points for repeated measures (if subject information is provided)
+  if ("s" %in% colnames(data)) {
+    subjects <- unique(data$s)
+    for (subj in subjects) {
+      subset_data <- data[data$s == subj, ]
+      lines(subset_data$x_jitter, subset_data$y, col = 'darkgray', lwd = lwd, lty = 3)  # lty=3 for dotted line
+    }
+  }
+  
+  # Close the SVG device if saving
+  if (save) {
+    dev.off()
+  }
+}
 
 # Define the start and end colors of your palette Slate Blue to Indian Red
 hex_palette <- function(n, color1='#6A5ACD', color2='#CD5C5C', reverse = FALSE) {
