@@ -182,8 +182,8 @@ FITN <- function(response, dt=0.1, func=product2N, N=1, IEI=50, method=c('BF.LM'
     y <- y[!is.na(y)]
   }
 
-  sign <- sign_fun(y, direction_method=response_sign_method) 
-  y <- sign * y
+  # sign <- sign_fun(y, direction_method=response_sign_method) 
+  # y <- sign * y
 
   x <- seq(0, (length(y) - 1) * dx, by=dx)
 
@@ -204,6 +204,8 @@ FITN <- function(response, dt=0.1, func=product2N, N=1, IEI=50, method=c('BF.LM'
   yfilter <- yfilter[ind1:length(yfilter)]
   xorig <- seq(0, dx * (length(yorig) - 1), by=dx)
 
+  sign <- sign_fun(yfilter - mean(yfilter[1:ind2]), direction_method=response_sign_method) 
+  y <- sign * y; yorig <- sign * yorig; yfilter <- sign * yfilter
   
   if (is_product_function(func)) {
     yorig <- yorig - mean(yorig[1:ind2])
@@ -1402,7 +1404,66 @@ product3N <- function(params, x, N=1, IEI=50) {
   
   return(response)  # Return the total response
 }
-sign_fun <- function(y, direction_method = c('smooth', 'regression', 'cumsum'), k=5) {
+
+# sign_fun <- function(y, direction_method = c('smooth', 'regression', 'cumsum'), k=5) {
+#   method <- match.arg(direction_method)
+  
+#   # Check if the length of y is sufficient for processing
+#   if (length(y) < 10) {
+#     stop("The length of y must be at least 10.")
+#   }
+  
+#   n <- length(y)
+#   peak_value <- NA
+  
+#   if (method == 'smooth') {
+#     # Calculate the smoothed signal using a simple moving average
+#     smoothed_signal <- rep(NA, n)
+#     for (i in 1:(n - k + 1)) {
+#       smoothed_signal[i + floor(k/2)] <- mean(y[i:(i + k - 1)])
+#     }
+#     # Find the peak value
+#     peak_value <- max(abs(smoothed_signal), na.rm = TRUE)
+#     peak_value <- smoothed_signal[which.max(abs(smoothed_signal))]
+    
+#   } else if (method == 'diff') {
+#     # Calculate the differences of the signal
+#     diff_signal <- diff(y)
+#     # Identify both the maximum and minimum differences
+#     max_diff <- max(diff_signal, na.rm = TRUE)
+#     min_diff <- min(diff_signal, na.rm = TRUE)
+    
+#     # Determine the peak value considering the direction
+#     peak_value <- ifelse(abs(max_diff) > abs(min_diff), max_diff, min_diff)
+     
+#   } else if (method == 'regression') {
+#     # Fit a quadratic regression to the signal
+#     x <- 1:n
+#     model <- lm(y ~ I(x^2) + x)
+    
+#     # Use the fitted values to find the peak
+#     fitted_values <- predict(model)
+#     peak_value <- max(abs(fitted_values), na.rm = TRUE)
+#     peak_value <- fitted_values[which.max(abs(fitted_values))]
+    
+#   } else if (method == 'cumsum') {
+#     # Calculate the cumulative sum of the signal
+#     cumsum_signal <- cumsum(y)
+#     # Find the peak value of the cumulative sum
+#     peak_value <- max(abs(cumsum_signal), na.rm = TRUE)
+#     peak_value <- cumsum_signal[which.max(abs(cumsum_signal))]
+#   }
+  
+#   # Determine if the peak is positive or negative
+#   peak_direction <- ifelse(peak_value > 0, 1, -1)
+  
+#   # Return the sign of the peak direction
+#   return(peak_direction[[1]])
+# }
+
+
+sign_fun <- function(y, direction_method = c('smooth', 'regression', 'cumsum'), k = 5) {
+  
   method <- match.arg(direction_method)
   
   # Check if the length of y is sufficient for processing
@@ -1419,9 +1480,17 @@ sign_fun <- function(y, direction_method = c('smooth', 'regression', 'cumsum'), 
     for (i in 1:(n - k + 1)) {
       smoothed_signal[i + floor(k/2)] <- mean(y[i:(i + k - 1)])
     }
-    # Find the peak value
-    peak_value <- max(abs(smoothed_signal), na.rm = TRUE)
-    peak_value <- smoothed_signal[which.max(abs(smoothed_signal))]
+    # Remove NA values before finding the indices of the maximum and minimum values
+    valid_indices <- which(!is.na(smoothed_signal))
+    max_idx <- valid_indices[which.max(smoothed_signal[valid_indices])]
+    min_idx <- valid_indices[which.min(smoothed_signal[valid_indices])]
+    
+    # Determine the peak value based on the magnitude comparison
+    if (abs(smoothed_signal[max_idx]) > abs(smoothed_signal[min_idx])) {
+      peak_value <- smoothed_signal[max_idx]
+    } else {
+      peak_value <- smoothed_signal[min_idx]
+    }
     
   } else if (method == 'diff') {
     # Calculate the differences of the signal
@@ -1440,22 +1509,36 @@ sign_fun <- function(y, direction_method = c('smooth', 'regression', 'cumsum'), 
     
     # Use the fitted values to find the peak
     fitted_values <- predict(model)
-    peak_value <- max(abs(fitted_values), na.rm = TRUE)
-    peak_value <- fitted_values[which.max(abs(fitted_values))]
+    max_idx <- which.max(fitted_values)
+    min_idx <- which.min(fitted_values)
+    
+    # Determine the peak value based on the magnitude comparison
+    if (abs(fitted_values[max_idx]) > abs(fitted_values[min_idx])) {
+      peak_value <- fitted_values[max_idx]
+    } else {
+      peak_value <- fitted_values[min_idx]
+    }
     
   } else if (method == 'cumsum') {
     # Calculate the cumulative sum of the signal
     cumsum_signal <- cumsum(y)
-    # Find the peak value of the cumulative sum
-    peak_value <- max(abs(cumsum_signal), na.rm = TRUE)
-    peak_value <- cumsum_signal[which.max(abs(cumsum_signal))]
+    # Find the indices of the maximum and minimum values
+    max_idx <- which.max(cumsum_signal)
+    min_idx <- which.min(cumsum_signal)
+    
+    # Determine the peak value based on the magnitude comparison
+    if (abs(cumsum_signal[max_idx]) > abs(cumsum_signal[min_idx])) {
+      peak_value <- cumsum_signal[max_idx]
+    } else {
+      peak_value <- cumsum_signal[min_idx]
+    }
   }
   
   # Determine if the peak is positive or negative
   peak_direction <- ifelse(peak_value > 0, 1, -1)
   
   # Return the sign of the peak direction
-  return(peak_direction[[1]])
+  return(peak_direction)
 }
 
 out.fun <- function(params, interval = c(0.1, 0.9), dp = 3, sign=1) {
