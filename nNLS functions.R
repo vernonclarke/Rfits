@@ -2420,7 +2420,29 @@ moving_avg <- function(y, n = 5) {
   return(max(result) * sign)
 }
 
-load_data2 <- function(wd, name) {
+# load_data2 <- function(wd, name) {
+#   # Create the file path
+#   file_path <- file.path(wd, paste0(name, '.', 'xlsx'))
+  
+#   # Load the Excel file
+#   workbook <- openxlsx::loadWorkbook(file_path)
+  
+#   # Get the sheet names
+#   sheet_names <- openxlsx::getSheetNames(file_path)
+  
+#   # Initialize an empty list to store each sheet's data
+#   data_list <- list()
+  
+#   # Loop through each sheet and read the data into the list
+#   for (sheet in sheet_names) {
+#     data_list[[sheet]] <- openxlsx::read.xlsx(file_path, sheet = sheet)
+#   }
+  
+#   return(data_list)
+# }
+
+
+load_data2 <- function(wd, name, header = TRUE) {
   # Create the file path
   file_path <- file.path(wd, paste0(name, '.', 'xlsx'))
   
@@ -2435,7 +2457,7 @@ load_data2 <- function(wd, name) {
   
   # Loop through each sheet and read the data into the list
   for (sheet in sheet_names) {
-    data_list[[sheet]] <- openxlsx::read.xlsx(file_path, sheet = sheet)
+    data_list[[sheet]] <- openxlsx::read.xlsx(file_path, sheet = sheet, colNames = header)
   }
   
   return(data_list)
