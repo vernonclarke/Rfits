@@ -2463,6 +2463,53 @@ load_data2 <- function(wd, name, header = TRUE) {
   return(data_list)
 }
 
+
+# saves list to excel
+list2excel <- function(data_list, file_name, wd = getwd(), center_align = TRUE) {
+  # Load the openxlsx library
+  library(openxlsx)
+  
+  # Create a new workbook
+  workbook <- createWorkbook()
+  
+  # Define styles: bold and centered for headers, and centered for data
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center")
+  center_style <- createStyle(halign = "center", valign = "center")
+  
+  # Loop over each element in the list
+  for (i in seq_along(data_list)) {
+    # Use the name of the list element as the sheet name
+    sheet_name <- names(data_list)[i]
+    
+    # Default to "Sheet1", "Sheet2", etc., if the name is missing
+    if (is.null(sheet_name) || sheet_name == "") {
+      sheet_name <- paste0("Sheet", i)
+    }
+    
+    # Add a new sheet with the specified name to the workbook
+    addWorksheet(workbook, sheet_name)
+    
+    # Write the data to the sheet
+    writeData(workbook, sheet_name, data_list[[i]])
+    
+    # Apply header style to make headers bold and centered
+    addStyle(workbook, sheet_name, style = header_style, rows = 1, cols = 1:ncol(data_list[[i]]), gridExpand = TRUE)
+    
+    # Apply center alignment to all cells if center_align is TRUE
+    if (center_align) {
+      addStyle(workbook, sheet_name, style = center_style, rows = 1:(nrow(data_list[[i]]) + 1), 
+               cols = 1:ncol(data_list[[i]]), gridExpand = TRUE)
+    }
+  }
+  
+  # Create the full file path
+  file_path <- file.path(wd, file_name)
+  
+  # Save the workbook
+  saveWorkbook(workbook, file_path, overwrite = TRUE)
+}
+
+
 peak.fun <- function(y, dt, stimulation_time, baseline, smooth=5){
   
   idx1 <- (stimulation_time - baseline) / dt
