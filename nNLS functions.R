@@ -2463,8 +2463,7 @@ load_data2 <- function(wd, name, header = TRUE) {
   return(data_list)
 }
 
-
-# saves list to excel
+# save list to excel spreadsheet
 list2excel <- function(data_list, file_name, wd = getwd(), center_align = TRUE) {
   # Load the openxlsx library
   library(openxlsx)
