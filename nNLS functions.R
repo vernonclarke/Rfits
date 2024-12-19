@@ -554,19 +554,12 @@ log.lik.post_N <- function(parameters, x, y, func, N=1, IEI=100) {
   sum(dnorm(y, mean=func(params=params, x=x, N=N, IEI=IEI), sd=sigma, log=TRUE))
 }
 
-# model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
-#   res <- residFunCpp(coeffs, y, x, func, N, IEI)
-#   k <- length(coeffs)
-#   n <- length(res)
-#   # definition: log_likelihood <- -(n / 2) * log(2 * pi) - (n / 2) * log(sigma2) - (1 / (2 * sigma2)) * sum(res^2)
-#   # log(sigma2) == sum(res^2) / n and (1 / (2 * sigma2)) * sum(res^2) == 0.5 * n
-#   loglik <- -0.5 * (n * log(2 * pi) + n * log(sum(res^2) / n) + n)
-#   # loglik <- 0.5 * (-n * (log(2 * pi) + 1 - log(n) + log(sum(res^2))))
-#   df <- k + 1
-#   BIC <- df * log(n) - 2 * loglik
-#   AIC <- df * 2 - 2 * loglik
-#   c(AIC=AIC, BIC=BIC)
-# }
+# Including the residual variance as an additional parameter is standard in likelihood-based methods, such as Maximum Likelihood Estimation (MLE). 
+# When using a Gaussian error model:
+# The residual variance ( \sigma^2 ) is treated as an additional parameter to be estimated from the data.
+# Most statistical software, including R’s nls and glm, includes the residual variance in  k , which is why df = k + 1. 
+# This approach ensures that AIC accounts for the uncertainty in estimating  \sigma^2 , making it the correct and commonly accepted method.
+
 
 model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
   res <- residFunCpp(coeffs, y, x, func, N, IEI)
@@ -576,10 +569,24 @@ model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
   # log(sigma2) == sum(res^2) / n and (1 / (2 * sigma2)) * sum(res^2) == 0.5 * n
   loglik <- -0.5 * (n * log(2 * pi) + n * log(sum(res^2) / n) + n)
   # loglik <- 0.5 * (-n * (log(2 * pi) + 1 - log(n) + log(sum(res^2))))
-  BIC <- k * log(n) - 2 * loglik
-  AIC <- k * 2 - 2 * loglik
+  df <- k + 1
+  BIC <- df * log(n) - 2 * loglik
+  AIC <- df * 2 - 2 * loglik
   c(AIC=AIC, BIC=BIC)
 }
+
+# model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
+#   res <- residFunCpp(coeffs, y, x, func, N, IEI)
+#   k <- length(coeffs)
+#   n <- length(res)
+#   # definition: log_likelihood <- -(n / 2) * log(2 * pi) - (n / 2) * log(sigma2) - (1 / (2 * sigma2)) * sum(res^2)
+#   # log(sigma2) == sum(res^2) / n and (1 / (2 * sigma2)) * sum(res^2) == 0.5 * n
+#   loglik <- -0.5 * (n * log(2 * pi) + n * log(sum(res^2) / n) + n)
+#   # loglik <- 0.5 * (-n * (log(2 * pi) + 1 - log(n) + log(sum(res^2))))
+#   BIC <- k * log(n) - 2 * loglik
+#   AIC <- k * 2 - 2 * loglik
+#   c(AIC=AIC, BIC=BIC)
+# }
 
 # Optimized fit.MLE function
 fit.MLE <- function(x, y, func, N.params, N=1, IEI=100, sigma=5, iter=1e4, metropolis.scale=2, logpost=logLikPostCpp, 
