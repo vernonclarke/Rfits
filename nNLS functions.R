@@ -4020,6 +4020,139 @@ fun_single_example <- function(rawdata, fits, start_time=50, baseline=50, idx=1,
   return(single_example)
 }
 
+# single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE, normalise=FALSE, func=product2N, height=4, width=2.5, xbar=100, ybar=50, log_y=FALSE, colors=c('#4C77BB', '#CA92C1', '#F28E2B'), filename='plot.svg', bg='transparent', save=FALSE) {
+  
+#   if (save) {
+#     # Open SVG device
+#     svg(file=filename, width=width, height=height, bg=bg)
+#   } else {
+#     dev.new(width=width, height=height, noRStudioGD=TRUE)
+#   }
+  
+#   x <- traces$x
+#   y <- traces$y
+  
+#   fit1 <- traces$yfit1
+#   if (identical(func, product2N)){
+#     fit2 <- traces$yfit2
+#   }
+  
+#   if (identical(func, product3N)){
+#     fit2 <- traces$yfit2
+#     fit3 <- traces$yfit3
+#   }
+
+#   if (is.null(xlim)) xlim <- c(min(x), max(x))
+  
+#   if (is.null(ylim)) {
+#     if (log_y) {
+#       y <- -y
+#       fit1 <- -fit1
+#       if (identical(func, product2N)){
+#         fit2 <- -fit2
+#       }
+#       if (identical(func, product3N)){
+#         fit2 <- -fit2
+#         fit3 <- -fit3
+#       }
+
+#       # Define custom major tick positions
+#       y_ticks <- c(1, 10, 100, 1000)  # Example custom major ticks
+#       log_y_ticks <- log(y_ticks)
+#       valid_ticks <- log_y_ticks[log_y_ticks <= log(max(y[y > 0], na.rm=TRUE))]  # Get ticks up to the maximum y
+
+#       # Set ylim based on valid ticks, using the lowest major tick for the lower bound
+#       ylim <- c(min(valid_ticks), log(max(y[y > 0], na.rm=TRUE)))
+#     } else {
+#       ylim <- c(-max(y, na.rm=TRUE), 0)
+#     }
+#   }
+
+#   if (log_y) {
+#     y <- ifelse(y > 0, log(pmax(y, .Machine$double.eps)), NA)
+#     fit1 <- ifelse(fit1 > 0, log(fit1), NA)
+#     if (identical(func, product2N)){
+#       fit2 <- ifelse(fit2 > 0, log(fit2), NA)
+#     }
+#     if (identical(func, product3N)){
+#       fit2 <- ifelse(fit2 > 0, log(fit2), NA)
+#       fit3 <- ifelse(fit3 > 0, log(fit3), NA)
+#     }
+#   } 
+
+#   idx1 <- which.min(abs(x - xlim[1]))
+#   idx2 <- which.min(abs(x - xlim[2]))
+
+#   plot(x[idx1:idx2], y[idx1:idx2], type='l', col='#A6A8AA', xlim=xlim, ylim=ylim, bty='n', lwd=lwd, lty=1, axes=FALSE, frame=FALSE, xlab='', ylab='')
+
+#   if (identical(func, product1N)){
+#     fits <- cbind(fit)
+#   }else if (identical(func, product2N)){
+#     fits <- cbind(fit1, fit2)
+#   }else if (identical(func, product3N)){
+#     fits <- cbind(fit1, fit2, fit3)
+#   }
+
+  
+#   # Loop through remaining traces and add them to the plot
+#   for (i in 1:dim(fits)[2]) {
+#     y_fit <- fits[, i]
+#     lines(x[idx1:idx2], y_fit[idx1:idx2], col=colors[i], lwd=lwd, lty=1)
+#   }
+  
+#   # Define scale bar lengths and ybar position
+#   ybar <- ifelse(log_y, exp(1), ybar)
+#   ybar_start <- ifelse(log_y, log(1) + (log(max(exp(ylim))) - log(1)) / 20, min(ylim) + (max(ylim) - min(ylim)) / 20)
+  
+#   # Add scale bars at the bottom right
+#   x_start <- max(xlim) - xbar - 50
+#   y_start <- ybar_start
+#   x_end <- x_start + xbar
+#   y_end <- ifelse(log_y, y_start + log(ybar), y_start + ybar)
+  
+#   # Draw the scale bars
+#   segments(x_start, y_start, x_end, y_start, lwd=lwd, col='black') # Horizontal scale bar
+#   if (!normalise) {
+#     segments(x_start, y_start, x_start, y_end, lwd=lwd, col='black') # Vertical scale bar
+#   }
+  
+#   # Add labels to the scale bars
+#   if (show_text) {
+#     text(x = (x_start + x_end) / 2, y = y_start - ybar / 20, labels = paste(xbar, 'ms'), adj = c(0.5, 1))
+#     if (!normalise) text(x = x_start - xbar / 4, y = (y_start + y_end) / 2, labels = ifelse(log_y, "e-fold change", paste(ybar, 'pA')), adj = c(0.5, 0.5), srt = 90)
+#   }
+  
+#   # Add the y-axis only if log_y is TRUE
+#   if (log_y) {
+#     tick_length <- -0.2
+#     minor_tick_length <- -0.1
+    
+#     # Major tick positions and labels for the log scale
+#     y_ticks <- c(1, 10, 100, 1000)  # Example custom major ticks
+#     log_y_ticks <- log(y_ticks)
+#     valid_ticks <- log_y_ticks[log_y_ticks >= ylim[1] & log_y_ticks <= ylim[2]]  # Filter major ticks within the plot range
+
+#     # Minor tick positions for the log scale
+#     minor_y_ticks <- c(2, 3, 4, 5, 6, 7, 8, 9, 
+#                        20, 30, 40, 50, 60, 70, 80, 90, 
+#                        200, 300, 400, 500, 600, 700, 800, 900)  # Example custom minor ticks
+#     log_minor_y_ticks <- log(minor_y_ticks)
+#     valid_minor_ticks <- log_minor_y_ticks[log_minor_y_ticks >= ylim[1] & log_minor_y_ticks <= ylim[2]]  # Filter minor ticks within the plot range
+
+#     # Add major ticks
+#     axis(2, at=valid_ticks, labels=y_ticks[log_y_ticks >= ylim[1] & log_y_ticks <= ylim[2]], tcl=tick_length, las=1)
+
+#     # Add minor ticks
+#     axis(2, at=valid_minor_ticks, labels=NA, tcl=minor_tick_length, las=1)
+    
+#     # Add y-axis label
+#     mtext('PSC amplitude (pA)', side=2, line=2.5)
+#   }
+  
+#   if (save) {
+#     dev.off()
+#   }
+# }
 
 single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE, normalise=FALSE, func=product2N, height=4, width=2.5, xbar=100, ybar=50, log_y=FALSE, colors=c('#4C77BB', '#CA92C1', '#F28E2B'), filename='plot.svg', bg='transparent', save=FALSE) {
   
@@ -4029,7 +4162,7 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
   } else {
     dev.new(width=width, height=height, noRStudioGD=TRUE)
   }
-  
+
   x <- traces$x
   y <- traces$y
   
@@ -4071,14 +4204,16 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
 
   if (log_y) {
     y <- ifelse(y > 0, log(pmax(y, .Machine$double.eps)), NA)
-    fit1 <- ifelse(fit1 > 0, log(fit1), NA)
+    fit1 <- ifelse(fit1 > 0, log(pmax(fit1, .Machine$double.eps)), NA)
     if (identical(func, product2N)){
-      fit2 <- ifelse(fit2 > 0, log(fit2), NA)
+      fit2 <- ifelse(fit2 > 0, log(pmax(fit2, .Machine$double.eps)), NA)
     }
     if (identical(func, product3N)){
-      fit2 <- ifelse(fit2 > 0, log(fit2), NA)
-      fit3 <- ifelse(fit3 > 0, log(fit3), NA)
+      fit2 <- ifelse(fit2 > 0, log(pmax(fit2, .Machine$double.eps)), NA)
+      fit3 <- ifelse(fit3 > 0, log(pmax(fit3, .Machine$double.eps)), NA)
     }
+    y[ y < 0 ] <- NA
+    y[which.min(abs(x - xlim[1]))] <- 0
   } 
 
   idx1 <- which.min(abs(x - xlim[1]))
@@ -4094,7 +4229,28 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
     fits <- cbind(fit1, fit2, fit3)
   }
 
-  
+  if (log_y) {
+    fits[ fits < 0 ] <- NA
+    # Step 2: For each column, set the last NA before the first numeric to 1, if it exists.
+    for (col_idx in seq_len(ncol(fits))) {
+      col_data <- fits[, col_idx]
+      
+      # Find the first non-NA value's index
+      f <- which(!is.na(col_data))[1]
+      
+      # If there's a first numeric value and it's not in row 1...
+      if (!is.na(f) && f > 0) {
+        # Check if row f-1 is NA
+        if (is.na(col_data[f - 1])) {
+          col_data[f - 1] <- 0
+        }
+      }
+      
+      # Write the updated column back
+      fits[, col_idx] <- col_data
+    }
+  }
+
   # Loop through remaining traces and add them to the plot
   for (i in 1:dim(fits)[2]) {
     y_fit <- fits[, i]
@@ -4154,7 +4310,6 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
     dev.off()
   }
 }
-
 SingleFitExample <- function(traces, xlim=NULL, ylim=NULL, ylab='PSC amplitude (pA)', tick_length=0.2, lwd=1, show_text=FALSE, normalise=FALSE, func=product2N, 
   height=4, width=2.5, xbar=100, ybar=50, log_y=FALSE, colors=c('#4C77BB', '#CA92C1', '#F28E2B'), filename='plot.svg', bg='transparent', save=FALSE) {
   
@@ -5382,7 +5537,33 @@ smooth.plots <- function(y, fits, N=1, IEI=50, dt=0.1,  stimulation_time=150, ba
 
 # k-NN distance: In general, for a given value of k, the k-NN distance is the distance from a point to its k-th nearest neighbor
 
-kNNdistplot2 <- function(x, k, minPts,  bty="n", lwd=1.2, lty=1, axes=FALSE, frame=FALSE, xtick=1, ytick=50, ...) {
+# The kNN distance plot helps identify the “elbow” point, which corresponds to a good eps value
+# Use k = minPts - 1; minPts <- 4  is default for 2D data
+# Small minPts values (e.g., 3 or 4) work well for data with:
+#   Small clusters
+#   High density
+# Large minPts values (e.g., 10 or 15) work well for:
+#   Large datasets
+#   Clusters with high variability in density
+
+# dbscan::dbscan performs the following operations
+#   1.  Core Points Identification:
+#   • For each point in the dataset:
+#   • Compute the number of points within a radius of eps (including the point itself).
+#   • If this count is ≥ minPts, the point is classified as a core point.
+#   2.  Cluster Formation:
+#   • Starting from a core point, expand the cluster by adding all points that are directly reachable from the core point:
+#   • A point is directly reachable if it lies within the eps radius of the core point.
+#   • If this point is also a core point, repeat the process to find more directly reachable points (density reachability).
+#   3.  Noise Points Identification:
+#   • Any point that:
+#   • Is not a core point.
+#   • Is not directly reachable from any core point.
+#   • These points are classified as noise (or outliers) and assigned a cluster label of 0.
+
+
+kNNdistplot2 <- function(x, k, minPts,  bty="n", lwd=1, lty=1, axes=FALSE, frame=FALSE, xtick=1, ...) {
+    
     if (missing(k) && missing(minPts)) 
         stop("k or minPts need to be specified.")
     if (missing(k)) 
@@ -5391,6 +5572,8 @@ kNNdistplot2 <- function(x, k, minPts,  bty="n", lwd=1.2, lty=1, axes=FALSE, fra
     # Sort the k-NN distances
     kNNdist <- sort(dbscan::kNNdist(x, k, ...))
     ylim <- c(0, 100 * ceiling(max(kNNdist)/100))
+    # Dynamically calculate tick intervals based on the unified limit
+    yticks <- pretty(ylim, n = 5)
     xlim <- c(1, length(kNNdist))
     # Plot with additional parameters passed using ...
     plot(kNNdist, type="l", ylab=paste0(k, "-NN distance"), 
@@ -5398,15 +5581,86 @@ kNNdistplot2 <- function(x, k, minPts,  bty="n", lwd=1.2, lty=1, axes=FALSE, fra
          bty=bty, lwd=lwd, lty=lty, axes=axes, frame=frame, ...)
  
   if (!axes){
-    axis(1, at=seq(xlim[1], xlim[2], by=xtick), tcl=-0.2)  
-    axis(2, at=seq(ylim[1], ylim[2], by=ytick), tcl=-0.2)  
+    axis(1, at=seq(xlim[1], xlim[2], by=xtick), tcl=-0.2, las = 1)  
+    axis(2, at=yticks, tcl=-0.2, las = 1)  
   }
 
 }
 
-DBSCAN_plot <- function(data, dbscan_result, height = height, width = width) {
+DBSCAN_analyse <- function(data, minPts = 4, k = NULL, height = 5, width = 10, bg = 'transparent', 
+                           eps = NA, filename = 'DBscan.svg', save = FALSE) {
+  # Ensure k is derived from minPts if k is not provided
+  if (is.null(k)) {
+    k <- minPts - 1
+  }
+  
+  # Open a wider plotting window
   dev.new(width = width, height = height, noRStudioGD = TRUE)
   
+  # Split the plotting region into two panels
+  par(mfrow = c(1, 2))  # 1 row, 2 columns
+  
+  # Panel 1: kNN plot
+  kNNdistplot2(data, k = k)
+  
+  proceed <- if (is.na(eps)) FALSE else TRUE
+  
+  if (proceed) {
+    # Draw a horizontal line at the specified eps
+    abline(h = eps, col = 'indianred', lty = 3)
+  } else {
+    while (!proceed) {
+      # Prompt for eps value
+      while (is.na(eps)) {
+        cat('\nEnter eps: ')
+        eps <- as.numeric(readLines(n = 1))
+        if (is.na(eps)) {
+          cat('\nInvalid input. Please enter a numeric value.\n')
+        }
+      }
+
+      # Redraw the kNN plot in the left panel
+      par(mfg = c(1, 1))  # Focus back on the first panel
+      kNNdistplot2(data, k = k)
+      abline(h = eps, col = 'indianred', lty = 3)
+
+      # Ask user if they're happy with the eps
+      cat('\nAre you happy with the position of the line (y/n)? ')
+      response <- tolower(readLines(n = 1))
+
+      if (response == 'y') {
+        proceed <- TRUE
+      } else {
+        eps <- NA
+        cat('\nTry again...\n')
+      }
+    }
+  }
+
+  # Apply DBSCAN on the dataset
+  dbscan_result <- dbscan::dbscan(x=data, eps=eps, minPts=minPts)
+  
+  # Panel 2: DBSCAN plot
+  par(mfg = c(1, 2))  # Switch to the second panel
+  DBSCAN_plot(data, dbscan_result)
+
+  # Save the plot to an SVG file if save = TRUE
+  if (save) {
+    # Open SVG device
+    svg(file = filename, width = width, height = height, bg = bg)
+    # Recreate the plots
+    par(mfrow = c(1, 2))
+    # Replot kNN plot
+    kNNdistplot2(data, k = k)
+    abline(h = eps, col = 'indianred', lty = 3)
+    # Replot DBSCAN plot
+    par(mfg = c(1, 2))
+    DBSCAN_plot(data, dbscan_result)
+    dev.off()  # Close SVG device
+  }
+}
+
+DBSCAN_plot <- function(data, dbscan_result) {
   # Ensure `data` is a matrix for proper subsetting
   if (!is.matrix(data)) {
     data <- as.matrix(data)
@@ -5424,74 +5678,111 @@ DBSCAN_plot <- function(data, dbscan_result, height = height, width = width) {
   ticks <- pretty(lim, n = 5)
   
   # Plot all data points
-  plot(data, col = 'black', pch = 19, cex = 0.75, main = '', xlim = lim, ylim = lim, 
-       bty = 'n', lwd = 1.2, lty = 1, axes = FALSE, frame = FALSE, 
+  plot(data, col = 'black', pch = 19, cex = 0.75, main = 'DBSCAN clustering results',
+       xlim = lim, ylim = lim, bty = 'n', lwd = 1, lty = 1, axes = FALSE, frame = FALSE,
        xlab = xlab, ylab = ylab)
   
-  # Identify noise points (cluster == 0)
+  # Highlight noise points (cluster == 0)
   noise_indices <- which(dbscan_result$cluster == 0)
   if (length(noise_indices) > 0) {
     noise_points <- data[noise_indices, , drop = FALSE]
-    
-    # Highlight noise points
-    points(noise_points, col = "indianred", pch = 19)
-    
-    # Add labels to the right of noise points using row identifiers
-    text(noise_points, labels = noise_indices, pos = 4, col = "indianred", cex = 0.75)
+    points(noise_points, col = 'indianred', pch = 19)
+    text(noise_points, labels = noise_indices, pos = 4, col = 'indianred', cex = 0.75)
   }
   
   # Add axes with adaptive ticks
-  axis(1, at = ticks, tcl = -0.2)  # x-axis
-  axis(2, at = ticks, tcl = -0.2)  # y-axis
+  axis(1, at = ticks, tcl = -0.2, las = 1)  # x-axis
+  axis(2, at = ticks, tcl = -0.2, las = 1)  # y-axis
 }
 
-DBSCAN_analyse <- function(data, height=5, width=5) {
+# DBSCAN_plot <- function(data, dbscan_result, height = height, width = width) {
+#   dev.new(width = width, height = height, noRStudioGD = TRUE)
+  
+#   # Ensure `data` is a matrix for proper subsetting
+#   if (!is.matrix(data)) {
+#     data <- as.matrix(data)
+#   }
+  
+#   # Extract column names for axis labels
+#   xlab <- colnames(data)[1]
+#   ylab <- colnames(data)[2]
+  
+#   # Determine the maximum value across both axes
+#   max_limit <- 100 * ceiling(max(data) / 100)
+#   lim <- c(0, max_limit)
+  
+#   # Dynamically calculate tick intervals based on the unified limit
+#   ticks <- pretty(lim, n = 5)
+  
+#   # Plot all data points
+#   plot(data, col = 'black', pch = 19, cex = 0.75, main = '', xlim = lim, ylim = lim, 
+#        bty = 'n', lwd = 1.2, lty = 1, axes = FALSE, frame = FALSE, 
+#        xlab = xlab, ylab = ylab)
+  
+#   # Identify noise points (cluster == 0)
+#   noise_indices <- which(dbscan_result$cluster == 0)
+#   if (length(noise_indices) > 0) {
+#     noise_points <- data[noise_indices, , drop = FALSE]
+    
+#     # Highlight noise points
+#     points(noise_points, col = "indianred", pch = 19)
+    
+#     # Add labels to the right of noise points using row identifiers
+#     text(noise_points, labels = noise_indices, pos = 4, col = "indianred", cex = 0.75)
+#   }
+  
+#   # Add axes with adaptive ticks
+#   axis(1, at = ticks, tcl = -0.2)  # x-axis
+#   axis(2, at = ticks, tcl = -0.2)  # y-axis
+# }
 
-  # Use kNNdistplot to select eps
-  dev.new(width=width, height=height, noRStudioGD=TRUE)
-  kNNdistplot2(data, k=2)
+# DBSCAN_analyse <- function(data, height=5, width=5) {
 
-  eps <- NA
-  proceed <- FALSE
+#   # Use kNNdistplot to select eps
+#   dev.new(width=width, height=height, noRStudioGD=TRUE)
+#   kNNdistplot2(data, k=2)
 
-  # Loop until the user is happy with the abline position
-  while (!proceed) {
-    # Prompt for eps value
-    while (is.na(eps)) {
-      cat('\nEnter eps: ')
-      eps <- as.numeric(readLines(n=1))
-      if (is.na(eps)) {
-        cat('\nInvalid input. Please enter a numeric value.\n')
-      }
-    }
+#   eps <- NA
+#   proceed <- FALSE
 
-    # Get current x-axis limits
-    x_limits <- par("usr")[1:2]  # This gets the x-axis limits from the plot (xmin and xmax)
+#   # Loop until the user is happy with the abline position
+#   while (!proceed) {
+#     # Prompt for eps value
+#     while (is.na(eps)) {
+#       cat('\nEnter eps: ')
+#       eps <- as.numeric(readLines(n=1))
+#       if (is.na(eps)) {
+#         cat('\nInvalid input. Please enter a numeric value.\n')
+#       }
+#     }
 
-    # Draw the abline with the current eps value, restricted to x-axis limits
-    segments(x0=x_limits[1], y0=eps, x1=x_limits[2], y1=eps, col="indianred", lty=3)
+#     # Get current x-axis limits
+#     x_limits <- par("usr")[1:2]  # This gets the x-axis limits from the plot (xmin and xmax)
 
-    # Ask user if they're happy with the line
-    cat('\nAre you happy with the position of the line (y/n)? ')
-    response <- tolower(readLines(n=1))
+#     # Draw the abline with the current eps value, restricted to x-axis limits
+#     segments(x0=x_limits[1], y0=eps, x1=x_limits[2], y1=eps, col="indianred", lty=3)
 
-    # Check if user is happy
-    if (response == 'y') {
-      proceed <- TRUE
-    } else {
-      # Reset eps and prompt again
-      eps <- NA
-      cat('\ntry again...\n')
-    }
-  }
+#     # Ask user if they're happy with the line
+#     cat('\nAre you happy with the position of the line (y/n)? ')
+#     response <- tolower(readLines(n=1))
 
-  dev.off()
+#     # Check if user is happy
+#     if (response == 'y') {
+#       proceed <- TRUE
+#     } else {
+#       # Reset eps and prompt again
+#       eps <- NA
+#       cat('\ntry again...\n')
+#     }
+#   }
 
-  # Apply DBSCAN on the dataset
-  dbscan_result <- dbscan::dbscan(data, eps=eps, minPts=3)
+#   dev.off()
 
-  DBSCAN_plot(data, dbscan_result, height=height, width=width)
-}
+#   # Apply DBSCAN on the dataset
+#   dbscan_result <- dbscan::dbscan(data, eps=eps, minPts=3)
+
+#   DBSCAN_plot(data, dbscan_result, height=height, width=width)
+# }
 
 create_test_output <- function(parameter, test_result) {
   # Create an empty data frame for mixed types
