@@ -554,12 +554,19 @@ log.lik.post_N <- function(parameters, x, y, func, N=1, IEI=100) {
   sum(dnorm(y, mean=func(params=params, x=x, N=N, IEI=IEI), sd=sigma, log=TRUE))
 }
 
-# Including the residual variance as an additional parameter is standard in likelihood-based methods, such as Maximum Likelihood Estimation (MLE). 
-# When using a Gaussian error model:
-# The residual variance ( \sigma^2 ) is treated as an additional parameter to be estimated from the data.
-# Most statistical software, including R’s nls and glm, includes the residual variance in  k , which is why df = k + 1. 
-# This approach ensures that AIC accounts for the uncertainty in estimating  \sigma^2 , making it the correct and commonly accepted method.
-
+# model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
+#   res <- residFunCpp(coeffs, y, x, func, N, IEI)
+#   k <- length(coeffs)
+#   n <- length(res)
+#   # definition: log_likelihood <- -(n / 2) * log(2 * pi) - (n / 2) * log(sigma2) - (1 / (2 * sigma2)) * sum(res^2)
+#   # log(sigma2) == sum(res^2) / n and (1 / (2 * sigma2)) * sum(res^2) == 0.5 * n
+#   loglik <- -0.5 * (n * log(2 * pi) + n * log(sum(res^2) / n) + n)
+#   # loglik <- 0.5 * (-n * (log(2 * pi) + 1 - log(n) + log(sum(res^2))))
+#   df <- k + 1
+#   BIC <- df * log(n) - 2 * loglik
+#   AIC <- df * 2 - 2 * loglik
+#   c(AIC=AIC, BIC=BIC)
+# }
 
 model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
   res <- residFunCpp(coeffs, y, x, func, N, IEI)
@@ -569,24 +576,10 @@ model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
   # log(sigma2) == sum(res^2) / n and (1 / (2 * sigma2)) * sum(res^2) == 0.5 * n
   loglik <- -0.5 * (n * log(2 * pi) + n * log(sum(res^2) / n) + n)
   # loglik <- 0.5 * (-n * (log(2 * pi) + 1 - log(n) + log(sum(res^2))))
-  df <- k + 1
-  BIC <- df * log(n) - 2 * loglik
-  AIC <- df * 2 - 2 * loglik
+  BIC <- k * log(n) - 2 * loglik
+  AIC <- k * 2 - 2 * loglik
   c(AIC=AIC, BIC=BIC)
 }
-
-# model.selection.criteria <- function(coeffs, x, y, func, N=1, IEI=100) {
-#   res <- residFunCpp(coeffs, y, x, func, N, IEI)
-#   k <- length(coeffs)
-#   n <- length(res)
-#   # definition: log_likelihood <- -(n / 2) * log(2 * pi) - (n / 2) * log(sigma2) - (1 / (2 * sigma2)) * sum(res^2)
-#   # log(sigma2) == sum(res^2) / n and (1 / (2 * sigma2)) * sum(res^2) == 0.5 * n
-#   loglik <- -0.5 * (n * log(2 * pi) + n * log(sum(res^2) / n) + n)
-#   # loglik <- 0.5 * (-n * (log(2 * pi) + 1 - log(n) + log(sum(res^2))))
-#   BIC <- k * log(n) - 2 * loglik
-#   AIC <- k * 2 - 2 * loglik
-#   c(AIC=AIC, BIC=BIC)
-# }
 
 # Optimized fit.MLE function
 fit.MLE <- function(x, y, func, N.params, N=1, IEI=100, sigma=5, iter=1e4, metropolis.scale=2, logpost=logLikPostCpp, 
@@ -5411,31 +5404,45 @@ kNNdistplot2 <- function(x, k, minPts,  bty="n", lwd=1.2, lty=1, axes=FALSE, fra
 
 }
 
-# Set plot dimensions and limits
-DBSCAN_plot <- function(data, dbscan_result, height=height, width=width){
-
-  dev.new(width=width, height=height, noRStudioGD=TRUE)
+DBSCAN_plot <- function(data, dbscan_result, height = height, width = width) {
+  dev.new(width = width, height = height, noRStudioGD = TRUE)
   
-  lim <- c(0, 100 * ceiling(max(data) / 100))
+  # Ensure `data` is a matrix for proper subsetting
+  if (!is.matrix(data)) {
+    data <- as.matrix(data)
+  }
   
-  # Plot data points
-  plot(data, col='black', pch=19, cex=0.75, main='', xlim=lim, ylim=lim, 
-       bty='n', lwd=1.2, lty=1, axes=FALSE, frame=FALSE, 
-       xlab=expression(tau[fast] ~ " (ms)"), ylab=expression(tau[slow] ~ " (ms)"))
-
-  # Highlight 'indianred' points that are classified as noise (cluster == 0)
-  noise_points <- data[dbscan_result$cluster == 0, ]
-
-  # Check if there are any noise points to plot and label
-  if (nrow(noise_points) > 0) {
+  # Extract column names for axis labels
+  xlab <- colnames(data)[1]
+  ylab <- colnames(data)[2]
+  
+  # Determine the maximum value across both axes
+  max_limit <- 100 * ceiling(max(data) / 100)
+  lim <- c(0, max_limit)
+  
+  # Dynamically calculate tick intervals based on the unified limit
+  ticks <- pretty(lim, n = 5)
+  
+  # Plot all data points
+  plot(data, col = 'black', pch = 19, cex = 0.75, main = '', xlim = lim, ylim = lim, 
+       bty = 'n', lwd = 1.2, lty = 1, axes = FALSE, frame = FALSE, 
+       xlab = xlab, ylab = ylab)
+  
+  # Identify noise points (cluster == 0)
+  noise_indices <- which(dbscan_result$cluster == 0)
+  if (length(noise_indices) > 0) {
+    noise_points <- data[noise_indices, , drop = FALSE]
+    
+    # Highlight noise points
     points(noise_points, col = "indianred", pch = 19)
     
-    # Add numerical labels to the 'indianred' points by their order in the dataset
-    text(noise_points, labels = which(dbscan_result$cluster == 0), pos = 3, col = "indianred", cex = 0.75)
-  } 
-  axis(1, at=seq(lim[1], lim[2], by=50), tcl=-0.2)  # x-axis with custom tick length
-  axis(2, at=seq(lim[1], lim[2], by=50), tcl=-0.2)  # y-axis with custom tick length
-
+    # Add labels to the right of noise points using row identifiers
+    text(noise_points, labels = noise_indices, pos = 4, col = "indianred", cex = 0.75)
+  }
+  
+  # Add axes with adaptive ticks
+  axis(1, at = ticks, tcl = -0.2)  # x-axis
+  axis(2, at = ticks, tcl = -0.2)  # y-axis
 }
 
 DBSCAN_analyse <- function(data, height=5, width=5) {
@@ -5486,3 +5493,16 @@ DBSCAN_analyse <- function(data, height=5, width=5) {
   DBSCAN_plot(data, dbscan_result, height=height, width=width)
 }
 
+create_test_output <- function(parameter, test_result) {
+  # Create an empty data frame for mixed types
+  output_matrix <- data.frame(
+    parameter = parameter,  # Add the parameter name
+    test = as.character(test_result$method),
+    alternative = as.character(test_result$alternative),
+    W = as.numeric(test_result$statistic),
+    p.value = as.numeric(test_result$p.value),
+    stringsAsFactors = FALSE  # Avoid factors for character columns
+  )
+  
+  return(output_matrix)
+}
