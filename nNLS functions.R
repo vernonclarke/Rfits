@@ -3131,7 +3131,7 @@ extract_variable <- function(data_list, id = 'area', rename_datasets = TRUE) {
 }
 
 
-boxplot_calculator <- function(data, type = 6) {
+boxplot_calculator <- function(data, type = 6, na.rm=FALSE) {
   unique_x <- unique(data$x)
   result <- data.frame(x = numeric(), Q1 = numeric(), Q3 = numeric(), Median = numeric(), Min = numeric(), Max = numeric(), MAD = numeric())
   
@@ -3139,8 +3139,8 @@ boxplot_calculator <- function(data, type = 6) {
     current_x <- unique_x[i]
     d <- data$y[data$x == current_x]
     
-    q1 <- quantile(d, probs = 0.25, type = type)
-    q3 <- quantile(d, probs = 0.75, type = type)
+    q1 <- quantile(d, probs = 0.25, type = type, na.rm = na.rm)
+    q3 <- quantile(d, probs = 0.75, type = type, na.rm = na.rm)
     iqr <- q3 - q1  # Calculate IQR
     
     lower_bound <- q1 - 1.5 * iqr  # Lower bound for outliers
@@ -3149,12 +3149,12 @@ boxplot_calculator <- function(data, type = 6) {
     # Exclude outliers
     d_filtered <- d[d >= lower_bound & d <= upper_bound]
     
-    median_val <- median(d)
+    median_val <- median(d, na.rm = na.rm)
     min_val <- min(d_filtered)
     max_val <- max(d_filtered)
     
     # Calculate MAD
-    mad <- median(abs(d - median_val))
+    mad <- median(abs(d - median_val), na.rm = na.rm)
     
     result <- rbind(result, data.frame(x = current_x, Q1 = q1, Q3 = q3, Median = median_val, Min = min_val, Max = max_val, MAD = mad))
   }
@@ -3166,9 +3166,9 @@ boxplot_calculator <- function(data, type = 6) {
 
 WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude (mV)', 
                    xrange = c(0.75, 2.25), yrange = c(0, 400), main = '', tick_length = 0.02, 
-                   x_tick_interval = NULL, y_tick_interval = 100, lwd = 0.8, type = 6) {
+                   x_tick_interval = NULL, y_tick_interval = 100, lwd = 0.8, type = 6, na.rm=FALSE) {
   
-  boxplot_values <- boxplot_calculator(data, type)
+  boxplot_values <- boxplot_calculator(data=data, type=type, na.rm=na.rm)
   
   if (is.null(x_tick_interval)) {
     x_ticks <- unique(data$x)
@@ -3207,7 +3207,7 @@ BoxPlot <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)',
                     xrange=c(0.75,2.25), yrange=c(-400, 0), tick_length=0.2, 
                     x_tick_interval = NULL, y_tick_interval=100, lwd=1, 
                     type=6, amount=0.05, p.cex=0.5, filename='boxplot.svg', 
-                    height=2.5, width=4, bg='transparent', alpha=0.6, save=FALSE){
+                    height=2.5, width=4, bg='transparent', alpha=0.6, na.rm=FALSE, save=FALSE){
   
   if (save) {
     # Open SVG device
@@ -3219,7 +3219,8 @@ BoxPlot <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)',
   # data1 <- if ("s" %in% colnames(data)) data[, !colnames(data) %in% "s"] else data
 
   WBplot(data=data, wid=wid, cap=cap, xlab=xlab, ylab=ylab, main=main, xrange=xrange, yrange=yrange, 
-         tick_length=tick_length, x_tick_interval=x_tick_interval, y_tick_interval=y_tick_interval, lwd=lwd, type=type)
+         tick_length=tick_length, x_tick_interval=x_tick_interval, y_tick_interval=y_tick_interval, 
+         lwd=lwd, type=type, na.rm=na.rm)
   
   set.seed(42)
   data$x_jitter <- jitter(data$x, amount=amount)
@@ -4166,7 +4167,8 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
   x <- traces$x
   y <- traces$y
   
-  fit1 <- traces$yfit1
+  fit1 <- if (identical(func, product1N)) traces$yfit else traces$yfit1
+  
   if (identical(func, product2N)){
     fit2 <- traces$yfit2
   }
@@ -4222,7 +4224,7 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
   plot(x[idx1:idx2], y[idx1:idx2], type='l', col='#A6A8AA', xlim=xlim, ylim=ylim, bty='n', lwd=lwd, lty=1, axes=FALSE, frame=FALSE, xlab='', ylab='')
 
   if (identical(func, product1N)){
-    fits <- cbind(fit)
+    fits <- cbind(fit1)
   }else if (identical(func, product2N)){
     fits <- cbind(fit1, fit2)
   }else if (identical(func, product3N)){
@@ -4310,6 +4312,7 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
     dev.off()
   }
 }
+
 SingleFitExample <- function(traces, xlim=NULL, ylim=NULL, ylab='PSC amplitude (pA)', tick_length=0.2, lwd=1, show_text=FALSE, normalise=FALSE, func=product2N, 
   height=4, width=2.5, xbar=100, ybar=50, log_y=FALSE, colors=c('#4C77BB', '#CA92C1', '#F28E2B'), filename='plot.svg', bg='transparent', save=FALSE) {
   
