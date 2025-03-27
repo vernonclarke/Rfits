@@ -1,4 +1,4 @@
-# NLS functions
+# NLS functions #
 # Rewrite residFun in C++ and SS.fun in C++
 
 
