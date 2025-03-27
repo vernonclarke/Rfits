@@ -529,7 +529,7 @@ These responses with only differ by added gaussian noise.
       A <- data.frame(
          's' = rep(1:n,2),
          'x' = c(rep(1,n), rep(2,n)),
-         'y' = c(summary[,1], summary[,9])
+         'y' = c(summary[,1], summary[,10])
          )
       
       # show structure of A
