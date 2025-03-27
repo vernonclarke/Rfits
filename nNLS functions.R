@@ -638,8 +638,7 @@ FIT.MLE <- function(x, y, func, N.params, N=1, IEI=100, sigma=5, iter=1e4, metro
 
   bounds <- check_and_set_bounds(x=x, y=y, func=func, N.params=N.params, upper=upper, lower=lower)
   lower <- bounds$lower
-  upper <- bounds$upper
-
+  upper <- 2*bounds$upper # some solutions were sitting on this limit so increased 2-fold
   if (method %in% c('L-BFGS-B', 'Brent')) {
     tol_low <- 1e-08
     lower <- if (any(lower <= 0)) lower + tol_low
@@ -6463,4 +6462,88 @@ amplifier_gain3 <- function(dataset, headstage_gain = 0.5, additional_gain = 20,
   
   return(output)
 }
+
+
+fit_limit <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, 
+                      y_abline=0.1, height=4, width=4, show_plot=FALSE) { 
+  # Calculate peak (unused in the remainder but may be important elsewhere)
+  peak <- peak.fun(y=y, dt=dt, stimulation_time=stimulation_time, 
+                   baseline=baseline, smooth=smooth)
+  
+  ind1 <- as.integer((stimulation_time - baseline)/dt)
+  ind2 <- as.integer(stimulation_time/dt)
+  y2plot <- y - mean(y[ind1:ind2])
+  
+  Y <- y2plot[ind1:length(y2plot)]
+  X <- seq(0, dt * (length(Y) - 1), by = dt)
+
+  out <- abline_fun(X, Y, N=N, y_abline=y_abline) 
+  A_abline <- out[1]
+  avg_t.abline <- out[2]
+  avg_t.abline <- if (is.na(avg_t.abline)) max(X) else avg_t.abline
+
+  if (show_plot) {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+    
+    plot(X, Y, col='indianred', xlab='time (ms)', type='l', bty='l', las=1, main='')
+    abline(h = 0, col = 'black', lwd = 1, lty = 3)
+    
+    # Get the left and bottom boundaries of the plot
+    left_axis <- par("usr")[1]
+    bottom_axis <- par("usr")[3]
+    
+    # Draw horizontal dotted line from the left to avg_t.abline at height A_abline
+    lines(c(left_axis, avg_t.abline), c(A_abline, A_abline), col = 'black', lwd = 1, lty = 3)
+    
+    # Draw vertical dotted line from avg_t.abline down to the bottom of the plot
+    lines(c(avg_t.abline, avg_t.abline), c(A_abline, bottom_axis), col = 'black', lwd = 1, lty = 3)
+    
+    # Determine index for labeling and add labels
+    ind3 <- as.integer(avg_t.abline/dt)
+    text(x = max(X[ind1:ind3]) * 1.05, y = A_abline * 1.2, 
+         labels = paste0(y_abline * 100, " %"), pos = 4, cex = 0.6)
+    text(x = max(X[ind1:ind3]) * 1.05, y = bottom_axis * 0.95, 
+         labels = paste0(avg_t.abline, " ms"), pos = 4, cex = 0.6)
+    
+    # Prompt user for the range of x to use for nFIT
+    x_limit <- NA
+    while (is.na(x_limit)) {
+      cat('\nEnter the upper limit for time to use in nFIT (e.g., 400 ms): ')
+      x_limit <- as.numeric(readLines(n = 1))
+      if (is.na(x_limit)) {
+        cat('\nInvalid input. Please enter a numeric value.\n')
+      }
+    }
+    dev.off()
+  } else {
+    x_limit <- avg_t.abline
+  }
+  
+  return(x_limit)
+}
+
+smooth_moving_avg <- function(y, n = 5) {
+  y_length <- length(y)
+  result <- rep(NA, y_length)
+  
+  for (i in 1:y_length) {
+    # Determine the start and end indices for the window
+    start_idx <- max(1, i - floor(n / 2))
+    end_idx <- min(y_length, i + floor(n / 2))
+    
+    # Calculate the mean for the current window
+    result[i] <- mean(y[start_idx:end_idx], na.rm = TRUE)
+  }
+  
+  return(result)
+}
+
+downsample_fun <- function(data, ds) {
+  if (is.vector(data)) {
+    data[seq(1, length(data), by = ds)]
+  } else {
+    data[seq(1, nrow(data), by = ds), , drop = FALSE]
+  }
+}
+
 
