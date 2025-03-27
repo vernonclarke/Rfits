@@ -6463,8 +6463,6 @@ amplifier_gain3 <- function(dataset, headstage_gain = 0.5, additional_gain = 20,
   return(output)
 }
 
-<<<<<<< HEAD
-=======
 
 fit_limit <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, 
                       y_abline=0.1, height=4, width=4, show_plot=FALSE) { 
@@ -6549,4 +6547,3 @@ downsample_fun <- function(data, ds) {
 }
 
 
->>>>>>> 1252aa73e8e127fcf84c09a9dbc467612665ce16
