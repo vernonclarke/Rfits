@@ -3587,6 +3587,45 @@ fit_plot2 <- function(traces, func=product1, xlab='time (ms)', ylab='PSC amplitu
 }
 
 
+single_egs <- function(x, y, sign=-1, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE, height=4, width=2.5, xbar=100, ybar=50,  color='#4C77BB', filename='trace1.svg', bg='transparent', save=FALSE) {
+  
+  if (save) {
+    svg(file=filename, width=width, height=height, bg=bg)
+  } else {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+  }
+
+  if (is.null(ylim)) ylim <- if (sign == 1) c(0, max(y)) else c(-max(-y), 0)
+
+  if (is.null(xlim)) xlim <- c(min(x), max(x))
+  idx1 <- which.min(abs(x - xlim[1]))
+  idx2 <- which.min(abs(x - xlim[2]))
+
+  plot(x[idx1:idx2], y[idx1:idx2], type='l', col=color, xlim=xlim, ylim=ylim, bty='n', lwd=lwd, lty=1, axes=FALSE, frame=FALSE, xlab='', ylab='')
+
+  #  scale bar lengths and ybar position
+  ybar_start <- min(ylim) + (max(ylim) - min(ylim)) / 20
+  
+  # Add scale bars at the bottom right
+  x_start <- max(xlim) - xbar - 50
+  y_start <- ybar_start
+  x_end <- x_start + xbar
+  y_end <- y_start + ybar
+  
+  # Draw the scale bars
+  segments(x_start, y_start, x_end, y_start, lwd=lwd, col='black')
+  segments(x_start, y_start, x_start, y_end, lwd=lwd, col='black')
+  
+  # Add labels to the scale bars
+  if (show_text) {
+    text(x = (x_start + x_end) / 2, y = y_start - ybar / 20, labels = paste(xbar, 'ms'), adj = c(0.5, 1))
+    text(x = x_start - xbar / 4, y = (y_start + y_end) / 2,  labels = paste(ybar, 'pA'), adj = c(0.5, 0.5), srt = 90)
+  }
+    
+  if (save) {
+    dev.off()
+  }
+}
 
 smooth.plots <- function(y, fits, dt=0.1,  stimulation_time=150, baseline=50, func=product1, filter=FALSE, fc=1000, upsample.fit = c(upsample=FALSE, factor=100),
   xlab='time (ms)', ylab='', xlim=NULL, ylim=NULL, lwd=1.2, width=5, height=5, filename='trace.svg', save=FALSE){

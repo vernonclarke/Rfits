@@ -49,7 +49,6 @@
 # }
 # '
 
-
 # Define the C++ code as a string
 cpp_code <- '
 #include <Rcpp.h>
@@ -1965,7 +1964,7 @@ fit_plot <- function(traces, func=product2, xlab='time (ms)', ylab='PSC amplitud
 nFIT <- function(response, n=30, N=1, IEI=50, dt=0.1, func=product2N, method= c('BF.LM', 'LM', 'GN', 'port', 'robust', 'MLE'), weight_method=c('none', '~y_sqrt', '~y'),
   stimulation_time=0, baseline=0, fast.decay.limit=NULL, fast.constraint=FALSE, fast.constraint.method=c('rise', 'peak'), first.delay.constraint=FALSE,
   latency.limit=NULL, lower=NULL, upper=NULL, filter=FALSE, fc=1000, interval=c(0.1, 0.9), MLEsettings=list(iter=1e4, metropolis.scale=1.5, fit.attempts=100, RWm=FALSE),  
-  MLE.method=c('L-BFGS-B', 'Nelder-Mead', 'BFGS','CG', 'SANN', 'Brent'), response_sign_method = c('smooth', 'regression', 'cumsum'), dp=3, lwd=1.2, 
+  MLE.method=c('L-BFGS-B', 'Nelder-Mead', 'BFGS','CG', 'SANN', 'Brent'), response_sign_method = c('smooth', 'regression', 'cumsum'), half_width_fit_limit=500, dp=3, lwd=1.2, 
   xlab='time (ms)', ylab='PSC (pA)', width=5, height=5, return.output=FALSE, show.output=TRUE, show.plot=TRUE, seed=42) {
   
   set.seed(seed)
@@ -1984,7 +1983,7 @@ nFIT <- function(response, n=30, N=1, IEI=50, dt=0.1, func=product2N, method= c(
       
       FITN(response=response, dt=dt, func=func, N=N, IEI=IEI, method=method, weight_method=weight_method, stimulation_time=stimulation_time, baseline=baseline, fast.decay.limit=fast.decay.limit, 
                       latency.limit=latency.limit, lower=lower, upper=upper, filter=filter, fc=fc, interval=interval, MLEsettings=MLEsettings, 
-                      MLE.method=MLE.method, response_sign_method=response_sign_method, dp=dp, lwd=lwd, xlab=xlab, ylab=ylab, width=width, height=height, 
+                      MLE.method=MLE.method, response_sign_method=response_sign_method, dp=10, lwd=lwd, xlab=xlab, ylab=ylab, width=width, height=height, 
                       return.output=TRUE, show.output=FALSE, show.plot=FALSE)
     }, error = function(e) {
       NULL
@@ -2071,6 +2070,18 @@ nFIT <- function(response, n=30, N=1, IEI=50, dt=0.1, func=product2N, method= c(
     stop("All fit attempts failed")
   }
   
+  # apply half_width function and extract its value
+  df_output$half_width <- mapply(
+    function(A, tau1, tau2) half_width(A, tau1, tau2, limit = half_width_fit_limit)[['half_width']],
+    A = sign * df_output$A1, 
+    tau1 = df_output$τrise,
+    tau2 = df_output$τdecay
+  )
+
+  # reorder
+  df_output <- df_output[, c(names(df_output)[1:6], 'half_width', 'delay', 'area1')]
+  df_output <- round(df_output, digits=dp)
+
   if (show.plot) fit_plot(traces=traces, func=func, xlab=xlab, ylab=ylab, lwd=lwd, filter=filter, width=width, height=height)
   
   if (show.output) print(df_output)
@@ -2590,8 +2601,8 @@ determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoot
   if (is.null(tmax)){
     peak <- peak.fun(y=y, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth)
 
-    ind1 <- (stimulation_time - baseline)/dt
-    ind2 <- stimulation_time/dt
+    ind1 <- as.integer((stimulation_time - baseline)/dt)
+    ind2 <- as.integer(stimulation_time/dt)
     y2plot <- y - mean(y[ind1:ind2])
 
     dev.new(width=width, height=height, noRStudioGD=TRUE)
@@ -2601,6 +2612,7 @@ determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoot
     out <- abline_fun(X, Y, N=N, y_abline=y_abline) 
     A_abline <- out[1]
     avg_t.abline <- out[2]
+    avg_t.abline <- if (is.na(avg_t.abline)) max(X) else avg_t.abline
 
     plot(X, Y, col='indianred', xlab='time (ms)', type='l', bty='l', las=1, main='')
     abline(h = 0, col = 'black', lwd = 1, lty=1)
@@ -2616,9 +2628,10 @@ determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoot
     lines(c(avg_t.abline, avg_t.abline), c(A_abline, bottom_axis), col = 'black', lwd = 1, lty = 3)
 
     # Add a label to the abline
-    text(x=max(X[ind1:(avg_t.abline/dt)])*1.05, y=A_abline * 1.2, labels=paste0(y_abline*100, ' %'), pos=4, cex=0.6)
+    ind3 <- as.integer(avg_t.abline/dt)
+    text(x=max(X[ind1:ind3])*1.05, y=A_abline * 1.2, labels=paste0(y_abline*100, ' %'), pos=4, cex=0.6)
 
-    text(x=max(X[ind1:(avg_t.abline/dt)])*1.05, y=bottom_axis*0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=0.6)
+    text(x=max(X[ind1:ind3])*1.05, y=bottom_axis*0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=0.6)
 
     # Prompt user for the range of x to use for nFIT
     x_limit <- NA
@@ -2896,7 +2909,7 @@ nFIT_sequential <- function(response, n=30, N=1, IEI=50, dt=0.1, func=product2N,
 analyse_PSC <- function(response, dt=0.1, n=30, N=1, IEI=50, stimulation_time=150, baseline=50, smooth=5, func=product2N,  method=c("BF.LM", "LM", "GN", "port", "robust", "MLE"), 
   weight_method=c('none', '~y_sqrt', '~y'), sequential.fit=FALSE, fit.limits=NULL, MLEsettings=list(iter=1e3, metropolis.scale=1.5, fit.attempts=10, RWm=FALSE), 
   filter=FALSE, fc=1000, interval=c(0.1, 0.9), lower=NULL, upper=NULL,  fast.decay.limit=NULL, fast.constraint=FALSE, fast.constraint.method=c('rise', 'peak'), 
-  first.delay.constraint=FALSE, latency.limit=NULL, rel.decay.fit.limit=0.1, dp=3, lwd=1.2, xlab='time (ms)', ylab='PSC (pA)', return.output=TRUE, height=5, width=5, seed=42) {
+  first.delay.constraint=FALSE, latency.limit=NULL, rel.decay.fit.limit=0.1, half_width_fit_limit=500, dp=3, lwd=1.2, xlab='time (ms)', ylab='PSC (pA)', return.output=TRUE, height=5, width=5, seed=42) {
   
   y <- response
   if (all(is.na(y[(which(!is.na(y))[length(which(!is.na(y)))] + 1):length(y)]))) {
@@ -2914,8 +2927,8 @@ analyse_PSC <- function(response, dt=0.1, n=30, N=1, IEI=50, stimulation_time=15
     
     # Execute nFIT
     out <- nFIT(response=adjusted_response, n=n, N=N, IEI=IEI, dt=dt, func=func, method=method, weight_method=weight_method, MLEsettings=MLEsettings, stimulation_time=stimulation_time, baseline=baseline, 
-      filter=filter, fc=fc, interval=interval, fast.decay.limit=fast.decay.limit, fast.constraint=fast.constraint, fast.constraint.method=fast.constraint.method, 
-      first.delay.constraint=first.delay.constraint, lower=lower, upper=upper, latency.limit=latency.limit, return.output=TRUE, show.plot=FALSE, dp=dp, height=height, width=width, seed=seed)
+      filter=filter, fc=fc, interval=interval, fast.decay.limit=fast.decay.limit, fast.constraint=fast.constraint, fast.constraint.method=fast.constraint.method,
+      first.delay.constraint=first.delay.constraint, lower=lower, upper=upper, latency.limit=latency.limit, return.output=TRUE, show.plot=FALSE, half_width_fit_limit=half_width_fit_limit, dp=dp, height=height, width=width, seed=seed)
 
     out$traces <- traces_fun2(y=y, fits=out$fits, dt=dt, N=N, IEI=IEI, stimulation_time=stimulation_time, baseline=baseline, func=func, filter=filter, fc=fc)
     fit_plot(traces=out$traces, func=func, xlab=xlab, ylab=ylab, lwd=lwd, filter=filter, width=width, height=height)
@@ -2937,7 +2950,7 @@ analyse_PSC <- function(response, dt=0.1, n=30, N=1, IEI=50, stimulation_time=15
       if (repeat_with_constraint == 'y') {
         dev.off()
         out <- nFIT(response=adjusted_response, n=n,  N=N, IEI=IEI,dt=dt, func=func, method=method, weight_method=weight_method, MLEsettings=MLEsettings, stimulation_time=stimulation_time, baseline=baseline, 
-          filter=filter, fc=fc, interval=interval, fast.decay.limit=fast.decay.limit, fast.constraint=TRUE, fast.constraint.method=fast.constraint.method, 
+          filter=filter, fc=fc, interval=interval, fast.decay.limit=fast.decay.limit, fast.constraint=TRUE, fast.constraint.method=fast.constraint.method, half_width_fit_limit=half_width_fit_limit,
           first.delay.constraint=first.delay.constraint, lower=lower, upper=upper, latency.limit=latency.limit, return.output=TRUE, show.plot=FALSE, dp=dp, height=height, width=width, seed=seed)
 
         out$traces <- traces_fun2(y=y, fits=out$fits, dt=dt, N=N, IEI=IEI, stimulation_time=stimulation_time, baseline=baseline, func=func, filter=filter, fc=fc)
@@ -2950,8 +2963,8 @@ analyse_PSC <- function(response, dt=0.1, n=30, N=1, IEI=50, stimulation_time=15
     
     out <- nFIT_sequential(response=y, n=n, dt=dt, func=func, method=method, weight_method=weight_method, stimulation_time=stimulation_time, baseline=baseline, fit.limits=fit.limits, 
       fast.decay.limit=fast.decay.limit, fast.constraint=fast.constraint, fast.constraint.method=fast.constraint.method, first.delay.constraint=first.delay.constraint,
-      latency.limit=latency.limit, lower=lower, upper=upper, filter=filter, fc=fc, interval=interval, MLEsettings=MLEsettings, MLE.method=MLE.method, dp=dp, 
-      lwd=lwd, xlab=xlab, ylab=ylab, width=width, height=height, return.output=TRUE, show.output=TRUE, show.plot=TRUE, seed=seed)
+      latency.limit=latency.limit, lower=lower, upper=upper, filter=filter, fc=fc, interval=interval, MLEsettings=MLEsettings, MLE.method=MLE.method,  half_width_fit_limit=half_width_fit_limit, 
+      dp=dp, lwd=lwd, xlab=xlab, ylab=ylab, width=width, height=height, return.output=TRUE, show.output=TRUE, show.plot=TRUE, seed=seed)
   }
 
   if (return.output) return(out)
@@ -3253,7 +3266,7 @@ BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
                     main = '', xrange = NULL, yrange = c(-400, 0), tick_length = 0.2, 
                     x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, 
                     type = 6, amount = 0.05, p.cex = 0.5, filename = 'boxplot.svg', 
-                    height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, save = FALSE) {
+                    height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, na.rm=FALSE, save = FALSE) {
   
   # Parse the formula to extract response and predictors
   response <- as.character(formula[[2]])
@@ -3302,8 +3315,8 @@ BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
   
   # Create the box plot using the WBplot function
   WBplot(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main, 
-         xrange = xrange, yrange = yrange, tick_length = tick_length, 
-         x_tick_interval = x_tick_interval, y_tick_interval = y_tick_interval, lwd = lwd, type = type)
+         xrange = xrange, yrange = yrange, tick_length = tick_length, x_tick_interval = x_tick_interval, 
+         y_tick_interval = y_tick_interval, lwd = lwd, type = type, na.rm=na.rm)
   
   # Jitter x-values for plotting individual points
   set.seed(42)
@@ -3325,6 +3338,113 @@ BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
   # Close the SVG device if saving
   if (save) {
     dev.off()
+  }
+}
+
+BoxPlot3 <- function(formula, data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)', main='', xrange=NULL, 
+  yrange=c(-400, 0), tick_length=0.2, x_tick_interval=NULL, y_tick_interval=100, lwd=1, type=6, amount=0.05, 
+    p.cex=0.5, filename='boxplot.svg', height=2.5, width=4, bg='transparent', alpha=0.6, na.rm=FALSE, 
+    test_results=NULL, alpha_level=0.05, group_names=NULL, sig_offset=NULL, save=FALSE) {
+  
+  BoxPlot2(formula=formula, data=data, wid=wid, cap=cap, xlab=xlab, 
+           ylab=ylab, xrange=xrange, yrange=yrange, tick_length=tick_length, 
+           y_tick_interval=y_tick_interval, lwd=lwd, type=type, amount=amount, 
+           p.cex=p.cex, filename=filename, height=height, width=width, 
+           na.rm=na.rm, save=save)
+  
+  if (!is.null(test_results)){
+    response <- as.character(formula[[2]])
+    data$y <- data[[response]]
+    
+    # grouping variable (assumed to be the first predictor)
+    predictors <- all.vars(formula[[3]])
+    group_col <- predictors[1]
+    
+    # if group_names is provided, recode else use the numeric levels
+    orig_levels <- sort(unique(data[[group_col]]))
+    if (!is.null(group_names)) {
+      if (length(group_names) != length(orig_levels)) {
+        stop("number of group_names should match the number of unique groups in the group column")
+      }
+      data$x <- factor(data[[group_col]], levels=orig_levels, labels=group_names)
+      groups <- group_names
+    } else {
+      groups <- as.character(orig_levels)
+      data$x <- factor(data[[group_col]], levels=groups)
+    }
+    
+    # map groups to x positions
+    x_positions <- setNames(seq_along(groups), groups)
+    y_range <- diff(range(data$y, na.rm=TRUE))
+    
+    # offset sig bars
+    offset <- if (is.null(sig_offset)) 0.05 * y_range else sig_offset
+    tick <- 0.25 * offset  # fixed tick height
+    
+    for (i in 1:nrow(test_results)) {
+      p_val <- as.numeric(test_results[i, "p adjusted"])
+      if (p_val < alpha_level) {
+        # Determine groups to compare.
+        if (is.null(group_names)) {
+          # if group_names are provided, assumes numeric order corresponds to testing order
+          if (i >= length(groups)) {
+            warning("Test result index exceeds number of available group pairs.")
+            next
+          }
+          group1 <- groups[i]
+          group2 <- groups[i + 1]
+        } else {
+          contrast_str <- as.character(test_results[i, "contrast"])
+          groups_in_contrast <- strsplit(contrast_str, " vs ")[[1]]
+          if (length(groups_in_contrast) != 2) next
+          group1 <- groups_in_contrast[1]
+          group2 <- groups_in_contrast[2]
+        }
+        
+        # get x positions
+        if (!(group1 %in% names(x_positions)) || !(group2 %in% names(x_positions))) {
+          warning(paste("One of the groups in contrast", group1, "vs", group2, "was not found."))
+          next
+        }
+        x1 <- x_positions[group1]
+        x2 <- x_positions[group2]
+        
+        # Retrieve y-values for these groups.
+        y_vals_group1 <- data$y[as.character(data$x) == group1]
+        y_vals_group2 <- data$y[as.character(data$x) == group2]
+        y_vals <- c(y_vals_group1, y_vals_group2)
+        y_max <- max(y_vals, na.rm=TRUE)
+        y_min <- min(y_vals, na.rm=TRUE)
+        
+        if (is.infinite(y_max)) {
+          warning(paste("No valid y-values found for contrast", group1, "vs", group2))
+          next
+        }
+        
+        # significance bar above the max if positive
+        if (y_max > 0) {
+          y_line <- y_max + offset
+          segments(x0=x1, y0=y_line, x1=x1, y1=y_line - tick, lwd=lwd)
+          segments(x0=x2, y0=y_line, x1=x2, y1=y_line - tick, lwd=lwd)
+          text_y <- y_line + tick 
+        } else {
+          # significance bar below the min if negative
+          y_line <- y_min - offset
+          segments(x0=x1, y0=y_line, x1=x1, y1=y_line + tick, lwd=lwd)
+          segments(x0=x2, y0=y_line, x1=x2, y1=y_line + tick, lwd=lwd)
+          text_y <- y_line - tick 
+        }
+        
+        # horizontal line connecting boxes
+        segments(x0=x1, y0=y_line, x1=x2, y1=y_line, lwd=lwd)
+        
+        # 
+        star_label <- "*"
+        
+        # show sig *
+        text(x=(x1 + x2) / 2, y=text_y, labels=star_label)
+      }
+    }
   }
 }
 
@@ -3791,11 +3911,114 @@ convert_to_scatter <- function(A, sign=1) {
 # }
 
 
+# ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interval=100, y_tick_interval=100, tick_length=0.2, 
+#                         height=4, width=4, xlab='', ylab='', main='', colors=c('black', 'indianred'), open_symbols=FALSE, 
+#                         lwd=1, p.cex=0.5, filename='scatter.svg', reg=FALSE, plot.CI=FALSE, reg.points=1e3, reg.color='darkgray', 
+#                         reg.method=c('Siegel', 'Theil-Sen'), reg.CI.settings=list(nboot=1e4, conf_level=0.95), save=FALSE, 
+#                         bg='transparent', dp=3, return.output=FALSE) {
+  
+#   # Convert A to scatter
+#   scatter <- convert_to_scatter(A=A, sign=sign)
+
+#   # Create the scatter plot
+#   if (save) {
+#     svg(file=filename, width=width, height=height, bg=bg)
+#   } else {
+#     dev.new(width=width, height=height, noRStudioGD=TRUE)
+#   }
+
+#   # Check if 'level' column exists and map levels to 1 and 2 alternately, if not set n=1
+#   if ('level' %in% colnames(scatter)) {
+#     unique_levels <- unique(scatter$level)
+#     n <- length(unique_levels)
+#     scatter$level <- as.numeric(factor(scatter$level, levels=unique_levels, labels=rep(1:n, length.out=length(unique_levels))))
+#   } else {
+#     n <- 1  # If 'level' column does not exist
+#     scatter$level <- rep(1, dim(scatter)[1])
+#   }
+
+#   # Determine plot symbols
+#   pch <- if (open_symbols) 1 else 19
+#   cols <- hex_palette(n=2, color1=colors[1], color2=colors[2], reverse=FALSE)
+  
+#   # Plot scatter points
+#   plot(scatter$x, scatter$y, col=cols[scatter$level], pch=pch, cex=p.cex, xlim=xlim, ylim=ylim, 
+#        xlab=xlab, ylab=ylab, main=main, xaxt='n', yaxt='n', bty='n')
+
+#   # Initialize list to store summary tables for each level
+#   summary_tables <- list()
+
+#   # Add regression line or non-parametric line based on 'reg' parameter
+#   if (!reg) {
+#     segments(min(xlim), min(ylim), max(xlim), max(ylim), lwd=lwd, col=reg.color, lty=3)  # lty=3 for dotted line
+#   } else {
+#     reg.method <- match.arg(reg.method)
+#     levels <- unique(scatter$level)
+
+#     reg_func <- switch(reg.method,
+#                        'Siegel' = if (plot.CI || return.output) siegel_sen_with_ci else siegel_sen,
+#                        'Theil-Sen' = if (plot.CI || return.output) theil_sen_with_ci else theil_sen)
+
+#     for (level in levels) {
+#       # Filter data for the current level
+#       level_data <- scatter[scatter$level==level,]
+      
+#       if (plot.CI || return.output) {
+#         # Perform regression with confidence intervals for the current level
+#         reg_results <- reg_func(level_data$x, level_data$y, n_bootstrap=reg.CI.settings$nboot, 
+#                                 conf_level=reg.CI.settings$conf_level, dp=dp, n_points=reg.points)
+        
+#         # Store the summary table for this level
+#         summary_tables[[as.character(level)]] <- reg_results$summary_table
+        
+#         intercept <- reg_results$summary_table["(intercept)", "est"]
+#         slope <- reg_results$summary_table["slope", "est"]
+        
+#         # Confidence intervals for predictions
+#         lower_ci <- reg_results$lower_ci
+#         upper_ci <- reg_results$upper_ci
+#         predicted_y <- reg_results$predicted_y
+#         x1 <- reg_results$x1
+#       } else {
+#         # Perform standard regression without confidence intervals for the current level
+#         out <- reg_func(level_data$x, level_data$y)
+#         intercept <- out$intercept
+#         slope <- out$slope
+#         x1 <- seq(min(level_data$x), max(level_data$x), length.out=reg.points)
+#         predicted_y <- intercept + slope * x1
+#       }
+      
+#       # Plot the regression line for the current level
+#       lines(x1, predicted_y, lwd=lwd, col=cols[as.integer(level)], lty=3)
+      
+#       # Plot confidence intervals if requested
+#       if (plot.CI) {
+#         lines(x1, lower_ci, col=cols[as.integer(level)], lty=2)
+#         lines(x1, upper_ci, col=cols[as.integer(level)], lty=2)
+#       }
+#     }
+#   }
+
+#   # Customize axes
+#   axis(1, at=seq(min(xlim), max(xlim), by=x_tick_interval), tcl=-tick_length, lwd=lwd)
+#   axis(2, at=seq(min(ylim), max(ylim), by=y_tick_interval), las=1, tcl=-tick_length, lwd=lwd)
+
+#   if (save) {
+#     dev.off()
+#   }
+
+#   # Return the list of summary tables if requested
+#   if (reg && return.output) {
+#     return(summary_tables)
+#   }
+# }
+
+
 ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interval=100, y_tick_interval=100, tick_length=0.2, 
                         height=4, width=4, xlab='', ylab='', main='', colors=c('black', 'indianred'), open_symbols=FALSE, 
                         lwd=1, p.cex=0.5, filename='scatter.svg', reg=FALSE, plot.CI=FALSE, reg.points=1e3, reg.color='darkgray', 
                         reg.method=c('Siegel', 'Theil-Sen'), reg.CI.settings=list(nboot=1e4, conf_level=0.95), save=FALSE, 
-                        bg='transparent', dp=3, return.output=FALSE) {
+                        show_pairs=FALSE, bg='transparent', dp=3, return.output=FALSE) {
   
   # Convert A to scatter
   scatter <- convert_to_scatter(A=A, sign=sign)
@@ -3879,6 +4102,19 @@ ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interv
     }
   }
 
+  if (show_pairs && "s" %in% colnames(scatter)) {
+    subjects <- unique(scatter$s)
+    for (subj in subjects) {
+      subj_data <- scatter[scatter$s == subj, ]
+      # Optionally, order the data by x or some grouping variable:
+      # subj_data <- subj_data[order(subj_data$x), ]
+      # Connect them with lines
+      if (nrow(subj_data) > 1) {
+        lines(subj_data$x, subj_data$y, col='darkgray', lty=3, lwd=lwd)
+      }
+    }
+  }
+
   # Customize axes
   axis(1, at=seq(min(xlim), max(xlim), by=x_tick_interval), tcl=-tick_length, lwd=lwd)
   axis(2, at=seq(min(ylim), max(ylim), by=y_tick_interval), las=1, tcl=-tick_length, lwd=lwd)
@@ -3892,8 +4128,6 @@ ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interv
     return(summary_tables)
   }
 }
-
-
 # Define the start and end colors of your palette Slate Blue to Indian Red
 hex_palette <- function(n, color1='#6A5ACD', color2='#CD5C5C', reverse = FALSE) {
   
@@ -4155,7 +4389,8 @@ fun_single_example <- function(rawdata, fits, start_time=50, baseline=50, idx=1,
 #   }
 # }
 
-single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE, normalise=FALSE, func=product2N, height=4, width=2.5, xbar=100, ybar=50, log_y=FALSE, colors=c('#4C77BB', '#CA92C1', '#F28E2B'), filename='plot.svg', bg='transparent', save=FALSE) {
+single_fit_egs <- function(traces, sign=-1, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE, normalise=FALSE, func=product2N, height=4, width=2.5, 
+  xbar=100, ybar=50, ybar_units = 'pA', log_y=FALSE, colors=c('#4C77BB', '#CA92C1', '#F28E2B'), filename='plot.svg', bg='transparent', save=FALSE) {
   
   if (save) {
     # Open SVG device
@@ -4182,14 +4417,14 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
   
   if (is.null(ylim)) {
     if (log_y) {
-      y <- -y
-      fit1 <- -fit1
+      y <- sign * y
+      fit1 <- sign * fit1
       if (identical(func, product2N)){
-        fit2 <- -fit2
+        fit2 <- sign * fit2
       }
       if (identical(func, product3N)){
-        fit2 <- -fit2
-        fit3 <- -fit3
+        fit2 <- sign * fit2
+        fit3 <- sign * fit3
       }
 
       # Define custom major tick positions
@@ -4278,7 +4513,7 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
   # Add labels to the scale bars
   if (show_text) {
     text(x = (x_start + x_end) / 2, y = y_start - ybar / 20, labels = paste(xbar, 'ms'), adj = c(0.5, 1))
-    if (!normalise) text(x = x_start - xbar / 4, y = (y_start + y_end) / 2, labels = ifelse(log_y, "e-fold change", paste(ybar, 'pA')), adj = c(0.5, 0.5), srt = 90)
+    if (!normalise) text(x = x_start - xbar / 4, y = (y_start + y_end) / 2, labels = ifelse(log_y, "e-fold change", paste(ybar, ybar_units)), adj = c(0.5, 0.5), srt = 90)
   }
   
   # Add the y-axis only if log_y is TRUE
@@ -4305,7 +4540,12 @@ single_fit_egs <- function(traces, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE,
     axis(2, at=valid_minor_ticks, labels=NA, tcl=minor_tick_length, las=1)
     
     # Add y-axis label
-    mtext('PSC amplitude (pA)', side=2, line=2.5)
+    if (grepl("A$", ybar_units)) {
+      mtext(bquote(PSC~amplitude~"(" * plain(.(ybar_units)) * ")"), side = 2, line = 2.5)
+    } else if (grepl("V$", ybar_units)) {
+      mtext(bquote(PSP~amplitude~"(" * plain(.(ybar_units)) * ")"), side = 2, line = 2.5)
+    }
+
   }
   
   if (save) {
@@ -5574,7 +5814,8 @@ kNNdistplot2 <- function(x, k, minPts,  bty="n", lwd=1, lty=1, axes=FALSE, frame
     
     # Sort the k-NN distances
     kNNdist <- sort(dbscan::kNNdist(x, k, ...))
-    ylim <- c(0, 100 * ceiling(max(kNNdist)/100))
+    factor <- 10^floor(log10(max(kNNdist)))  # Dynamically determine rounding factor
+    ylim <- c(0, factor * ceiling(max(kNNdist) / factor))
     # Dynamically calculate tick intervals based on the unified limit
     yticks <- pretty(ylim, n = 5)
     xlim <- c(1, length(kNNdist))
@@ -5674,7 +5915,10 @@ DBSCAN_plot <- function(data, dbscan_result) {
   ylab <- colnames(data)[2]
   
   # Determine the maximum value across both axes
-  max_limit <- 100 * ceiling(max(data) / 100)
+  # max_limit <- 100 * ceiling(max(data) / 100)
+  factor <- 10^floor(log10(max(data))) 
+  max_limit <- factor * ceiling(max(data) / factor)
+
   lim <- c(0, max_limit)
   
   # Dynamically calculate tick intervals based on the unified limit
@@ -5800,3 +6044,423 @@ create_test_output <- function(parameter, test_result) {
   
   return(output_matrix)
 }
+
+create_art_output <- function(formula, data, parameter=NULL, dp=5) {
+  
+  model <- NULL  # Clear any old model
+
+  temp_model <- tryCatch(
+    {
+      # Use `try(..., silent = TRUE)` to suppress messages
+      res <- try(art(formula = formula, data = data), silent = TRUE)
+      
+      # 2) Check if `res` is a `try-error`; if so, raise an error for `tryCatch` to handle
+      if (inherits(res, "try-error")) {
+        # Extract the error message from the `try-error` object
+        error_msg <- attr(res, "condition")$message
+        stop(error_msg)
+      }
+      
+      # If successful, `res` is the fitted 'art' model
+      res
+    },
+    error = function(e) {
+      e
+    }
+  )
+
+  if (!inherits(temp_model, "error")) {
+    # Assign the successful model to 'model'
+    model <- temp_model
+    anova_res <- anova(model)
+  }else{
+    # Return a single-row data frame with the error
+    return(data.frame(
+      parameter = parameter,
+      test      = 'Analysis of Variance of Aligned Rank Transformed Data', 
+      factor    = '',
+      df        = '',
+      dfe       = '',
+      `F value` = '',
+      `Pr(>F)`  = '',
+      Note      = gsub("\\.$", "", error_msg),   # Store the error text here
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    ))
+  }
+  
+  anova_res <- anova(model)
+  
+  # Figure out if it's an anova.art object or a regular anova
+  if ('anova.art' %in% class(anova_res)) {
+    header_text <- 'Analysis of Variance of Aligned Rank Transformed Data'
+  } else {
+    header_text <- 'ANOVA'
+  }
+  
+  # Convert the ANOVA result to a data frame
+  anova_df <- as.data.frame(anova_res)
+  factor_names <- rownames(anova_df)
+  
+  # Build the output data frame with multiple rows for each factor
+  # and only the first row containing the parameter & test name
+  output_matrix <- data.frame(
+    parameter = c(parameter, rep("", nrow(anova_df) - 1)),  # Only first row has 'parameter'
+    test      = c(header_text, rep("", nrow(anova_df) - 1)), # Only first row has 'test'
+    factor    = factor_names,                                # e.g., celltype, condition, etc.
+    df        = round(anova_df$Df, digits=dp),               # Degrees of freedom
+    dfe       = round(anova_df$Df.res, digits=dp),           # Residual degrees of freedom
+    `F value` = round(anova_df$`F value`, digits=dp),        # F statistic
+    `Pr(>F)`  = round(anova_df$`Pr(>F)`, digits=dp),         # p-value
+    Note      = "",                                          # Blank note for successful runs
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  
+  return(output_matrix)
+}
+
+# if ms and pA then output would be fC so 1e3 corrects to pC
+trap_fun <- function(x, y) {
+  sum(diff(x) * (head(y, -1) + tail(y, -1)) / 2) / 1e3
+}
+
+fit_plot2 <- function(traces, func=product2, xlab='time (ms)', ylab='PSC amplitude (pA)', xlim=NULL, ylim=NULL, main='', bl=NULL, lwd=1.2, filter=FALSE, width=5, height=5, bg='transparent', filename='trace.svg', save=FALSE) {
+  
+  if (save) {
+    # Open SVG device
+    svg(file=filename, width=width, height=height, bg=bg)
+  } else {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+  }
+
+  plot(traces$x, traces$y, col='gray', xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, type='l', bty='l', las=1, lwd=lwd, main=main)
+  lines(traces$x, traces$yfilter, col='black', type='l', lwd=lwd)
+  if (!is.null(bl)) abline(v=bl, col='black', lwd=lwd, lty=3)
+
+  if (save) {
+    dev.off()
+  }
+}
+
+single_egs <- function(x, y, sign=-1, xlim=NULL, ylim=NULL, lwd=1, show_text=FALSE, height=4, width=2.5, xbar=100, ybar=50,  color='#4C77BB', filename='trace1.svg', bg='transparent', save=FALSE) {
+  
+  if (save) {
+    svg(file=filename, width=width, height=height, bg=bg)
+  } else {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+  }
+
+  if (is.null(ylim)) ylim <- if (sign == 1) c(0, max(y)) else c(-max(-y), 0)
+
+  if (is.null(xlim)) xlim <- c(min(x), max(x))
+  idx1 <- which.min(abs(x - xlim[1]))
+  idx2 <- which.min(abs(x - xlim[2]))
+
+  plot(x[idx1:idx2], y[idx1:idx2], type='l', col=color, xlim=xlim, ylim=ylim, bty='n', lwd=lwd, lty=1, axes=FALSE, frame=FALSE, xlab='', ylab='')
+
+  #  scale bar lengths and ybar position
+  ybar_start <- min(ylim) + (max(ylim) - min(ylim)) / 20
+  
+  # Add scale bars at the bottom right
+  x_start <- max(xlim) - xbar - 50
+  y_start <- ybar_start
+  x_end <- x_start + xbar
+  y_end <- y_start + ybar
+  
+  # Draw the scale bars
+  segments(x_start, y_start, x_end, y_start, lwd=lwd, col='black')
+  segments(x_start, y_start, x_start, y_end, lwd=lwd, col='black')
+  
+  # Add labels to the scale bars
+  if (show_text) {
+    text(x = (x_start + x_end) / 2, y = y_start - ybar / 20, labels = paste(xbar, 'ms'), adj = c(0.5, 1))
+    text(x = x_start - xbar / 4, y = (y_start + y_end) / 2,  labels = paste(ybar, 'pA'), adj = c(0.5, 0.5), srt = 90)
+  }
+    
+  if (save) {
+    dev.off()
+  }
+}
+charge_transfer_fun <- function(x, y, fc=300, dt=0.1, baseline=40, filter=TRUE, width=5, height=5, bg='transparent', filename='trace.svg', showplot=FALSE, save=FALSE){
+
+  idx <- baseline / dt
+  y <- y - mean(y[1:idx])
+
+  if (filter) {
+    fs=1 / dt * 1000; bf <- butter(2, fc / (fs / 2), type='low')
+    yfilter <- signal::filter(bf, y)
+  } else {
+    ind=1
+    yfilter=y
+  }
+
+  if (showplot){
+    traces <- data.frame(x=x, y=y, yfilter=yfilter)
+    fit_plot2(traces, width=width, height=height, bg=bg, filename=filename, save=save)
+  }
+
+  trap_fun(x, yfilter)
+
+}
+
+charge_fun <- function(data_list, condition='Control', fc=300, dt=0.1, baseline=10, filter=TRUE, showplot=TRUE) {
+  sapply(data_list, function(df) {
+    if (condition %in% colnames(df)) {
+      x <- df$time
+      y <- df[[condition]]  # Select column dynamically
+      auc <- charge_transfer_fun(x, y, fc=fc, dt=dt, baseline=baseline, filter=filter, showplot=showplot)  # Compute charge transfer
+      return(auc)
+    } else {
+      return(NA)  # Return NA if column is missing
+    }
+  })
+}
+
+# Function to calculate the half-width of y(t) = A * (exp(-t / tau2) - exp(-t / tau1))
+half_width <- function(A, tau1, tau2, limit=100) {
+  # Define the response function y(t)
+  y <- function(t) {
+    A * (exp(-t / tau2) - exp(-t / tau1))
+  }
+  
+  # Find the peak value of y(t) and the corresponding time (t_peak)
+  opt <- optimize(y, interval = c(0, 100), maximum = TRUE)
+  t_peak <- opt$maximum
+  y_max <- opt$objective
+  
+  # Define the target half-maximum value
+  y_half_max <- y_max / 2
+  
+  # Define a function for the difference from half-maximum
+  half_max_eq <- function(t) {
+    y(t) - y_half_max
+  }
+  
+  # Solve for t1 (before the peak) where y(t) = y_max / 2
+  t1 <- uniroot(half_max_eq, interval = c(0, t_peak))$root
+  
+  # Solve for t2 (after the peak) where y(t) = y_max / 2
+  t2 <- uniroot(half_max_eq, interval = c(t_peak, limit))$root
+  
+  # Calculate the half-width
+  half_width <- t2 - t1
+  
+  # Return results as a numeric vector
+  c(t1 = t1, t2 = t2, half_width = half_width)
+}
+
+
+amplifier_gain <- function(dataset = NULL, headstage_gain = 0.5, additional_gain = NULL,
+                           AD_range = c(-10, 10), AD_bits = 16,
+                           dp = 3, tol = 1e-3, VClamp = TRUE) {
+  
+  if (!is.null(dataset) && !is.null(additional_gain)) {
+    amplifier_gain3(dataset = dataset,
+                    headstage_gain = headstage_gain,
+                    additional_gain = additional_gain,
+                    AD_range = AD_range,
+                    AD_bits = AD_bits,
+                    tol = tol,
+                    dp = dp,
+                    VClamp = VClamp)
+    
+  } else if (!is.null(dataset)) {
+    amplifier_gain1(dataset = dataset,
+                    headstage_gain = headstage_gain,
+                    AD_range = AD_range,
+                    AD_bits = AD_bits,
+                    dp = dp,
+                    tol = tol,
+                    VClamp = VClamp)
+    
+  } else {
+    amplifier_gain2(headstage_gain = headstage_gain,
+                    additional_gain = additional_gain,
+                    AD_range = AD_range,
+                    AD_bits = AD_bits,
+                    VClamp = VClamp)
+  }
+}
+
+dpA_fun <- function(dataset, tol=1e-2){
+  sapply(1:dim(dataset)[2], function(ii){
+    vec <- diff(sort(unique(dataset[,ii])))
+    vec <- vec[vec>tol]
+    min(vec)
+    }
+  )
+}
+
+amplifier_gain1 <- function(dataset, headstage_gain=0.5, AD_range=c(-10, 10), AD_bits=16, dp=3, tol=1e-3, VClamp=TRUE) {
+  
+  digitiser_range <- abs(diff(AD_range))
+  min_A_D <- rep(AD_range[1], ncol(dataset))
+  max_A_D <- rep(AD_range[2], ncol(dataset))
+  
+  if (VClamp) {
+    dpA <- dpA_fun(dataset=dataset, tol=tol)
+    recording_range <- dpA * 2^AD_bits
+    min_recording <- -recording_range / 2
+    max_recording <-  recording_range / 2
+    final_gain <- digitiser_range * 1e3 / recording_range
+    additional_gain <- final_gain / headstage_gain
+    
+    output <- data.frame(
+      'R GOhms' = rep(headstage_gain, ncol(dataset)),
+      'gain mV/pA' = rep(headstage_gain, ncol(dataset)),
+      'additional gain' = round(additional_gain, dp),
+      'final gain mV/pA' = round(final_gain, dp),
+      'min A-D board V' = min_A_D,
+      'max A-D board V' = max_A_D,
+      'A-D board range V' = rep(digitiser_range, ncol(dataset)),
+      'A-D bits' = rep(AD_bits, ncol(dataset)),
+      'min recording pA' = min_recording,
+      'max recording pA' = max_recording,
+      'recording range pA' = recording_range,
+      'digitisation pA/bit' = dpA,
+      check.names = FALSE
+    )
+    
+  } else {
+    dV <- sapply(1:dim(dataset)[2], function(ii) min(diff(sort(unique(dataset[, ii])))) )
+    recording_range <- dV * 2^AD_bits
+    min_recording <- -recording_range / 2
+    max_recording <-  recording_range / 2
+    final_gain <- digitiser_range * 1e3 / recording_range
+    additional_gain <- final_gain / headstage_gain
+    
+    output <- data.frame(
+      'R GOhms' = rep(headstage_gain, ncol(dataset)),
+      'gain V/V' = rep(headstage_gain, ncol(dataset)),
+      'additional gain' = round(additional_gain, dp),
+      'final gain V/V' = round(final_gain, dp),
+      'min A-D board V' = min_A_D,
+      'max A-D board V' = max_A_D,
+      'A-D board range V' = rep(digitiser_range, ncol(dataset)),
+      'A-D bits' = rep(AD_bits, ncol(dataset)),
+      'min recording mV' = min_recording,
+      'max recording mV' = max_recording,
+      'recording range mV' = recording_range,
+      'digitisation mV/bit' = dV,
+      check.names = FALSE
+    )
+  }
+  
+  return(output)
+}
+
+amplifier_gain2 <- function(headstage_gain=0.5, additional_gain=20, AD_range=c(-10, 10), AD_bits=16, VClamp=TRUE) {
+  
+  if (length(additional_gain) == 1 && length(headstage_gain) > 1) {
+    additional_gain <- rep(additional_gain, length(headstage_gain))
+  }
+  
+  if (length(headstage_gain) != length(additional_gain)) {
+    stop("if 'additional_gain' is a vector, it must be the same length as 'headstage_gain'")
+  }
+  
+  min_A_D <- AD_range[1]
+  max_A_D <- AD_range[2]
+  digitiser_range <- abs(diff(AD_range))
+  final_gain <- headstage_gain * additional_gain
+  recording_range <- digitiser_range * 1e3 / final_gain
+  min_recording <- -recording_range / 2
+  max_recording <-  recording_range / 2
+  dUnit <- recording_range / 2^AD_bits
+  
+  if (VClamp) {
+    output <- data.frame(
+      'R GOhms' = headstage_gain,
+      'gain mV/pA' = headstage_gain,
+      'additional gain' = additional_gain,
+      'final gain mV/pA' = final_gain,
+      'min A-D board V' = rep(min_A_D, length(headstage_gain)),
+      'max A-D board V' = rep(max_A_D, length(headstage_gain)),
+      'A-D board range V' = rep(digitiser_range, length(headstage_gain)),
+      'A-D bits' = rep(AD_bits, length(headstage_gain)),
+      'min recording pA' = min_recording,
+      'max recording pA' = max_recording,
+      'recording range pA' = recording_range,
+      'digitisation pA/bit' = dUnit,
+      check.names = FALSE
+    )
+  } else {
+    output <- data.frame(
+      'R GOhms' = headstage_gain,
+      'gain V/V' = headstage_gain,
+      'additional gain' = additional_gain,
+      'final gain V/V' = final_gain,
+      'min A-D board V' = rep(min_A_D, length(headstage_gain)),
+      'max A-D board V' = rep(max_A_D, length(headstage_gain)),
+      'A-D board range V' = rep(digitiser_range, length(headstage_gain)),
+      'A-D bits' = rep(AD_bits, length(headstage_gain)),
+      'min recording mV' = min_recording,
+      'max recording mV' = max_recording,
+      'recording range mV' = recording_range,
+      'digitisation mV/bit' = dUnit,
+      check.names = FALSE
+    )
+  }
+  return(output)
+}
+
+amplifier_gain3 <- function(dataset, headstage_gain = 0.5, additional_gain = 20,
+                            AD_range = c(-10, 10), AD_bits = 16,
+                            tol = 1e-3, dp=3, VClamp = TRUE) {
+  
+  digitiser_range <- abs(diff(AD_range))
+  min_A_D <- rep(AD_range[1], ncol(dataset))
+  max_A_D <- rep(AD_range[2], ncol(dataset))
+  final_gain <- headstage_gain * additional_gain
+  recording_range <- digitiser_range * 1e3 / final_gain
+  min_recording <- -recording_range / 2
+  max_recording <-  recording_range / 2
+  dUnit <- recording_range / 2^AD_bits  # actual theoretical digitisation
+  
+  if (VClamp) {
+    dpA_actual <- dpA_fun(dataset = dataset, tol = tol)
+    n <- dUnit / dpA_actual 
+    
+    output <- data.frame(
+      'R GOhms' = rep(headstage_gain, ncol(dataset)),
+      'gain mV/pA' = rep(headstage_gain, ncol(dataset)),
+      'additional gain' = rep(additional_gain, ncol(dataset)),
+      'final gain mV/pA' = final_gain,
+      'min A-D board V' = min_A_D,
+      'max A-D board V' = max_A_D,
+      'A-D board range V' = rep(digitiser_range, ncol(dataset)),
+      'A-D bits' = rep(AD_bits, ncol(dataset)),
+      'min recording pA' = min_recording,
+      'max recording pA' = max_recording,
+      'recording range pA' = recording_range,
+      'digitisation pA/bit' = dUnit,
+      'n' = round(n, dp),
+      check.names = FALSE
+    )
+    
+  } else {
+    dV_actual <- sapply(1:dim(dataset)[2], function(ii) min(diff(sort(unique(dataset[, ii])))) )
+    n <- dUnit / dV_actual
+    
+    output <- data.frame(
+      'R GOhms' = rep(headstage_gain, ncol(dataset)),
+      'gain V/V' = rep(headstage_gain, ncol(dataset)),
+      'additional gain' = rep(additional_gain, ncol(dataset)),
+      'final gain V/V' = final_gain,
+      'min A-D board V' = min_A_D,
+      'max A-D board V' = max_A_D,
+      'A-D board range V' = rep(digitiser_range, ncol(dataset)),
+      'A-D bits' = rep(AD_bits, ncol(dataset)),
+      'min recording mV' = min_recording,
+      'max recording mV' = max_recording,
+      'recording range mV' = recording_range,
+      'digitisation mV/bit' = dUnit,
+      'n' = round(n, dp),
+      check.names = FALSE
+    )
+  }
+  
+  return(output)
+}
+
