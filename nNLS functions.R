@@ -316,7 +316,8 @@ FITN <- function(response, dt=0.1, func=product2N, N=1, IEI=50, method=c('BF.LM'
     bounds <- check_and_set_bounds(x=x2fit, y=y2fit, func=func, N.params=N.params, upper=upper, lower=lower)
     lower <- bounds$lower
     upper <- bounds$upper
-
+    # print(upper)
+    
     output <- FIT.LM(x=x2fit, y=y2fit, func=func, N.params=N.params,  N=N, IEI=IEI, lower=lower, upper=upper, 
       weight_method=weight_method, fit.convergence.attempts=10, fit.attempts=10)
 
@@ -638,7 +639,7 @@ FIT.MLE <- function(x, y, func, N.params, N=1, IEI=100, sigma=5, iter=1e4, metro
 
   bounds <- check_and_set_bounds(x=x, y=y, func=func, N.params=N.params, upper=upper, lower=lower)
   lower <- bounds$lower
-  upper <- 2*bounds$upper # some solutions were sitting on this limit so increased 2-fold
+  upper <- bounds$upper # some solutions were sitting on this limit so increased 2-fold
   if (method %in% c('L-BFGS-B', 'Brent')) {
     tol_low <- 1e-08
     lower <- if (any(lower <= 0)) lower + tol_low
@@ -747,17 +748,17 @@ check_and_set_bounds <- function(x, y, func, N.params, upper=NULL, lower=NULL) {
         N <- (N.params - 6)/2
         ests <- ests_fun(x=x, y=y, N=N)
         ests <- rep(c(rep(ests[1], N), Inf,  ests[3], Inf) ,2) 
-        upper <- sapply(3 * ests, round_up)
+        upper <- sapply(6 * ests, round_up)
       } else if (identical(func, product1) || identical(func, product1N)) {
         N <- N.params - 3
         ests <- ests_fun(x=x, y=y, N=N)
         ests <- c(rep(ests[1], N), Inf,  ests[3], Inf)
-        upper <- sapply(3 * ests, round_up)
+        upper <- sapply(6 * ests, round_up)
       } else if (identical(func, product3) || identical(func, product3N)){
         N <- (N.params - 9)/3
         ests <- ests_fun(x=x, y=y, N=N)
         ests <- rep(c(rep(ests[1], N), Inf,  ests[3], Inf) ,3) 
-        upper <- sapply(3 * ests, round_up)
+        upper <- sapply(6 * ests, round_up)
       }  
     }
     if (is.null(lower)) lower <- rep(0, N.params)
@@ -2078,7 +2079,13 @@ nFIT <- function(response, n=30, N=1, IEI=50, dt=0.1, func=product2N, method= c(
   )
 
   # reorder
-  df_output <- df_output[, c(names(df_output)[1:6], 'half_width', 'delay', 'area1')]
+  # df_output <- df_output[, c(names(df_output)[1:6], 'half_width', 'delay', 'area1')]
+  # df_output <- round(df_output, digits=dp)
+
+  cols <- names(df_output)
+  area_idx <- which(grepl("^area", cols))[1]
+  new_order <- append(cols[-which(cols == "half_width")], "half_width", after = area_idx - 1)
+  df_output <- df_output[, new_order]
   df_output <- round(df_output, digits=dp)
 
   if (show.plot) fit_plot(traces=traces, func=func, xlab=xlab, ylab=ylab, lwd=lwd, filter=filter, width=width, height=height)
