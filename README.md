@@ -116,9 +116,13 @@ Any code preceded by # is `commented out` and is provided in `*.R` files for ins
 
    ```
    Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
-   600
-           A1       A2       A3 τrise τdecay tpeak r10_90 d90_10 delay    area1   area2   area3
-   1 -150.241 -249.138 -299.598 1.006 29.982 3.535  1.695 65.896  3.99 5068.229 8404.41 10106.6
+   330
+           A1       A2       A3 τrise τdecay tpeak r10_90 d90_10 delay half_width    area1    area2    area3
+   1 -150.324 -251.108 -301.651 0.923 29.975 3.314  1.576 65.874 4.019     24.473 5032.721 8406.901 10099.04
+   
+   Do you want to repeat with "fast constraint" turned on? 
+   This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
+   n
    ```
    The output gives: 
 
@@ -309,7 +313,7 @@ These responses with only differ by added gaussian noise.
 
    Use the indicated time as a reference for setting the time point at which fitting of the response will cease. 
 
-   For example, entering '510' returns a graphical output of the fits and a table with values for amplitude, τrise, τdecay, tpeak, r10_90, d90_10, delay and area for the fast and slow (decay components).
+   For example, entering '510' returns a graphical output of the fits and a table with values for amplitude, τrise, τdecay, tpeak, $r_{10–90}$, $d_{90–10}$, delay and area for the fast and slow (decay components).
 
    The user is then asked whether the fit should be repeated with a 'fast constraint' applied. 
 
@@ -322,10 +326,10 @@ These responses with only differ by added gaussian noise.
    ```
    Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
    510
-             A1  τrise  τdecay  tpeak r10_90  d90_10 delay     area1
-   fast -55.305  3.341  26.967  7.964  4.254  60.027 2.064  2003.821
-   slow -98.845 10.550 199.568 32.749 16.397 439.136 5.331 23244.202
-
+             A1  τrise  τdecay  tpeak r10_90  d90_10 delay half_width     area1
+   fast -55.305  3.341  26.967  7.964  4.254  60.027 2.064     28.593  2003.821
+   slow -98.845 10.550 199.568 32.749 16.397 439.136 5.331    175.964 23244.202
+   
    Do you want to repeat with "fast constraint" turned on? 
    This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
    n
