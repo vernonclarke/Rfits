@@ -309,7 +309,7 @@ These responses with only differ by added gaussian noise.
 
    Use the indicated time as a reference for setting the time point at which fitting of the response will cease. 
 
-   For example, entering '510' returns a graphical output of the fits and a table with values for amplitude, τrise, τdecay, tpeak, r10_90, d90_10, delay and area for the fast and slow (decay components).
+   For example, entering '510' returns a graphical output of the fits and a table with values for amplitude, τrise, τdecay, tpeak, $r_{10–90}$, d90_10, delay and area for the fast and slow (decay components).
 
    The user is then asked whether the fit should be repeated with a 'fast constraint' applied. 
 
