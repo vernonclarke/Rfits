@@ -2603,7 +2603,7 @@ raw_plot <- function(response, dt=0.1, stimulation_time=0, baseline=0, smooth=5,
 #   return(x_limit)
 # }
 
-determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, tmax=NULL, y_abline=0.1, height=5, width=5) { 
+determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, tmax=NULL, y_abline=0.1, height=5, width=5, prompt=TRUE) { 
   if (is.null(tmax)){
     peak <- peak.fun(y=y, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth)
 
@@ -2639,16 +2639,19 @@ determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoot
 
     text(x=max(X[ind1:ind3])*1.05, y=bottom_axis*0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=0.6)
 
-    # Prompt user for the range of x to use for nFIT
-    x_limit <- NA
-    while (is.na(x_limit)) {
-      cat('\nEnter the upper limit for time to use in nFIT (e.g., 400 ms): ')
-      x_limit <- as.numeric(readLines(n = 1))
-      if (is.na(x_limit)) {
-        cat('\nInvalid input. Please enter a numeric value.\n')
+    if (prompt) {
+      x_limit <- NA
+      while (is.na(x_limit)) {
+        cat('\nEnter the upper limit for time to use in nFIT (e.g., 400 ms): ')
+        x_limit <- as.numeric(readLines(n = 1))
+        if (is.na(x_limit)) {
+          cat('\nInvalid input. Please enter a numeric value.\n')
+        }
       }
+      dev.off()
+    } else {
+      x_limit <- avg_t.abline
     }
-    dev.off()
   } else {
     x_limit <- tmax
   }

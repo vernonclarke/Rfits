@@ -28,6 +28,7 @@ Tamara analysis/**
 # Unignore specific files in the root directory
 !/nNLS functions.R
 !/NLS functions.R
+!/analyse_PSC_shiny_app.R
 
 # Unignore example.R in the Yichen analysis directory
 !Yichen analysis/example.R
