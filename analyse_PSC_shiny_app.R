@@ -624,169 +624,169 @@ shinyApp(ui, server)
 # source(paste0(file_path1, '/nNLS functions.R'))
 
 
-library(shiny)
-library(readxl)
+# library(shiny)
+# library(readxl)
 
-ui <- fluidPage(
-  titlePanel("Comprehensive PSC Analysis"),
-  sidebarLayout(
-    sidebarPanel(
-      fileInput("file", "Upload CSV or XLSX", accept = c(".csv", ".xlsx")),
-      uiOutput("column_selector"),
+# ui <- fluidPage(
+#   titlePanel("Comprehensive PSC Analysis"),
+#   sidebarLayout(
+#     sidebarPanel(
+#       fileInput("file", "Upload CSV or XLSX", accept = c(".csv", ".xlsx")),
+#       uiOutput("column_selector"),
       
-      tabsetPanel(
-        tabPanel("Main options",
-          numericInput("dt", "dt (ms):", 0.1),
-          numericInput("stimulation_time", "Stimulation Time:", 100),
-          numericInput("baseline", "Baseline:", 100),
-          numericInput("n", "n:", 30),
-          numericInput("y_abline", "y_abline:", 0.1)
-        ),
-        tabPanel("Fit Options",
-          numericInput("N", "N:", 1),
-          numericInput("IEI", "IEI:", 50),
-          numericInput("smooth", "Smooth:", 5),
-          selectInput("method", "Method", c("BF.LM", "LM", "GN", "port", "robust", "MLE")),
-          selectInput("weight_method", "Weight Method", c("none", "~y_sqrt", "~y")),
-          checkboxInput("sequential_fit", "Sequential Fit", FALSE)
-        ),
-        tabPanel("Advanced",
-          checkboxInput("filter", "Filter", FALSE),
-          numericInput("fc", "Filter cutoff (Hz):", 1000),
-          numericInput("rel_decay_fit_limit", "Rel. Decay Fit Limit:", 0.1),
-          numericInput("half_width_fit_limit", "Half-width Fit Limit:", 500),
-          numericInput("seed", "Seed:", 42),
-          numericInput("dp", "Decimal Points:", 3),
-          checkboxInput("fast_constraint", "Fast Constraint", FALSE),
-          selectInput("fast_constraint_method", "Constraint Method", c("rise", "peak"))
-        )
-      ),
+#       tabsetPanel(
+#         tabPanel("Main options",
+#           numericInput("dt", "dt (ms):", 0.1),
+#           numericInput("stimulation_time", "Stimulation Time:", 100),
+#           numericInput("baseline", "Baseline:", 100),
+#           numericInput("n", "n:", 30),
+#           numericInput("y_abline", "y_abline:", 0.1)
+#         ),
+#         tabPanel("Fit Options",
+#           numericInput("N", "N:", 1),
+#           numericInput("IEI", "IEI:", 50),
+#           numericInput("smooth", "Smooth:", 5),
+#           selectInput("method", "Method", c("BF.LM", "LM", "GN", "port", "robust", "MLE")),
+#           selectInput("weight_method", "Weight Method", c("none", "~y_sqrt", "~y")),
+#           checkboxInput("sequential_fit", "Sequential Fit", FALSE)
+#         ),
+#         tabPanel("Advanced",
+#           checkboxInput("filter", "Filter", FALSE),
+#           numericInput("fc", "Filter cutoff (Hz):", 1000),
+#           numericInput("rel_decay_fit_limit", "Rel. Decay Fit Limit:", 0.1),
+#           numericInput("half_width_fit_limit", "Half-width Fit Limit:", 500),
+#           numericInput("seed", "Seed:", 42),
+#           numericInput("dp", "Decimal Points:", 3),
+#           checkboxInput("fast_constraint", "Fast Constraint", FALSE),
+#           selectInput("fast_constraint_method", "Constraint Method", c("rise", "peak"))
+#         )
+#       ),
       
-      actionButton("run_analysis", "Run Initial Analysis"),
-      conditionalPanel(
-        condition = "output.promptTmax",
-        numericInput("user_tmax", "Enter Tmax for fitting:", value=NA),
-        numericInput("stimulation_time_adj", "Adjust Stimulation Time:", value=150),
-        numericInput("baseline_adj", "Adjust Baseline:", value=50),
-        actionButton("update_plot", "Update Plot"),
-        actionButton("run_main_analysis", "Run Main Analysis")
-      ),
-      conditionalPanel(
-        condition = "output.promptFastConstraint",
-        checkboxInput("repeat_constraint", "Repeat with fast constraint?", FALSE),
-        actionButton("run_final_analysis", "Run Final Analysis")
-      ),
-      hr(),
-      downloadButton("download_output", "Download Output")
-    ),
-    mainPanel(
-      plotOutput("plot"),
-      verbatimTextOutput("console")
-    )
-  )
-)
+#       actionButton("run_analysis", "Run Initial Analysis"),
+#       conditionalPanel(
+#         condition = "output.promptTmax",
+#         numericInput("user_tmax", "Enter Tmax for fitting:", value=NA),
+#         numericInput("stimulation_time_adj", "Adjust Stimulation Time:", value=150),
+#         numericInput("baseline_adj", "Adjust Baseline:", value=50),
+#         actionButton("update_plot", "Update Plot"),
+#         actionButton("run_main_analysis", "Run Main Analysis")
+#       ),
+#       conditionalPanel(
+#         condition = "output.promptFastConstraint",
+#         checkboxInput("repeat_constraint", "Repeat with fast constraint?", FALSE),
+#         actionButton("run_final_analysis", "Run Final Analysis")
+#       ),
+#       hr(),
+#       downloadButton("download_output", "Download Output")
+#     ),
+#     mainPanel(
+#       plotOutput("plot"),
+#       verbatimTextOutput("console")
+#     )
+#   )
+# )
 
-server <- function(input, output, session) {
+# server <- function(input, output, session) {
   
-  analysis_output <- reactiveVal(NULL)
-  response_data <- reactiveVal(NULL)
-  prompt_tmax <- reactiveVal(FALSE)
-  suggested_tmax <- reactiveVal(NA)
-  prompt_fast_constraint <- reactiveVal(FALSE)
+#   analysis_output <- reactiveVal(NULL)
+#   response_data <- reactiveVal(NULL)
+#   prompt_tmax <- reactiveVal(FALSE)
+#   suggested_tmax <- reactiveVal(NA)
+#   prompt_fast_constraint <- reactiveVal(FALSE)
 
-  data_loaded <- reactive({
-    req(input$file)
-    ext <- tools::file_ext(input$file$name)
-    if(ext == "csv") read.csv(input$file$datapath) else readxl::read_excel(input$file$datapath)
-  })
+#   data_loaded <- reactive({
+#     req(input$file)
+#     ext <- tools::file_ext(input$file$name)
+#     if(ext == "csv") read.csv(input$file$datapath) else readxl::read_excel(input$file$datapath)
+#   })
   
-  output$column_selector <- renderUI({
-    req(data_loaded())
-    selectInput("data_col", "Select column to analyse", choices=names(data_loaded()))
-  })
+#   output$column_selector <- renderUI({
+#     req(data_loaded())
+#     selectInput("data_col", "Select column to analyse", choices=names(data_loaded()))
+#   })
   
-  current_params <- reactiveValues(
-    stimulation_time = NULL,
-    baseline = NULL
-  )
+#   current_params <- reactiveValues(
+#     stimulation_time = NULL,
+#     baseline = NULL
+#   )
   
-  observeEvent(input$run_analysis, {
-    req(data_loaded(), input$data_col)
-    response_data(data_loaded()[[input$data_col]])
+#   observeEvent(input$run_analysis, {
+#     req(data_loaded(), input$data_col)
+#     response_data(data_loaded()[[input$data_col]])
 
-    current_params$stimulation_time <- input$stimulation_time
-    current_params$baseline <- input$baseline
+#     current_params$stimulation_time <- input$stimulation_time
+#     current_params$baseline <- input$baseline
 
-    prompt_tmax(TRUE)
-  })
+#     prompt_tmax(TRUE)
+#   })
   
-  observeEvent(input$update_plot, {
-    current_params$stimulation_time <- input$stimulation_time_adj
-    current_params$baseline <- input$baseline_adj
-  })
+#   observeEvent(input$update_plot, {
+#     current_params$stimulation_time <- input$stimulation_time_adj
+#     current_params$baseline <- input$baseline_adj
+#   })
   
-  output$plot <- renderPlot({
-    req(prompt_tmax())
-    suggested <- determine_tmax(
-      y=response_data(), N=input$N, dt=input$dt,
-      stimulation_time=current_params$stimulation_time,
-      baseline=current_params$baseline, smooth=input$smooth,
-      y_abline=input$y_abline, prompt=FALSE
-    )
-    suggested_tmax(suggested)
-  })
+#   output$plot <- renderPlot({
+#     req(prompt_tmax())
+#     suggested <- determine_tmax(
+#       y=response_data(), N=input$N, dt=input$dt,
+#       stimulation_time=current_params$stimulation_time,
+#       baseline=current_params$baseline, smooth=input$smooth,
+#       y_abline=input$y_abline, prompt=FALSE
+#     )
+#     suggested_tmax(suggested)
+#   })
 
-  output$tmax_ui <- renderUI({
-    req(suggested_tmax())
-    numericInput("user_tmax", "Enter Tmax for fitting:", value=round(suggested_tmax(),2))
-  })
+#   output$tmax_ui <- renderUI({
+#     req(suggested_tmax())
+#     numericInput("user_tmax", "Enter Tmax for fitting:", value=round(suggested_tmax(),2))
+#   })
 
-  observeEvent(input$run_main_analysis, {
-    req(input$user_tmax)
-    result <- analyse_PSC(
-      response=response_data(), dt=input$dt, n=input$n, N=input$N, IEI=input$IEI,
-      stimulation_time=current_params$stimulation_time,
-      baseline=current_params$baseline, smooth=input$smooth,
-      fit.limits=input$user_tmax, fast.constraint=FALSE,
-      method=input$method, weight_method=input$weight_method, filter=input$filter, fc=input$fc,
-      rel.decay.fit.limit=input$rel_decay_fit_limit,
-      half_width_fit_limit=input$half_width_fit_limit, seed=input$seed,
-      sequential.fit=input$sequential_fit, dp=input$dp, return.output=TRUE
-    )
-    analysis_output(result)
-    prompt_tmax(FALSE)
-    prompt_fast_constraint(TRUE)
-  })
+#   observeEvent(input$run_main_analysis, {
+#     req(input$user_tmax)
+#     result <- analyse_PSC(
+#       response=response_data(), dt=input$dt, n=input$n, N=input$N, IEI=input$IEI,
+#       stimulation_time=current_params$stimulation_time,
+#       baseline=current_params$baseline, smooth=input$smooth,
+#       fit.limits=input$user_tmax, fast.constraint=FALSE,
+#       method=input$method, weight_method=input$weight_method, filter=input$filter, fc=input$fc,
+#       rel.decay.fit.limit=input$rel_decay_fit_limit,
+#       half_width_fit_limit=input$half_width_fit_limit, seed=input$seed,
+#       sequential.fit=input$sequential_fit, dp=input$dp, return.output=TRUE
+#     )
+#     analysis_output(result)
+#     prompt_tmax(FALSE)
+#     prompt_fast_constraint(TRUE)
+#   })
 
-  observeEvent(input$run_final_analysis, {
-    result <- analyse_PSC(
-      response=response_data(), dt=input$dt, n=input$n, N=input$N, IEI=input$IEI,
-      stimulation_time=current_params$stimulation_time,
-      baseline=current_params$baseline, smooth=input$smooth,
-      fit.limits=input$user_tmax, fast.constraint=input$repeat_constraint,
-      method=input$method, weight_method=input$weight_method, filter=input$filter, fc=input$fc,
-      rel.decay.fit.limit=input$rel_decay_fit_limit,
-      half_width_fit_limit=input$half_width_fit_limit, seed=input$seed,
-      sequential.fit=input$sequential_fit, dp=input$dp, return.output=TRUE
-    )
-    analysis_output(result)
-    prompt_fast_constraint(FALSE)
-  })
+#   observeEvent(input$run_final_analysis, {
+#     result <- analyse_PSC(
+#       response=response_data(), dt=input$dt, n=input$n, N=input$N, IEI=input$IEI,
+#       stimulation_time=current_params$stimulation_time,
+#       baseline=current_params$baseline, smooth=input$smooth,
+#       fit.limits=input$user_tmax, fast.constraint=input$repeat_constraint,
+#       method=input$method, weight_method=input$weight_method, filter=input$filter, fc=input$fc,
+#       rel.decay.fit.limit=input$rel_decay_fit_limit,
+#       half_width_fit_limit=input$half_width_fit_limit, seed=input$seed,
+#       sequential.fit=input$sequential_fit, dp=input$dp, return.output=TRUE
+#     )
+#     analysis_output(result)
+#     prompt_fast_constraint(FALSE)
+#   })
 
-  output$promptTmax <- reactive({ prompt_tmax() })
-  output$promptFastConstraint <- reactive({ prompt_fast_constraint() })
-  outputOptions(output, "promptTmax", suspendWhenHidden=FALSE)
-  outputOptions(output, "promptFastConstraint", suspendWhenHidden=FALSE)
+#   output$promptTmax <- reactive({ prompt_tmax() })
+#   output$promptFastConstraint <- reactive({ prompt_fast_constraint() })
+#   outputOptions(output, "promptTmax", suspendWhenHidden=FALSE)
+#   outputOptions(output, "promptFastConstraint", suspendWhenHidden=FALSE)
 
-  output$console <- renderPrint({ req(analysis_output()) })
+#   output$console <- renderPrint({ req(analysis_output()) })
   
-  output$download_output <- downloadHandler(
-    filename=function() paste0("PSC_analysis_", Sys.Date(), ".rds"),
-    content=function(file) saveRDS(analysis_output(), file)
-  )
-}
+#   output$download_output <- downloadHandler(
+#     filename=function() paste0("PSC_analysis_", Sys.Date(), ".rds"),
+#     content=function(file) saveRDS(analysis_output(), file)
+#   )
+# }
 
-shinyApp(ui, server)
+# shinyApp(ui, server)
 
 
 
@@ -1020,9 +1020,14 @@ server <- function(input, output, session) {
   output$console <- renderPrint({ req(analysis_output()) })
   
   output$download_output <- downloadHandler(
-    filename=function() paste0("PSC_analysis_", Sys.Date(), ".rds"),
-    content=function(file) saveRDS(analysis_output(), file)
+    filename = function() {
+      paste0(tools::file_path_sans_ext(basename(input$file$name)), "_", input$data_col, "_PSC_analysis.rds")
+    },
+    content = function(file) {
+      saveRDS(analysis_output(), file)
+    }
   )
+
 }
 
 shinyApp(ui, server)
