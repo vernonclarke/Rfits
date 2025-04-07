@@ -1030,6 +1030,9 @@ PSC_analysis_widget()
 
 
 ######################################################################################
+# for xquartz to work properly in (some) systems open R from terminal:
+# open -n -a R
+
 rm(list = ls(all = TRUE))
 graphics.off()
 
@@ -1155,7 +1158,6 @@ drawPlot2 <- function(traces, func = product2, xlab = "time (ms)", ylab = "PSC a
             lwd = lwd, filter = filter, width = width, height = height)
 }
 
-
 PSC_analysis_tk <- function() {
   # Create the main top-level window
   tt <- tktoplevel()
@@ -1235,6 +1237,11 @@ PSC_analysis_tk <- function() {
   funcChoices <- c("product1N", "product2N", "product3N")
   funcCombo <- ttkcombobox(mainOptionsFrame, textvariable = funcVar, values = funcChoices, width = 10)
   tkgrid(funcCombo, row = 5, column = 1)
+  
+  # --- Added Downsample Factor widget (default = 1) ---
+  dsVar <- tclVar("1")
+  tkgrid(tklabel(mainOptionsFrame, text = "Downsample Factor:"), row = 6, column = 0, sticky = "w")
+  tkgrid(tkentry(mainOptionsFrame, textvariable = dsVar, width = 10), row = 6, column = 1)
   
   ### Fit Options Tab ###
   NVar <- tclVar("1")
@@ -1378,7 +1385,15 @@ PSC_analysis_tk <- function() {
       } else {
         uploaded_data <<- readxl::read_excel(filePath)
       }
+      # Load the selected column
       response_data <<- uploaded_data[[tclvalue(columnVar)]]
+      
+      # --- Apply downsampling using the downsample factor ---
+      ds <- as.numeric(tclvalue(dsVar))
+      if (ds > 1) {
+        response_data <<- response_data[seq(1, length(response_data), by = ds)]
+      }
+      
       tkrreplot(plotWidget, fun = drawPlot1)
     })
   tkgrid(runAnalysisButton, row = 5, column = 0, columnspan = 3, pady = 5)
@@ -1387,7 +1402,9 @@ PSC_analysis_tk <- function() {
   runMainAnalysisButton <- tkbutton(sidebarFrame, text = "Run Main Analysis",
     command = function() {
       fast.constraint <- as.logical(as.numeric(tclvalue(repeatConstraintVar)))
-      dt                <- as.numeric(tclvalue(dtVar))
+      # --- Adjust dt based on downsample factor ---
+      ds <- as.numeric(tclvalue(dsVar))
+      dt <- as.numeric(tclvalue(dtVar)) * ds
       stimulation_time  <- as.numeric(tclvalue(stimTimeVar))
       baseline          <- as.numeric(tclvalue(baselineVar))
       smooth            <- as.numeric(tclvalue(smoothVar))
@@ -1422,7 +1439,6 @@ PSC_analysis_tk <- function() {
       fast.decay.limit  <- if(nchar(tclvalue(fastDecayLimitVar)) > 0)
                              as.numeric(unlist(strsplit(tclvalue(fastDecayLimitVar), ",")))
                            else NULL
-      # fast.constraint   <- FALSE
       fast.constraint.method <- tclvalue(fastConstraintMethodVar)
       first.delay.constraint <- as.logical(as.numeric(tclvalue(firstDelayConstraintVar)))
       dp                <- as.numeric(tclvalue(dpVar))
@@ -1433,6 +1449,7 @@ PSC_analysis_tk <- function() {
       if (all(is.na(y[(which(!is.na(y))[length(which(!is.na(y)))] + 1):length(y)]))) {
         y <- y[!is.na(y)]
       }
+      # x now uses the adjusted dt value
       x <- seq(0, (length(y) - 1) * dt, by = dt)
       
       if (!sequential.fit) {
@@ -1551,9 +1568,14 @@ PSC_analysis_tk <- function() {
         )
       }
       
-      analysis_output <<- out
-      tkdelete(consoleText, "1.0", "end")
-      tkinsert(consoleText, "end", paste(capture.output(print(out)), collapse = "\n"))
+    # Print out$output to the console widget below the graph
+    analysis_output <<- out
+    tkdelete(consoleText, "1.0", "end")
+    # Convert the data frame to a string using capture.output
+    output_str <- paste(capture.output(print(out$output)), collapse = "\n")
+    tkinsert(consoleText, "end", output_str)
+    tcltk::tcl("update", "idletasks")
+
     }
   )
   tkgrid(runMainAnalysisButton, row = 7, column = 0, columnspan = 3, pady = 5)
@@ -1569,7 +1591,9 @@ PSC_analysis_tk <- function() {
   
   ### Main Panel: Plot and Console ###
   drawPlot1 <- function() {
-    dt <- as.numeric(tclvalue(dtVar))
+    # Use downsample factor to adjust dt for plotting
+    ds <- as.numeric(tclvalue(dsVar))
+    dt <- as.numeric(tclvalue(dtVar)) * ds
     stimTime <- as.numeric(tclvalue(stimTimeVar))
     baseline <- as.numeric(tclvalue(baselineVar))
     smooth <- as.numeric(tclvalue(smoothVar))
