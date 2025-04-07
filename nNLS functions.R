@@ -2603,24 +2603,82 @@ raw_plot <- function(response, dt=0.1, stimulation_time=0, baseline=0, smooth=5,
 #   return(x_limit)
 # }
 
-determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, tmax=NULL, y_abline=0.1, height=5, width=5, prompt=TRUE) { 
+# determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, tmax=NULL, y_abline=0.1, height=5, width=5, prompt=TRUE) { 
+#   if (is.null(tmax)){
+#     peak <- peak.fun(y=y, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth)
+
+#     ind1 <- as.integer((stimulation_time - baseline)/dt)
+#     ind2 <- as.integer(stimulation_time/dt)
+#     y2plot <- y - mean(y[ind1:ind2])
+
+#     dev.new(width=width, height=height, noRStudioGD=TRUE)
+#     Y <- y2plot[ind1:length(y2plot)]
+#     X <- seq(0, dt * (length(Y) - 1), by = dt)
+
+#     out <- abline_fun(X, Y, N=N, y_abline=y_abline) 
+#     A_abline <- out[1]
+#     avg_t.abline <- out[2]
+#     avg_t.abline <- if (is.na(avg_t.abline)) max(X) else avg_t.abline
+
+#     plot(X, Y, col='indianred', xlab='time (ms)', type='l', bty='l', las=1, main='')
+#     abline(h = 0, col = 'black', lwd = 1, lty=1)
+    
+#     # Get the left and bottom of the plot
+#     left_axis <- par("usr")[1]
+#     bottom_axis <- par("usr")[3]
+    
+#     # Horizontal dotted line from X=0 to X=avg_t.abline at height A_abline
+#     lines(c(left_axis, avg_t.abline), c(A_abline, A_abline), col = 'black', lwd = 1, lty = 3)
+    
+#     # Vertical dotted line down to the bottom of the plot
+#     lines(c(avg_t.abline, avg_t.abline), c(A_abline, bottom_axis), col = 'black', lwd = 1, lty = 3)
+
+#     # Add a label to the abline
+#     ind3 <- as.integer(avg_t.abline/dt)
+#     text(x=max(X[ind1:ind3])*1.05, y=A_abline * 1.2, labels=paste0(y_abline*100, ' %'), pos=4, cex=0.6)
+
+#     text(x=max(X[ind1:ind3])*1.05, y=bottom_axis*0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=0.6)
+
+#     if (prompt) {
+#       x_limit <- NA
+#       while (is.na(x_limit)) {
+#         cat('\nEnter the upper limit for time to use in nFIT (e.g., 400 ms): ')
+#         x_limit <- as.numeric(readLines(n = 1))
+#         if (is.na(x_limit)) {
+#           cat('\nInvalid input. Please enter a numeric value.\n')
+#         }
+#       }
+#       dev.off()
+#     } else {
+#       x_limit <- avg_t.abline
+#     }
+#   } else {
+#     x_limit <- tmax
+#   }
+
+#   x_limit <- x_limit + stimulation_time - baseline
+#   return(x_limit)
+# }
+
+
+determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, tmax=NULL, y_abline=0.1, ylab=NULL, height=5, width=5, prompt=TRUE) { 
   if (is.null(tmax)){
     peak <- peak.fun(y=y, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth)
-
+    
     ind1 <- as.integer((stimulation_time - baseline)/dt)
     ind2 <- as.integer(stimulation_time/dt)
     y2plot <- y - mean(y[ind1:ind2])
-
+    
     dev.new(width=width, height=height, noRStudioGD=TRUE)
     Y <- y2plot[ind1:length(y2plot)]
     X <- seq(0, dt * (length(Y) - 1), by = dt)
-
+    
     out <- abline_fun(X, Y, N=N, y_abline=y_abline) 
     A_abline <- out[1]
     avg_t.abline <- out[2]
     avg_t.abline <- if (is.na(avg_t.abline)) max(X) else avg_t.abline
-
-    plot(X, Y, col='indianred', xlab='time (ms)', type='l', bty='l', las=1, main='')
+    
+    plot(X, Y, col='indianred', xlab='time (ms)', ylab=ylab, type='l', bty='l', las=1, main='')
     abline(h = 0, col = 'black', lwd = 1, lty=1)
     
     # Get the left and bottom of the plot
@@ -2630,14 +2688,22 @@ determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoot
     # Horizontal dotted line from X=0 to X=avg_t.abline at height A_abline
     lines(c(left_axis, avg_t.abline), c(A_abline, A_abline), col = 'black', lwd = 1, lty = 3)
     
-    # Vertical dotted line down to the bottom of the plot
+    # Vertical dotted line down to the bottom of the plot for the abline
     lines(c(avg_t.abline, avg_t.abline), c(A_abline, bottom_axis), col = 'black', lwd = 1, lty = 3)
-
+    
     # Add a label to the abline
     ind3 <- as.integer(avg_t.abline/dt)
     text(x=max(X[ind1:ind3])*1.05, y=A_abline * 1.2, labels=paste0(y_abline*100, ' %'), pos=4, cex=0.6)
-
     text(x=max(X[ind1:ind3])*1.05, y=bottom_axis*0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=0.6)
+    
+    # asterisk and label stim
+    stim_index <- round(baseline/dt) + 1
+    if (stim_index > length(X)) stim_index <- length(X)
+    points(X[stim_index], Y[stim_index], pch=8, col='darkgray', cex=1)  # pch=8 is a star symbol.
+
+    # Place the label "stim" on the same y level as the star, slightly to the right.
+    x_offset <- 0.02 * diff(range(X))  # horizontal offset based on the range of X
+    text(x = X[stim_index] + x_offset, y = Y[stim_index], labels = "stim", pos = 4, col = 'darkgray', cex = 0.6)    
 
     if (prompt) {
       x_limit <- NA
@@ -2655,10 +2721,11 @@ determine_tmax <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoot
   } else {
     x_limit <- tmax
   }
-
+  
   x_limit <- x_limit + stimulation_time - baseline
   return(x_limit)
 }
+
 
 abline_fun <- function(x, y, N = 1, y_abline = 0.1) {
   sign <- sign_fun(y)
@@ -2930,7 +2997,7 @@ analyse_PSC <- function(response, dt=0.1, n=30, N=1, IEI=50, stimulation_time=15
   if (!sequential.fit){
     
     tmax <- fit.limits
-    x_limit <- determine_tmax(y=y, N=N, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth, tmax=tmax, y_abline=rel.decay.fit.limit, width=width, height=height)   
+    x_limit <- determine_tmax(y=y, N=N, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth, tmax=tmax, y_abline=rel.decay.fit.limit, ylab=ylab, width=width, height=height)   
    
     adjusted_response <- y[x < x_limit]
     
