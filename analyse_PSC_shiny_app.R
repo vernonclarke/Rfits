@@ -4953,9 +4953,9 @@ fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar =
   
   # overlay empty plot to ensure a layer for showing scale bars
   usr <- par('usr')
-  par(new = TRUE)
-  plot(NA, xlim = usr[1:2], ylim = usr[3:4], type = 'n', 
-       axes = FALSE, xlab = '', ylab = '', main = '')
+  # par(new = TRUE)
+  # plot(NA, xlim = usr[1:2], ylim = usr[3:4], type = 'n', 
+  #      axes = FALSE, xlab = '', ylab = '', main = '')
   
   x_range <- usr[1:2]
   y_range <- usr[3:4]
@@ -5388,19 +5388,19 @@ PSC_analysis_tk()
 # app.R - Shiny version of the Tk PSC Analysis interface
 ###########################
 
-# Clear workspace and close any open graphics windows
 rm(list = ls(all = TRUE))
 graphics.off()
 
-# Load necessary libraries
-library(shiny)
-library(readxl)
-library(ARTool)
-library(robustbase)
-library(minpack.lm)
-library(Rcpp)
-library(signal)
-library(dbscan)
+## load and install necessary packages ## 
+load_required_packages <- function(packages) {
+  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+  if (length(new.packages)) install.packages(new.packages)
+  invisible(lapply(packages, library, character.only = TRUE))
+}
+
+required.packages <- c('ARTool', 'robustbase', 'minpack.lm', 'Rcpp', 'signal',
+                       'dbscan', 'shiny', 'readxl')
+load_required_packages(required.packages)
 
 # Define your username and repository path, and source your custom functions.
 username <- "euo9382"
@@ -5454,8 +5454,8 @@ determine_tmax2 <- function(y, N = 1, dt = 0.1, stimulation_time = 0, baseline =
   return(x_limit)
 }
 
-# fit_plot3: plots traces (raw signal, fitted curves, etc.) with additional overlay for scale bars.
-fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
+# fit_plot4: plots traces (raw signal, fitted curves, etc.) with additional overlay for scale bars.
+fit_plot4 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
                       xbar_lab = "ms", ybar_lab = "pA") {
   plot(traces$x, traces$y, col = "gray", type = "l", axes = FALSE, xlab = "", ylab = "",
        bty = "n", lwd = lwd)
@@ -5478,9 +5478,9 @@ fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar =
   
   # Overlay an empty plot to add scale bars
   usr <- par("usr")
-  par(new = TRUE)
-  plot(NA, xlim = usr[1:2], ylim = usr[3:4], type = "n", 
-       axes = FALSE, xlab = "", ylab = "", main = "")
+  # par(new = TRUE)
+  # plot(NA, xlim = usr[1:2], ylim = usr[3:4], type = "n", 
+  #      axes = FALSE, xlab = "", ylab = "", main = "")
   
   x_range <- usr[1:2]
   y_range <- usr[3:4]
@@ -5498,10 +5498,10 @@ fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar =
        labels = paste(ybar, ybar_lab), srt = 90, adj = c(0.5, 0.5), cex = 0.6)
 }
 
-# drawPlot2: a simple wrapper for fit_plot3
+# drawPlot2: a simple wrapper for fit_plot4
 drawPlot2 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
                       xbar_lab = "ms", ybar_lab = "pA") {
-  fit_plot3(traces = traces, func = func, lwd = lwd, filter = filter,
+  fit_plot4(traces = traces, func = func, lwd = lwd, filter = filter,
             xbar = xbar, ybar = ybar, xbar_lab = xbar_lab, ybar_lab = ybar_lab)
 }
 
@@ -5578,19 +5578,12 @@ ui <- fluidPage(
   )
 )
 
-#############################
-# Shiny Server Logic
-#############################
-
 server <- function(input, output, session) {
   
-  # Reactive values to store data and analysis results
+  # Reactive values to store data and analysis results.
   state <- reactiveValues(
-    data = NULL,
     response = NULL,
-    analysis = NULL,
-    initial_done = FALSE,
-    main_done = FALSE
+    analysis = NULL
   )
   
   # Read the uploaded file and return a data frame.
@@ -5612,28 +5605,44 @@ server <- function(input, output, session) {
   
   # --- RUN INITIAL ANALYSIS ---
   # This observer loads the selected data column (and downsamples it if requested)
-  # then flags that the initial analysis (i.e. the tmax determination) is complete.
+  # and clears any previous analysis so that determine_tmax2 will be shown.
   observeEvent(input$run_initial, {
     req(uploaded_data(), input$data_col)
-    # Extract the column
+    # Clear any previous response and analysis.
+    state$response <- NULL
+    state$analysis <- NULL
+    # Extract the column from the uploaded data.
     data_col <- uploaded_data()[[input$data_col]]
-    
     ds <- as.numeric(input$ds)
-    # If ds > 1 then downsample the data
     if (ds > 1) {
       data_col <- data_col[seq(1, length(data_col), by = ds)]
     }
     state$response <- data_col
-    state$initial_done <- TRUE
-    state$main_done <- FALSE
   })
   
+  # --- UPDATE RESPONSE WHEN DS CHANGES ---
+  # This observer updates the downsampled response data automatically when ds changes.
+  observeEvent(input$ds, {
+    req(uploaded_data(), input$data_col)
+    # Only proceed if a response is already loaded.
+    if (!is.null(state$response)) {
+      data_col <- uploaded_data()[[input$data_col]]
+      ds <- as.numeric(input$ds)
+      if (ds > 1) {
+        data_col <- data_col[seq(1, length(data_col), by = ds)]
+      }
+      state$response <- data_col
+      # Also clear any analysis result to force re-running the main analysis.
+      state$analysis <- NULL
+      cat("Downsample factor changed: Updated response with length =", length(data_col), "\n")
+    }
+  }, ignoreInit = TRUE)
+  
   # --- PLOT OUTPUT ---
-  # If only the initial analysis has been run, we call determine_tmax2 to show the cutoff plot.
-  # If the main analysis is complete, we call drawPlot2 (which uses fit_plot3) to show fitted traces.
   output$plot <- renderPlot({
     req(state$response)
-    dt <- as.numeric(input$dt) * as.numeric(input$ds) 
+    # Compute effective dt using the current ds.
+    dt <- as.numeric(input$dt) * as.numeric(input$ds)
     stim_time <- as.numeric(input$stimulation_time)
     baseline <- as.numeric(input$baseline)
     smooth <- as.numeric(input$smooth)
@@ -5643,15 +5652,16 @@ server <- function(input, output, session) {
     xbar_lab <- input$xbar_lab
     ybar_lab <- input$ybar_lab
     
-    if (!state$main_done) {
+    if (is.null(state$analysis)) {
+      # Always force tmax = NULL for the initial (cutoff) graph,
+      # so that entering a value in User Maximum Time doesn't override the plot.
       determine_tmax2(y = state$response, N = as.numeric(input$N), dt = dt,
                       stimulation_time = stim_time, baseline = baseline, smooth = smooth,
-                      tmax = if(is.na(as.numeric(input$userTmax))) NULL else as.numeric(input$userTmax),
+                      tmax = NULL,
                       y_abline = y_abline, xbar = xbar, ybar = ybar,
                       xbar_lab = xbar_lab, ybar_lab = ybar_lab)
     } else {
       req(state$analysis$traces)
-      # Select the fitting function based on user input
       func <- switch(input$func,
                      "product1N" = product1N,
                      "product2N" = product2N,
@@ -5664,12 +5674,9 @@ server <- function(input, output, session) {
   })
   
   # --- RUN MAIN ANALYSIS ---
-  # This observer gathers all input parameters, determines a cutoff (x_limit) using determine_tmax2,
-  # subsets the data accordingly, and then runs the fitting analysis via nFIT (or nFIT_sequential if checked).
   observeEvent(input$run_main, {
     req(state$response)
     
-    # Scale dt by the downsample factor
     dt <- as.numeric(input$dt) * as.numeric(input$ds)
     stim_time <- as.numeric(input$stimulation_time)
     baseline <- as.numeric(input$baseline)
@@ -5681,14 +5688,14 @@ server <- function(input, output, session) {
     weight_method <- input$weight_method
     sequential_fit <- input$sequential_fit
     interval <- c(as.numeric(input$interval_min), as.numeric(input$interval_max))
-    lower <- if(nchar(input$lower) > 0) as.numeric(unlist(strsplit(input$lower, ","))) else NULL
-    upper <- if(nchar(input$upper) > 0) as.numeric(unlist(strsplit(input$upper, ","))) else NULL
-    latency_limit <- if(nchar(input$latency_limit) > 0) as.numeric(unlist(strsplit(input$latency_limit, ","))) else NULL
+    lower <- if (nchar(input$lower) > 0) as.numeric(unlist(strsplit(input$lower, ","))) else NULL
+    upper <- if (nchar(input$upper) > 0) as.numeric(unlist(strsplit(input$upper, ","))) else NULL
+    latency_limit <- if (nchar(input$latency_limit) > 0) as.numeric(unlist(strsplit(input$latency_limit, ","))) else NULL
     iter <- as.numeric(input$iter)
     metropolis_scale <- as.numeric(input$metropolis_scale)
     fit_attempts <- as.numeric(input$fit_attempts)
     RWm <- input$RWm
-    fast_decay_limit <- if(nchar(input$fast_decay_limit) > 0) as.numeric(unlist(strsplit(input$fast_decay_limit, ","))) else NULL
+    fast_decay_limit <- if (nchar(input$fast_decay_limit) > 0) as.numeric(unlist(strsplit(input$fast_decay_limit, ","))) else NULL
     fast_constraint <- input$fast_constraint
     fast_constraint_method <- input$fast_constraint_method
     first_delay_constraint <- input$first_delay_constraint
@@ -5697,34 +5704,24 @@ server <- function(input, output, session) {
     filter_flag <- input$filter
     fc <- as.numeric(input$fc)
     
-    # Debug prints to verify parameter values
-    cat("dt:", dt, "\n")
-    cat("stim_time:", stim_time, "\n")
-    cat("baseline:", baseline, "\n")
-    cat("length of response:", length(state$response), "\n")
-    
-    # Prepare response vector y and time axis x.
     y <- state$response
     if (any(is.na(y))) y <- y[!is.na(y)]
     x <- seq(0, (length(y) - 1) * dt, by = dt)
     
-    # Determine tmax using determine_tmax2; use the user value if provided.
     tmax_value <- if (is.na(as.numeric(input$userTmax))) {
-        determine_tmax2(y = y, N = N, dt = dt, stimulation_time = stim_time, baseline = baseline,
-                        smooth = smooth, tmax = NULL, y_abline = as.numeric(input$y_abline),
-                        xbar = as.numeric(input$xbar), ybar = as.numeric(input$ybar),
-                        xbar_lab = input$xbar_lab, ybar_lab = input$ybar_lab)
-      } else {
-        as.numeric(input$userTmax)
-      }
-    cat("tmax_value:", tmax_value, "\n")
+      determine_tmax2(y = y, N = N, dt = dt, stimulation_time = stim_time, baseline = baseline,
+                      smooth = smooth, tmax = NULL, y_abline = as.numeric(input$y_abline),
+                      xbar = as.numeric(input$xbar), ybar = as.numeric(input$ybar),
+                      xbar_lab = input$xbar_lab, ybar_lab = input$ybar_lab)
+    } else {
+      as.numeric(input$userTmax)
+    }
+    cat("  tmax_value:", tmax_value, "\n")
     x_limit <- tmax_value
     
-    # Subset the response to times before x_limit.
     adjusted_response <- y[x < x_limit]
-    cat("length of adjusted_response:", length(adjusted_response), "\n")
+    cat("  length of adjusted_response:", length(adjusted_response), "\n")
     
-    # Select the correct fitting function.
     func <- switch(input$func,
                    "product1N" = product1N,
                    "product2N" = product2N,
@@ -5732,46 +5729,41 @@ server <- function(input, output, session) {
                    product1N)
     
     if (!sequential_fit) {
-        result <- nFIT(response = adjusted_response, n = n, N = N, IEI = IEI, dt = dt, func = func,
-                       method = method, weight_method = weight_method,
-                       MLEsettings = list(iter = iter, metropolis.scale = metropolis_scale, 
-                                          fit.attempts = fit_attempts, RWm = RWm),
-                       stimulation_time = stim_time, baseline = baseline, filter = filter_flag, fc = fc,
-                       interval = interval, fast.decay.limit = fast_decay_limit, fast.constraint = fast_constraint,
-                       fast.constraint.method = fast_constraint_method, first.delay.constraint = first_delay_constraint,
-                       lower = lower, upper = upper, latency.limit = latency_limit,
-                       return.output = TRUE, show.plot = FALSE, half_width_fit_limit = as.numeric(input$half_width_fit_limit),
-                       dp = dp, height = 5, width = 5, seed = seed)
-        result$traces <- traces_fun2(y = y, fits = result$fits, dt = dt, N = N, IEI = IEI,
-                                     stimulation_time = stim_time, baseline = baseline, func = func,
-                                     filter = filter_flag, fc = fc)
+      result <- nFIT(response = adjusted_response, n = n, N = N, IEI = IEI, dt = dt, func = func,
+                     method = method, weight_method = weight_method,
+                     MLEsettings = list(iter = iter, metropolis.scale = metropolis_scale, 
+                                        fit.attempts = fit_attempts, RWm = RWm),
+                     stimulation_time = stim_time, baseline = baseline, filter = filter_flag, fc = fc,
+                     interval = interval, fast.decay.limit = fast_decay_limit, fast.constraint = fast_constraint,
+                     fast.constraint.method = fast_constraint_method, first.delay.constraint = first_delay_constraint,
+                     lower = lower, upper = upper, latency.limit = latency_limit,
+                     return.output = TRUE, show.plot = FALSE, half_width_fit_limit = as.numeric(input$half_width_fit_limit),
+                     dp = dp, height = 5, width = 5, seed = seed)
+      result$traces <- traces_fun2(y = y, fits = result$fits, dt = dt, N = N, IEI = IEI,
+                                   stimulation_time = stim_time, baseline = baseline, func = func,
+                                   filter = filter_flag, fc = fc)
     } else {
-        result <- nFIT_sequential(response = y, n = n, dt = dt, func = func, method = method, weight_method = weight_method,
-                                  stimulation_time = stim_time, baseline = baseline, fit.limits = as.numeric(input$userTmax),
-                                  fast.decay.limit = fast_decay_limit, fast.constraint = fast_constraint,
-                                  fast.constraint.method = fast_constraint_method, first.delay.constraint = first_delay_constraint,
-                                  latency.limit = latency_limit, lower = lower, upper = upper, filter = filter_flag, fc = fc,
-                                  interval = interval,
-                                  MLEsettings = list(iter = iter, metropolis.scale = metropolis_scale, fit.attempts = fit_attempts, RWm = RWm),
-                                  MLE.method = method, half_width_fit_limit = as.numeric(input$half_width_fit_limit),
-                                  dp = dp, lwd = as.numeric(input$lwd), xlab = "", ylab = "", width = 5, height = 5,
-                                  return.output = TRUE, show.output = TRUE, show.plot = TRUE, seed = seed)
+      result <- nFIT_sequential(response = y, n = n, dt = dt, func = func, method = method, weight_method = weight_method,
+                                stimulation_time = stim_time, baseline = baseline, fit.limits = as.numeric(input$userTmax),
+                                fast.decay.limit = fast_decay_limit, fast.constraint = fast_constraint,
+                                fast.constraint.method = fast_constraint_method, first.delay.constraint = first_delay_constraint,
+                                latency.limit = latency_limit, lower = lower, upper = upper, filter = filter_flag, fc = fc,
+                                interval = interval,
+                                MLEsettings = list(iter = iter, metropolis.scale = metropolis_scale, fit.attempts = fit_attempts, RWm = RWm),
+                                MLE.method = method, half_width_fit_limit = as.numeric(input$half_width_fit_limit),
+                                dp = dp, lwd = as.numeric(input$lwd), xlab = "", ylab = "", width = 5, height = 5,
+                                return.output = TRUE, show.output = TRUE, show.plot = TRUE, seed = seed)
     }
     
     state$analysis <- result
-    state$main_done <- TRUE
   })
   
   # --- CLEAR OUTPUT ---
-  # This observer resets the reactive values so that both the plot and console output are cleared.
   observeEvent(input$clear_output, {
     state$analysis <- NULL
-    state$initial_done <- FALSE
-    state$main_done <- FALSE
   })
   
   # --- CONSOLE OUTPUT ---
-  # Display the analysis output in a text area.
   output$console <- renderPrint({
     if (!is.null(state$analysis)) {
       print(state$analysis)
@@ -5781,7 +5773,6 @@ server <- function(input, output, session) {
   })
   
   # --- DOWNLOAD OUTPUT ---
-  # Allow the user to download the analysis output as an RDS file.
   output$download_output <- downloadHandler(
     filename = function() {
       req(input$file)
@@ -5793,12 +5784,9 @@ server <- function(input, output, session) {
   )
   
 }
-
+  
 #############################
 # Run the Shiny App
 #############################
-
+  
 shinyApp(ui = ui, server = server)
-
-
-
