@@ -4854,32 +4854,31 @@ PSC_analysis_tk()
 
 
 ######################################################################################
-# current best working version
-# propblem output to R console not to widget
+# Final version
 # for xquartz to work properly in (some) systems open R from terminal:
 # open -n -a R
 
 rm(list = ls(all = TRUE))
 graphics.off()
 
-## load and install necessary packages ## 
+# load and install necessary packages 
 load_required_packages <- function(packages) {
   new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
   if (length(new.packages)) install.packages(new.packages)
   invisible(lapply(packages, library, character.only = TRUE))
 }
 
-required.packages <- c('ARTool', 'robustbase', 'minpack.lm', 'Rcpp', 'signal',
+required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal',
                        'dbscan', 'tkrplot', 'tcltk', 'readxl')
 load_required_packages(required.packages)
 
-## insert your username and repository path ##
+# insert your username and repository path
 username <- 'euo9382'
 path_repository <- '/Documents/Repositories/Rfits'
 file_path1 <- paste0('/Users/', username, path_repository)
 source(paste0(file_path1, '/nNLS functions.R'))
 
-### determine_tmax2 ###
+# determine_tmax2
 determine_tmax2 <- function(y, N = 1, dt = 0.1, stimulation_time = 0, baseline = 0, smooth = 5,
   tmax = NULL, y_abline = 0.1, xbar = 50, ybar = 50, xbar_lab = 'ms', ybar_lab = 'pA') {
   if (is.null(tmax)) {
@@ -4927,7 +4926,7 @@ determine_tmax2 <- function(y, N = 1, dt = 0.1, stimulation_time = 0, baseline =
   return(x_limit)
 }
 
-### fit_plot3 ###
+# fit_plot3
 fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
   xbar_lab = 'ms', ybar_lab = 'pA') {
   
@@ -4951,12 +4950,8 @@ fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar =
     abline(v = traces$bl, col = 'black', lwd = lwd, lty = 3)
   }
   
-  # overlay empty plot to ensure a layer for showing scale bars
+  # scale bars
   usr <- par('usr')
-  # par(new = TRUE)
-  # plot(NA, xlim = usr[1:2], ylim = usr[3:4], type = 'n', 
-  #      axes = FALSE, xlab = '', ylab = '', main = '')
-  
   x_range <- usr[1:2]
   y_range <- usr[3:4]
   ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
@@ -4973,7 +4968,7 @@ fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar =
        labels = paste(ybar, ybar_lab), srt = 90, adj = c(0.5, 0.5), cex = 0.6)
 }
 
-### drawPlot2 ###
+# drawPlot2
 drawPlot2 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
   xbar_lab = 'ms', ybar_lab = 'pA') {
   fit_plot3(traces = traces, func = func, lwd = lwd, filter = filter,
@@ -4992,7 +4987,7 @@ PSC_analysis_tk <- function() {
   tkgrid.rowconfigure(tt, 0, weight = 0)
   tkgrid.columnconfigure(tt, 1, weight = 1)
   
-  ### sidebar controls ###
+  # sidebar controls
   fileLabel <- tklabel(sidebarFrame, text = 'Upload CSV or XLSX:')
   tkgrid(fileLabel, row = 0, column = 0, sticky = 'w')
   filePathVar <- tclVar('')
@@ -5036,7 +5031,7 @@ PSC_analysis_tk <- function() {
   tkadd(nb, advancedFrame, text = 'Advanced')
   tkadd(nb, graphSettingsFrame, text = 'Plot Settings')
   
-  ### Main Options Tab ###
+  # Main Options Tab
   dtVar <- tclVar('0.1')
   stimTimeVar <- tclVar('100')
   baselineVar <- tclVar('50')
@@ -5062,7 +5057,7 @@ PSC_analysis_tk <- function() {
   tkgrid(tklabel(mainOptionsFrame, text = 'Downsample Factor:'), row = 6, column = 0, sticky = 'w')
   tkgrid(tkentry(mainOptionsFrame, textvariable = dsVar, width = 10), row = 6, column = 1)
   
-  ### Fit Options Tab ###
+  # Fit Options Tab
   NVar <- tclVar('1')
   IEIVar <- tclVar('50')
   smoothVar <- tclVar('5')
@@ -5102,7 +5097,7 @@ PSC_analysis_tk <- function() {
   tkgrid(tklabel(fitOptionsFrame, text = 'Latency limit:'), row = 10, column = 0, sticky = 'w')
   tkgrid(tkentry(fitOptionsFrame, textvariable = latencyLimitVar, width = 10), row = 10, column = 1)
   
-  ### MLE Settings Tab ###
+  # MLE Settings Tab
   iterVar <- tclVar('1000')
   metropolisScaleVar <- tclVar('1.5')
   fitAttemptsVar <- tclVar('10')
@@ -5117,7 +5112,7 @@ PSC_analysis_tk <- function() {
   RWmCheck <- tkcheckbutton(mleSettingsFrame, variable = RWmVar)
   tkgrid(RWmCheck, row = 3, column = 1)
   
-  ### Advanced Tab ###
+  # Advanced Tab
   filterVar <- tclVar('0')
   fcVar <- tclVar('1000')
   # relDecayFitLimitVar <- tclVar('0.1')
@@ -5152,7 +5147,7 @@ PSC_analysis_tk <- function() {
   firstDelayCheck <- tkcheckbutton(advancedFrame, variable = firstDelayConstraintVar)
   tkgrid(firstDelayCheck, row = 9, column = 1)
   
-  ### Graph Settings Tab ###
+  # Graph Settings Tab
   lwdVar <- tclVar('1.2')
   xbarVar <- tclVar('50')
   ybarVar <- tclVar('50')
@@ -5169,7 +5164,7 @@ PSC_analysis_tk <- function() {
   tkgrid(tklabel(graphSettingsFrame, text = 'y-bar units:'), row = 4, column = 0, sticky = 'w')
   tkgrid(tkentry(graphSettingsFrame, textvariable = ybarLabVar, width = 10), row = 4, column = 1)
   
-  ## Additional sidebar controls ###
+  # Additional sidebar controls
   userTmaxVar <- tclVar('')
   tkgrid(tklabel(sidebarFrame, text = 'User maximum time for fit:'), row = 3, column = 0, sticky = 'w', pady = 5)
   tkgrid(tkentry(sidebarFrame, textvariable = userTmaxVar, width = 10), row = 3, column = 1, pady = 5)
@@ -5179,7 +5174,7 @@ PSC_analysis_tk <- function() {
   repeatConstraintCheck <- tkcheckbutton(sidebarFrame, variable = repeatConstraintVar)
   tkgrid(repeatConstraintCheck, row = 4, column = 1)
   
-  ### Analysis action buttons ###
+  # Analysis action buttons
   runAnalysisButton <- tkbutton(sidebarFrame, text = 'Run Initial Analysis', command = function() {
     filePath <- tclvalue(filePathVar)
     if (nchar(filePath) == 0) {
@@ -5313,7 +5308,7 @@ PSC_analysis_tk <- function() {
   })
   tkgrid(clearOutputButton, row = 9, column = 0, columnspan = 3, pady = 5)
   
-  ### Main Panel plot ###
+  # Main Panel plot
   drawPlot1 <- function() {
     
     ds <- as.numeric(tclvalue(dsVar))
@@ -5383,15 +5378,13 @@ PSC_analysis_tk()
 # xterm
 
 
-
 ###########################
-# app.R - Shiny version of the Tk PSC Analysis interface
-###########################
+# Shiny version of analyse_PSC function
 
 rm(list = ls(all = TRUE))
 graphics.off()
 
-## load and install necessary packages ## 
+# load and install necessary packages # 
 load_required_packages <- function(packages) {
   new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
   if (length(new.packages)) install.packages(new.packages)
@@ -5403,18 +5396,14 @@ required.packages <- c('ARTool', 'robustbase', 'minpack.lm', 'Rcpp', 'signal',
 load_required_packages(required.packages)
 
 # Define your username and repository path, and source your custom functions.
-username <- "euo9382"
-path_repository <- "/Documents/Repositories/Rfits"
-file_path1 <- paste0("/Users/", username, path_repository)
-source(paste0(file_path1, "/nNLS functions.R"))
+username <- 'euo9382'
+path_repository <- '/Documents/Repositories/Rfits'
+file_path1 <- paste0('/Users/', username, path_repository)
+source(paste0(file_path1, '/nNLS functions.R'))
 
-#############################
-# Define helper functions
-#############################
-
-# determine_tmax2: calculates a cutoff time based on peak information and draws the initial plot.
+# determine_tmax2
 determine_tmax2 <- function(y, N = 1, dt = 0.1, stimulation_time = 0, baseline = 0, smooth = 5,
-                            tmax = NULL, y_abline = 0.1, xbar = 50, ybar = 50, xbar_lab = "ms", ybar_lab = "pA") {
+                            tmax = NULL, y_abline = 0.1, xbar = 50, ybar = 50, xbar_lab = 'ms', ybar_lab = 'pA') {
   if (is.null(tmax)) {
     # Calculate peak information (assumes peak.fun and abline_fun are defined in nNLS functions.R)
     peak <- peak.fun(y = y, dt = dt, stimulation_time = stimulation_time, baseline = baseline, smooth = smooth)
@@ -5431,21 +5420,21 @@ determine_tmax2 <- function(y, N = 1, dt = 0.1, stimulation_time = 0, baseline =
     avg_t_abline <- if (is.na(out[2])) max(X) else out[2]
     
     # Draw the main plot (axes suppressed)
-    plot(X, Y, col = "indianred", type = "l", axes = FALSE, xlab = "", ylab = "", main = "", bty = "n")
-    usr <- par("usr")
+    plot(X, Y, col = 'indianred', type = 'l', axes = FALSE, xlab = '', ylab = '', main = '', bty = 'n')
+    usr <- par('usr')
     left_axis <- usr[1]
     bottom_axis <- usr[3]
-    lines(c(min(X), max(X)), c(0, 0), col = "black", lwd = 1, lty = 3)
-    lines(c(min(X), avg_t_abline), c(A_abline, A_abline), col = "black", lwd = 1, lty = 3)
-    lines(c(avg_t_abline, avg_t_abline), c(A_abline, bottom_axis), col = "black", lwd = 1, lty = 3)
+    lines(c(min(X), max(X)), c(0, 0), col = 'black', lwd = 1, lty = 3)
+    lines(c(min(X), avg_t_abline), c(A_abline, A_abline), col = 'black', lwd = 1, lty = 3)
+    lines(c(avg_t_abline, avg_t_abline), c(A_abline, bottom_axis), col = 'black', lwd = 1, lty = 3)
     ind3 <- as.integer(avg_t_abline / dt)
-    text(x = max(X[ind1:ind3]) * 1.05, y = A_abline * 1.2, labels = paste0(y_abline * 100, " %"), pos = 4, cex = 0.6)
-    text(x = max(X[ind1:ind3]) * 1.05, y = bottom_axis * 0.95, labels = paste0(avg_t_abline, " ms"), pos = 4, cex = 0.6)
+    text(x = max(X[ind1:ind3]) * 1.05, y = A_abline * 1.2, labels = paste0(y_abline * 100, ' %'), pos = 4, cex = 0.6)
+    text(x = max(X[ind1:ind3]) * 1.05, y = bottom_axis * 0.95, labels = paste0(avg_t_abline, ' ms'), pos = 4, cex = 0.6)
     stim_index <- round(baseline / dt) + 1
     if (stim_index > length(X)) stim_index <- length(X)
-    points(X[stim_index], Y[stim_index], pch = 8, col = "black", cex = 1)
+    points(X[stim_index], Y[stim_index], pch = 8, col = 'black', cex = 1)
     x_offset <- 0.02 * diff(range(X))
-    text(x = X[stim_index] + x_offset, y = Y[stim_index], labels = "stim", pos = 4, col = "darkgray", cex = 0.6)
+    text(x = X[stim_index] + x_offset, y = Y[stim_index], labels = 'stim', pos = 4, col = 'darkgray', cex = 0.6)
     x_limit <- avg_t_abline
   } else {
     x_limit <- tmax
@@ -5454,34 +5443,30 @@ determine_tmax2 <- function(y, N = 1, dt = 0.1, stimulation_time = 0, baseline =
   return(x_limit)
 }
 
-# fit_plot4: plots traces (raw signal, fitted curves, etc.) with additional overlay for scale bars.
-fit_plot4 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
-                      xbar_lab = "ms", ybar_lab = "pA") {
-  plot(traces$x, traces$y, col = "gray", type = "l", axes = FALSE, xlab = "", ylab = "",
-       bty = "n", lwd = lwd)
+# fit_plot3
+fit_plot3 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
+                      xbar_lab = 'ms', ybar_lab = 'pA') {
+  plot(traces$x, traces$y, col = 'gray', type = 'l', axes = FALSE, xlab = '', ylab = '',
+       bty = 'n', lwd = lwd)
   if (filter && !is.null(traces$yfilter)) {
-    lines(traces$x, traces$yfilter, col = "black", type = "l", lwd = lwd)
+    lines(traces$x, traces$yfilter, col = 'black', type = 'l', lwd = lwd)
   }
-  lines(traces$x, traces$yfit, col = "indianred", lty = 3, lwd = 2 * lwd)
+  lines(traces$x, traces$yfit, col = 'indianred', lty = 3, lwd = 2 * lwd)
   if (identical(func, product2) || identical(func, product2N)) {
-    lines(traces$x, traces$yfit1, col = "#4C78BC", lty = 3, lwd = 2 * lwd)
-    lines(traces$x, traces$yfit2, col = "#CA92C1", lty = 3, lwd = 2 * lwd)
+    lines(traces$x, traces$yfit1, col = '#4C78BC', lty = 3, lwd = 2 * lwd)
+    lines(traces$x, traces$yfit2, col = '#CA92C1', lty = 3, lwd = 2 * lwd)
   }
   if (identical(func, product3) || identical(func, product3N)) {
-    lines(traces$x, traces$yfit1, col = "#F28E2B", lty = 3, lwd = 2 * lwd)
-    lines(traces$x, traces$yfit2, col = "#4C78BC", lty = 3, lwd = 2 * lwd)
-    lines(traces$x, traces$yfit3, col = "#CA92C1", lty = 3, lwd = 2 * lwd)
+    lines(traces$x, traces$yfit1, col = '#F28E2B', lty = 3, lwd = 2 * lwd)
+    lines(traces$x, traces$yfit2, col = '#4C78BC', lty = 3, lwd = 2 * lwd)
+    lines(traces$x, traces$yfit3, col = '#CA92C1', lty = 3, lwd = 2 * lwd)
   }
   if (!is.null(traces$bl)) {
-    abline(v = traces$bl, col = "black", lwd = lwd, lty = 3)
+    abline(v = traces$bl, col = 'black', lwd = lwd, lty = 3)
   }
   
-  # Overlay an empty plot to add scale bars
-  usr <- par("usr")
-  # par(new = TRUE)
-  # plot(NA, xlim = usr[1:2], ylim = usr[3:4], type = "n", 
-  #      axes = FALSE, xlab = "", ylab = "", main = "")
-  
+  # scale bars
+  usr <- par('usr')
   x_range <- usr[1:2]
   y_range <- usr[3:4]
   ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
@@ -5490,90 +5475,89 @@ fit_plot4 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar =
   x_end <- x_start + xbar
   y_end <- y_start + ybar
   
-  segments(x_start, y_start, x_end, y_start, lwd = 1, col = "black")
-  segments(x_start, y_start, x_start, y_end, lwd = 1, col = "black")
+  segments(x_start, y_start, x_end, y_start, lwd = 1, col = 'black')
+  segments(x_start, y_start, x_start, y_end, lwd = 1, col = 'black')
   text(x = (x_start + x_end) / 2, y = y_start - ybar / 20, 
        labels = paste(xbar, xbar_lab), adj = c(0.5, 1), cex = 0.6)
   text(x = x_start - xbar / 4, y = (y_start + y_end) / 2, 
        labels = paste(ybar, ybar_lab), srt = 90, adj = c(0.5, 0.5), cex = 0.6)
 }
 
-# drawPlot2: a simple wrapper for fit_plot4
+# drawPlot2
 drawPlot2 <- function(traces, func = product2, lwd = 1.2, filter = FALSE, xbar = 50, ybar = 50, 
-                      xbar_lab = "ms", ybar_lab = "pA") {
-  fit_plot4(traces = traces, func = func, lwd = lwd, filter = filter,
+                      xbar_lab = 'ms', ybar_lab = 'pA') {
+  fit_plot3(traces = traces, func = func, lwd = lwd, filter = filter,
             xbar = xbar, ybar = ybar, xbar_lab = xbar_lab, ybar_lab = ybar_lab)
 }
 
-#############################
-# Shiny User Interface
-#############################
 
+# Shiny User Interface
 ui <- fluidPage(
-  titlePanel("PSC Analysis - Shiny Version"),
+  titlePanel('PSC Analysis'),
   sidebarLayout(
     sidebarPanel(
-      fileInput("file", "Upload CSV or XLSX", accept = c(".csv", ".xlsx")),
-      uiOutput("column_selector"),
+      fileInput('file', 'Upload CSV or XLSX', accept = c('.csv', '.xlsx')),
+      uiOutput('column_selector'),
       
       tabsetPanel(
-        tabPanel("Main Options",
-                 numericInput("dt", "dt (ms):", 0.1),
-                 numericInput("stimulation_time", "Stimulation Time:", 100),
-                 numericInput("baseline", "Baseline:", 50),
-                 numericInput("n", "n:", 30),
-                 numericInput("y_abline", "Fit Cutoff:", 0.1),
-                 selectInput("func", "Function:", choices = c("product1N", "product2N", "product3N")),
-                 numericInput("ds", "Downsample Factor:", 1, min = 1)
+        tabPanel('Main Options',
+                 numericInput('dt', 'dt (ms):', 0.1),
+                 numericInput('stimulation_time', 'Stimulation Time:', 100),
+                 numericInput('baseline', 'Baseline:', 50),
+                 numericInput('n', 'n:', 30),
+                 numericInput('y_abline', 'Fit Cutoff:', 0.1),
+                 selectInput('func', 'Function:', choices = c('product1N', 'product2N', 'product3N')),
+                 checkboxInput('fast_constraint', 'Fast Constraint', FALSE),
+                 numericInput('ds', 'Downsample Factor:', 1, min = 1)
         ),
-        tabPanel("Fit Options",
-                 numericInput("N", "N:", 1),
-                 numericInput("IEI", "IEI:", 50),
-                 numericInput("smooth", "Smooth:", 5),
-                 selectInput("method", "Method:", choices = c("BF.LM", "LM", "GN", "port", "robust", "MLE")),
-                 selectInput("weight_method", "Weighting:", choices = c("none", "~y_sqrt", "~y")),
-                 checkboxInput("sequential_fit", "Sequential Fit", FALSE),
-                 numericInput("interval_min", "Min Interval:", 0.1),
-                 numericInput("interval_max", "Max Interval:", 0.9),
-                 textInput("lower", "Lower Bounds (comma-separated):", ""),
-                 textInput("upper", "Upper Bounds (comma-separated):", ""),
-                 textInput("latency_limit", "Latency Limit:", "")
+        tabPanel('Fit Options',
+                 numericInput('N', 'N:', 1),
+                 numericInput('IEI', 'IEI:', 50),
+                 numericInput('smooth', 'Smooth:', 5),
+                 selectInput('method', 'Method:', choices = c('BF.LM', 'LM', 'GN', 'port', 'robust', 'MLE')),
+                 selectInput('weight_method', 'Weighting:', choices = c('none', '~y_sqrt', '~y')),
+                 checkboxInput('sequential_fit', 'Sequential Fit', FALSE),
+                 numericInput('interval_min', 'Min Interval:', 0.1),
+                 numericInput('interval_max', 'Max Interval:', 0.9),
+                 textInput('lower', 'Lower Bounds (comma-separated):', ''),
+                 textInput('upper', 'Upper Bounds (comma-separated):', ''),
+                 textInput('latency_limit', 'Latency Limit:', '')
         ),
-        tabPanel("MLE Settings",
-                 numericInput("iter", "MLE Iterations:", 1000),
-                 numericInput("metropolis_scale", "Metropolis Scale:", 1.5),
-                 numericInput("fit_attempts", "Fit Attempts:", 10),
-                 checkboxInput("RWm", "Random Walk Metropolis", FALSE)
+        tabPanel('MLE Settings',
+                 numericInput('iter', 'MLE Iterations:', 1000),
+                 numericInput('metropolis_scale', 'Metropolis Scale:', 1.5),
+                 numericInput('fit_attempts', 'Fit Attempts:', 10),
+                 checkboxInput('RWm', 'Random Walk Metropolis', FALSE)
         ),
-        tabPanel("Advanced",
-                 checkboxInput("filter", "Filter", FALSE),
-                 numericInput("fc", "Filter Cutoff (Hz):", 1000),
-                 numericInput("half_width_fit_limit", "Half-width Fit Limit:", 500),
-                 numericInput("seed", "Seed:", 42),
-                 numericInput("dp", "Decimal Points:", 3),
-                 checkboxInput("fast_constraint", "Fast Constraint", FALSE),
-                 selectInput("fast_constraint_method", "Fast Constraint Method:", choices = c("rise", "peak")),
-                 textInput("fast_decay_limit", "Fast Decay Limit(s) (comma-separated):", ""),
-                 checkboxInput("first_delay_constraint", "First Delay Constraint", FALSE)
+        tabPanel('Advanced',
+                 checkboxInput('filter', 'Filter', FALSE),
+                 numericInput('fc', 'Filter Cutoff (Hz):', 1000),
+                 numericInput('half_width_fit_limit', 'Half-width Fit Limit:', 500),
+                 numericInput('seed', 'Seed:', 42),
+                 numericInput('dp', 'Decimal Points:', 3),
+                 checkboxInput('fast_constraint', 'Fast Constraint', FALSE),
+                 selectInput('fast_constraint_method', 'Fast Constraint Method:', choices = c('rise', 'peak')),
+                 textInput('fast_decay_limit', 'Fast Decay Limit(s) (comma-separated):', ''),
+                 checkboxInput('first_delay_constraint', 'First Delay Constraint', FALSE)
         ),
-        tabPanel("Plot Settings",
-                 numericInput("lwd", "Line Width:", 1.2),
-                 numericInput("xbar", "x-bar Length:", 50),
-                 numericInput("ybar", "y-bar Length:", 50),
-                 textInput("xbar_lab", "x-axis Units:", "ms"),
-                 textInput("ybar_lab", "y-axis Units:", "pA")
+        tabPanel('Plot Settings',
+                 numericInput('lwd', 'Line Width:', 1.2),
+                 numericInput('xbar', 'x-bar Length:', 50),
+                 numericInput('ybar', 'y-bar Length:', 50),
+                 textInput('xbar_lab', 'x-axis Units:', 'ms'),
+                 textInput('ybar_lab', 'y-axis Units:', 'pA')
         )
       ),
       
-      numericInput("userTmax", "User Maximum Time for Fit:", NA),
-      actionButton("run_initial", "Run Initial Analysis"),
-      actionButton("run_main", "Run Main Analysis"),
-      actionButton("clear_output", "Clear Output"),
-      downloadButton("download_output", "Download Output")
+      numericInput('userTmax', 'User Maximum Time for Fit:', NA),
+      actionButton('run_initial', 'Run Initial Analysis'),
+      actionButton('run_main', 'Run Main Analysis'),
+      actionButton('clear_output', 'Clear Output'),
+      downloadButton('download_output', 'Download Output')
     ),
     mainPanel(
-      plotOutput("plot", height = "500px"),
-      verbatimTextOutput("console")
+      plotOutput('plot', height = '500px'),
+      verbatimTextOutput('console')
     )
   )
 )
@@ -5586,26 +5570,24 @@ server <- function(input, output, session) {
     analysis = NULL
   )
   
-  # Read the uploaded file and return a data frame.
+  # upload file
   uploaded_data <- reactive({
     req(input$file)
     ext <- tools::file_ext(input$file$name)
-    if (tolower(ext) == "csv") {
+    if (tolower(ext) == 'csv') {
       read.csv(input$file$datapath)
     } else {
       readxl::read_excel(input$file$datapath)
     }
   })
   
-  # Update the column selector UI based on the uploaded data.
+  # update the column selector
   output$column_selector <- renderUI({
     req(uploaded_data())
-    selectInput("data_col", "Select Column to Analyse", choices = names(uploaded_data()))
+    selectInput('data_col', 'Select Column to Analyse', choices = names(uploaded_data()))
   })
   
-  # --- RUN INITIAL ANALYSIS ---
-  # This observer loads the selected data column (and downsamples it if requested)
-  # and clears any previous analysis so that determine_tmax2 will be shown.
+  # run initial analysis
   observeEvent(input$run_initial, {
     req(uploaded_data(), input$data_col)
     # Clear any previous response and analysis.
@@ -5620,8 +5602,7 @@ server <- function(input, output, session) {
     state$response <- data_col
   })
   
-  # --- UPDATE RESPONSE WHEN DS CHANGES ---
-  # This observer updates the downsampled response data automatically when ds changes.
+  # update when downsampled
   observeEvent(input$ds, {
     req(uploaded_data(), input$data_col)
     # Only proceed if a response is already loaded.
@@ -5634,11 +5615,11 @@ server <- function(input, output, session) {
       state$response <- data_col
       # Also clear any analysis result to force re-running the main analysis.
       state$analysis <- NULL
-      cat("Downsample factor changed: Updated response with length =", length(data_col), "\n")
+      cat('Downsample factor changed: Updated response with length =', length(data_col), '\n')
     }
   }, ignoreInit = TRUE)
   
-  # --- PLOT OUTPUT ---
+  # plot output
   output$plot <- renderPlot({
     req(state$response)
     # Compute effective dt using the current ds.
@@ -5653,8 +5634,6 @@ server <- function(input, output, session) {
     ybar_lab <- input$ybar_lab
     
     if (is.null(state$analysis)) {
-      # Always force tmax = NULL for the initial (cutoff) graph,
-      # so that entering a value in User Maximum Time doesn't override the plot.
       determine_tmax2(y = state$response, N = as.numeric(input$N), dt = dt,
                       stimulation_time = stim_time, baseline = baseline, smooth = smooth,
                       tmax = NULL,
@@ -5663,9 +5642,9 @@ server <- function(input, output, session) {
     } else {
       req(state$analysis$traces)
       func <- switch(input$func,
-                     "product1N" = product1N,
-                     "product2N" = product2N,
-                     "product3N" = product3N,
+                     'product1N' = product1N,
+                     'product2N' = product2N,
+                     'product3N' = product3N,
                      product1N)
       drawPlot2(traces = state$analysis$traces, func = func, lwd = as.numeric(input$lwd),
                 filter = input$filter, xbar = xbar, ybar = ybar,
@@ -5673,7 +5652,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # --- RUN MAIN ANALYSIS ---
+  # run main analysis
   observeEvent(input$run_main, {
     req(state$response)
     
@@ -5688,14 +5667,14 @@ server <- function(input, output, session) {
     weight_method <- input$weight_method
     sequential_fit <- input$sequential_fit
     interval <- c(as.numeric(input$interval_min), as.numeric(input$interval_max))
-    lower <- if (nchar(input$lower) > 0) as.numeric(unlist(strsplit(input$lower, ","))) else NULL
-    upper <- if (nchar(input$upper) > 0) as.numeric(unlist(strsplit(input$upper, ","))) else NULL
-    latency_limit <- if (nchar(input$latency_limit) > 0) as.numeric(unlist(strsplit(input$latency_limit, ","))) else NULL
+    lower <- if (nchar(input$lower) > 0) as.numeric(unlist(strsplit(input$lower, ','))) else NULL
+    upper <- if (nchar(input$upper) > 0) as.numeric(unlist(strsplit(input$upper, ','))) else NULL
+    latency_limit <- if (nchar(input$latency_limit) > 0) as.numeric(unlist(strsplit(input$latency_limit, ','))) else NULL
     iter <- as.numeric(input$iter)
     metropolis_scale <- as.numeric(input$metropolis_scale)
     fit_attempts <- as.numeric(input$fit_attempts)
     RWm <- input$RWm
-    fast_decay_limit <- if (nchar(input$fast_decay_limit) > 0) as.numeric(unlist(strsplit(input$fast_decay_limit, ","))) else NULL
+    fast_decay_limit <- if (nchar(input$fast_decay_limit) > 0) as.numeric(unlist(strsplit(input$fast_decay_limit, ','))) else NULL
     fast_constraint <- input$fast_constraint
     fast_constraint_method <- input$fast_constraint_method
     first_delay_constraint <- input$first_delay_constraint
@@ -5716,16 +5695,14 @@ server <- function(input, output, session) {
     } else {
       as.numeric(input$userTmax)
     }
-    cat("  tmax_value:", tmax_value, "\n")
     x_limit <- tmax_value
     
     adjusted_response <- y[x < x_limit]
-    cat("  length of adjusted_response:", length(adjusted_response), "\n")
-    
-    func <- switch(input$func,
-                   "product1N" = product1N,
-                   "product2N" = product2N,
-                   "product3N" = product3N,
+
+        func <- switch(input$func,
+                   'product1N' = product1N,
+                   'product2N' = product2N,
+                   'product3N' = product3N,
                    product1N)
     
     if (!sequential_fit) {
@@ -5751,14 +5728,14 @@ server <- function(input, output, session) {
                                 interval = interval,
                                 MLEsettings = list(iter = iter, metropolis.scale = metropolis_scale, fit.attempts = fit_attempts, RWm = RWm),
                                 MLE.method = method, half_width_fit_limit = as.numeric(input$half_width_fit_limit),
-                                dp = dp, lwd = as.numeric(input$lwd), xlab = "", ylab = "", width = 5, height = 5,
+                                dp = dp, lwd = as.numeric(input$lwd), xlab = '', ylab = '', width = 5, height = 5,
                                 return.output = TRUE, show.output = TRUE, show.plot = TRUE, seed = seed)
     }
     
     state$analysis <- result
   })
   
-  # --- CLEAR OUTPUT ---
+  # clear output
   observeEvent(input$clear_output, {
     state$analysis <- NULL
   })
@@ -5766,20 +5743,28 @@ server <- function(input, output, session) {
   # --- CONSOLE OUTPUT ---
   output$console <- renderPrint({
     if (!is.null(state$analysis)) {
-      print(state$analysis)
+
+      df_out <- state$analysis$output
+      if(sum(grepl('^A\\d+$', names(df_out))) == 1) names(df_out)[which(grepl('^A\\d+$', names(df_out)))] <- 'A'
+      if(sum(grepl('^area\\d+$', names(df_out)))==1) names(df_out)[which(grepl('^area\\d+$', names(df_out)))] <- 'area'
+      names(df_out) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(df_out))
+      names(df_out) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(df_out))
+      names(df_out)[names(df_out) == 'half_width'] <- 'half width'
+
+      print(df_out)
     } else {
-      cat("No analysis output available.")
+      cat('No analysis output performed')
     }
   })
   
-  # --- DOWNLOAD OUTPUT ---
+  # download output
   output$download_output <- downloadHandler(
     filename = function() {
       req(input$file)
-      paste0(tools::file_path_sans_ext(basename(input$file$name)), "_", input$data_col, "_PSC_analysis.rds")
+      paste0(tools::file_path_sans_ext(basename(input$file$name)), '_', input$data_col, '_PSC_analysis.RData')
     },
     content = function(file) {
-      saveRDS(state$analysis, file)
+      save(state$analysis, file = file)
     }
   )
   
