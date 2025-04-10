@@ -6624,3 +6624,99 @@ downsample_fun <- function(data, ds) {
 }
 
 
+# determine_tmax2
+determine_tmax2 <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smooth=5, lwd=1.2, cex=0.6,
+  tmax=NULL, y_abline=0.1, xbar=50, ybar=50, xbar_lab='ms', ybar_lab='pA') {
+  if (is.null(tmax)) {
+    # Calculate peak information (assumes peak.fun and abline_fun are defined)
+    peak <- peak.fun(y=y, dt=dt, stimulation_time=stimulation_time, baseline=baseline, smooth=smooth)
+    
+    ind1 <- as.integer((stimulation_time - baseline) / dt)
+    ind2 <- as.integer(stimulation_time / dt)
+    y2plot <- y - mean(y[ind1:ind2])
+    
+    # Prepare data for plotting
+    Y <- y2plot[ind1:length(y2plot)]
+    X <- seq(0, dt * (length(Y) - 1), by=dt)
+    
+    out <- abline_fun(X, Y, N=N, y_abline=y_abline)
+    A_abline <- out[1]
+    avg_t.abline <- if (is.na(out[2])) max(X) else out[2]
+    
+    # Draw the main plot (without axes)
+    plot(X, Y, col='indianred', type='l', axes=FALSE, xlab='', ylab='', lwd=lwd, main='', bty='n')
+    
+    # draw ablines and add text
+    usr <- par('usr')
+    left_axis <- usr[1]
+    bottom_axis <- usr[3]
+    lines(c(min(X), max(X)), c(0, 0), col='black', lwd=lwd, lty=3)
+    lines(c(min(X), avg_t.abline), c(A_abline, A_abline), col='black', lwd=lwd, lty=3)
+    lines(c(avg_t.abline, avg_t.abline), c(A_abline, bottom_axis), col='black', lwd=lwd, lty=3)
+    ind3 <- as.integer(avg_t.abline / dt)
+    text(x=max(X[ind1:ind3]) * 1.05, y=A_abline * 1.2, labels=paste0(y_abline * 100, ' %'), pos=4, cex=cex)
+    text(x=max(X[ind1:ind3]) * 1.05, y=bottom_axis * 0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=cex)
+    stim_index <- round(baseline / dt) + 1
+    if (stim_index > length(X)) stim_index <- length(X)
+    points(X[stim_index], Y[stim_index], pch=8, col='black', cex=1)
+    x_offset <- 0.02 * diff(range(X))
+    text(x=X[stim_index] + x_offset, y=Y[stim_index], labels='stim', pos=4, col='darkgray', cex=cex)
+    x_limit <- avg_t.abline
+
+  } else {
+    x_limit <- tmax
+  }
+  
+  x_limit <- x_limit + stimulation_time - baseline
+    
+  return(x_limit)
+}
+
+# fit_plot3
+fit_plot3 <- function(traces, func=product2, lwd=1.2, cex=0.6, filter=FALSE, xbar=50, ybar=50, 
+  xbar_lab='ms', ybar_lab='pA') {
+  plot(traces$x, traces$y, col='gray', type='l', axes=FALSE, xlab='', ylab='',
+       bty='n', lwd=lwd)
+  if (filter && !is.null(traces$yfilter)) {
+    lines(traces$x, traces$yfilter, col='black', type='l', lwd=lwd)
+  }
+  lines(traces$x, traces$yfit, col='indianred', lty=3, lwd=2 * lwd)
+  if (identical(func, product2) || identical(func, product2N)) {
+    lines(traces$x, traces$yfit1, col='#4C78BC', lty=3, lwd=2 * lwd)
+    lines(traces$x, traces$yfit2, col='#CA92C1', lty=3, lwd=2 * lwd)
+  }
+  if (identical(func, product3) || identical(func, product3N)) {
+    lines(traces$x, traces$yfit1, col='#F28E2B', lty=3, lwd=2 * lwd)
+    lines(traces$x, traces$yfit2, col='#4C78BC', lty=3, lwd=2 * lwd)
+    lines(traces$x, traces$yfit3, col='#CA92C1', lty=3, lwd=2 * lwd)
+  }
+  if (!is.null(traces$bl)) {
+    abline(v=traces$bl, col='black', lwd=lwd, lty=3)
+  }
+  
+  # scale bars
+  usr <- par('usr')
+  x_range <- usr[1:2]
+  y_range <- usr[3:4]
+  ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
+  x_start <- x_range[2] - xbar - 50
+  y_start <- ybar_start
+  x_end <- x_start + xbar
+  y_end <- y_start + ybar
+  
+  segments(x_start, y_start, x_end, y_start, lwd=lwd, col='black')
+  segments(x_start, y_start, x_start, y_end, lwd=lwd, col='black')
+  text(x=(x_start + x_end) / 2, y=y_start - ybar / 20, 
+       labels=paste(xbar, xbar_lab), adj=c(0.5, 1), cex=cex)
+  text(x=x_start - xbar / 4, y=(y_start + y_end) / 2, 
+       labels=paste(ybar, ybar_lab), srt=90, adj=c(0.5, 0.5), cex=cex)
+}
+
+# drawPlot2
+drawPlot2 <- function(traces, func=product2N, lwd=1.2, cex=1, filter=FALSE, xbar=50, ybar=50, 
+                      xbar_lab='ms', ybar_lab='pA') {
+  fit_plot3(traces=traces, func=func, lwd=lwd, cex=cex, filter=filter,
+            xbar=xbar, ybar=ybar, xbar_lab=xbar_lab, ybar_lab=ybar_lab)
+}
+
+
