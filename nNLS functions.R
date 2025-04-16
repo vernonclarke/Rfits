@@ -3239,8 +3239,8 @@ boxplot_calculator <- function(data, type = 6, na.rm=FALSE) {
     d_filtered <- d[d >= lower_bound & d <= upper_bound]
     
     median_val <- median(d, na.rm = na.rm)
-    min_val <- min(d_filtered)
-    max_val <- max(d_filtered)
+    min_val <- min(d_filtered, na.rm = na.rm)
+    max_val <- max(d_filtered, na.rm = na.rm)
     
     # Calculate MAD
     mad <- median(abs(d - median_val), na.rm = na.rm)
@@ -6717,6 +6717,217 @@ drawPlot2 <- function(traces, func=product2N, lwd=1.2, cex=1, filter=FALSE, xbar
                       xbar_lab='ms', ybar_lab='pA') {
   fit_plot3(traces=traces, func=func, lwd=lwd, cex=cex, filter=filter,
             xbar=xbar, ybar=ybar, xbar_lab=xbar_lab, ybar_lab=ybar_lab)
+}
+
+
+MCwilcox <- function(formula, df, alternative = 'two.sided',
+                     exact = NULL, na_rm_subjects = TRUE, p_adjust = 'holm') {
+  f_str <- deparse(formula)
+  has_error <- grepl('Error', f_str)
+
+  if (has_error) {
+    err_part <- sub('.*Error\\((.*)\\).*', '\\1', f_str)
+    subject_var <- strsplit(err_part, '/')[[1]][1]
+    subject_var <- gsub('[[:space:]]', '', subject_var)
+    main_formula_str <- sub('\\+\\s*Error\\(.*\\)', '', f_str)
+    main_formula <- as.formula(main_formula_str)
+  } else {
+    subject_var <- NULL
+    main_formula <- formula
+  }
+
+  response_var <- all.vars(formula(main_formula))[1]
+  predictors <- all.vars(formula(main_formula))[-1]
+
+  if (na_rm_subjects && !is.null(subject_var)) {
+    df <- df[ !ave(is.na(df[[response_var]]), df[[subject_var]], FUN = any), ]
+  }
+
+  if (length(predictors) < 1) {
+    stop('Formula must contain at least one predictor for comparisons')
+  }
+
+  paired_var <- predictors[1]
+  unpaired_var <- if (length(predictors) > 1) predictors[2] else NULL
+  results <- list()
+
+  ### Paired ###
+  if (!is.null(subject_var) && !is.null(unpaired_var)) {
+    if (is.factor(df[[paired_var]])) {
+      levels_pair <- levels(df[[paired_var]])
+    } else {
+      levels_pair <- sort(unique(df[[paired_var]]))
+    }
+
+    for (lev in levels_pair) {
+      subset_df <- df[df[[paired_var]] == lev, ]
+      if (is.factor(subset_df[[unpaired_var]])) {
+        levels_unpair <- levels(subset_df[[unpaired_var]])
+      } else {
+        levels_unpair <- sort(unique(subset_df[[unpaired_var]]))
+      }
+      if (length(levels_unpair) < 2) next
+
+      for (i in seq_len(length(levels_unpair) - 1)) {
+        lev1 <- levels_unpair[i]
+        lev2 <- levels_unpair[i + 1]
+        d1 <- subset_df[subset_df[[unpaired_var]] == lev1, ]
+        d2 <- subset_df[subset_df[[unpaired_var]] == lev2, ]
+        common_subj <- intersect(d1[[subject_var]], d2[[subject_var]])
+        d1 <- d1[d1[[subject_var]] %in% common_subj, ]
+        d2 <- d2[d2[[subject_var]] %in% common_subj, ]
+        d1 <- d1[order(d1[[subject_var]]), ]
+        d2 <- d2[order(d2[[subject_var]]), ]
+        y1 <- d1[[response_var]]
+        y2 <- d2[[response_var]]
+
+        if (length(y1) > 0 && length(y1) == length(y2)) {
+          test <- wilcox.test(y1, y2, paired = TRUE, alternative = alternative, exact = exact)
+          stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+          stat_value <- as.numeric(test$statistic)
+          results[[length(results) + 1]] <- data.frame(
+            comparison   = paste('within', paired_var, lev, '(paired)'),
+            contrast     = paste(unpaired_var, ':', lev1, 'vs', lev2),
+            n            = min(sum(!is.na(y1)), sum(!is.na(y2))),
+            test         = test$method,
+            alternative  = test$alternative,
+            `test stat`  = stat_name,
+            stat         = stat_value,
+            `p value`    = test$p.value,
+            family       = 'paired',
+            stringsAsFactors = FALSE,
+            check.names = FALSE
+          )
+        }
+      }
+    }
+  }
+
+  ### Unpaired across levels of paired_var within unpaired_var
+  if (!is.null(unpaired_var)) {
+    if (is.factor(df[[unpaired_var]])) {
+      levels_unpair_all <- levels(df[[unpaired_var]])
+    } else {
+      levels_unpair_all <- sort(unique(df[[unpaired_var]]))
+    }
+
+    for (lev in levels_unpair_all) {
+      subset_df <- df[df[[unpaired_var]] == lev, ]
+      if (is.factor(subset_df[[paired_var]])) {
+        groups_pair <- levels(subset_df[[paired_var]])
+      } else {
+        groups_pair <- sort(unique(subset_df[[paired_var]]))
+      }
+      if (length(groups_pair) < 2) next
+      d1 <- subset_df[subset_df[[paired_var]] == groups_pair[1], ]
+      d2 <- subset_df[subset_df[[paired_var]] == groups_pair[2], ]
+
+      test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+      stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+      stat_value <- as.numeric(test$statistic)
+
+      results[[length(results) + 1]] <- data.frame(
+        comparison = paste('within', unpaired_var, lev, '(unpaired)'),
+        contrast   = paste(paired_var, ':', groups_pair[1], 'vs', groups_pair[2]),
+        n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+        test       = test$method,
+        alternative= test$alternative,
+        `test stat`= stat_name,
+        stat       = stat_value,
+        `p value`  = test$p.value,
+        family     = 'unpaired',
+        stringsAsFactors = FALSE,
+        check.names = FALSE
+      )
+    }
+  }
+
+  ### Unpaired across levels of unpaired_var within paired_var, if no subjects
+  if (is.null(subject_var) && !is.null(unpaired_var)) {
+    if (is.factor(df[[paired_var]])) {
+      levels_pair_all <- levels(df[[paired_var]])
+    } else {
+      levels_pair_all <- sort(unique(df[[paired_var]]))
+    }
+
+    for (lev in levels_pair_all) {
+      subset_df <- df[df[[paired_var]] == lev, ]
+      if (is.factor(subset_df[[unpaired_var]])) {
+        groups_unpair <- levels(subset_df[[unpaired_var]])
+      } else {
+        groups_unpair <- sort(unique(subset_df[[unpaired_var]]))
+      }
+      if (length(groups_unpair) < 2) next
+      d1 <- subset_df[subset_df[[unpaired_var]] == groups_unpair[1], ]
+      d2 <- subset_df[subset_df[[unpaired_var]] == groups_unpair[2], ]
+
+      test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+      stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+      stat_value <- as.numeric(test$statistic)
+
+      results[[length(results) + 1]] <- data.frame(
+        comparison = paste('within', paired_var, lev, '(unpaired)'),
+        contrast   = paste(unpaired_var, ':', groups_unpair[1], 'vs', groups_unpair[2]),
+        n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+        test       = test$method,
+        alternative= test$alternative,
+        `test stat`= stat_name,
+        stat       = stat_value,
+        `p value`  = test$p.value,
+        family     = 'unpaired',
+        stringsAsFactors = FALSE,
+        check.names = FALSE
+      )
+    }
+  }
+
+  ### Single-predictor unpaired comparison
+  if (is.null(subject_var) && is.null(unpaired_var)) {
+    if (is.factor(df[[paired_var]])) {
+      groups <- levels(df[[paired_var]])
+    } else {
+      groups <- sort(unique(df[[paired_var]]))
+    }
+    if (length(groups) >= 2) {
+      d1 <- df[df[[paired_var]] == groups[1], ]
+      d2 <- df[df[[paired_var]] == groups[2], ]
+
+      test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+      stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+      stat_value <- as.numeric(test$statistic)
+
+      results[[length(results) + 1]] <- data.frame(
+        comparison = paste('between', paired_var),
+        contrast   = paste(groups[1], 'vs', groups[2]),
+        n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+        test       = test$method,
+        alternative= test$alternative,
+        `test stat`= stat_name,
+        stat       = stat_value,
+        `p value`  = test$p.value,
+        family     = 'unpaired',
+        stringsAsFactors = FALSE,
+        check.names = FALSE
+      )
+    }
+  }
+
+  out <- if (length(results) == 1) results[[1]] else do.call(rbind, results)
+
+  out$`p adjusted` <- NA
+  for (fam in unique(out$family)) {
+    idx <- which(out$family == fam)
+    out$`p adjusted`[idx] <- p.adjust(out$`p value`[idx], method = p_adjust)
+  }
+
+  out$family <- factor(out$family, levels = c("paired", "unpaired"))
+  out <- out[order(
+    out$family,
+    sub("within (\\w+).*", "\\1", out$comparison),
+    suppressWarnings(as.numeric(sub(".*within \\w+ (\\w+) \\(.*", "\\1", out$comparison)))
+  ), ]
+  out$family <- NULL
+  return(out)
 }
 
 
