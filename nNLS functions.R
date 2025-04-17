@@ -3338,191 +3338,437 @@ BoxPlot <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)',
 
 
 
-BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', 
-                    main = '', xrange = NULL, yrange = c(-400, 0), tick_length = 0.2, 
-                    x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, 
-                    type = 6, amount = 0.05, p.cex = 0.5, filename = 'boxplot.svg', 
-                    height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, na.rm=FALSE, save = FALSE) {
+# BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', 
+#                     main = '', xrange = NULL, yrange = c(-400, 0), tick_length = 0.2, 
+#                     x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, 
+#                     type = 6, amount = 0.05, p.cex = 0.5, filename = 'boxplot.svg', 
+#                     height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, na.rm=FALSE, save = FALSE) {
   
-  # Parse the formula to extract response and predictors
-  response <- as.character(formula[[2]])
-  predictors <- all.vars(formula[[3]]) # Get the predictor variables
+#   # Parse the formula to extract response and predictors
+#   response <- as.character(formula[[2]])
+#   predictors <- all.vars(formula[[3]]) # Get the predictor variables
   
-  # Check if the specified columns exist in the data
-  if (!all(c(response, predictors) %in% colnames(data))) {
-    stop("The specified response or predictor variables are not found in the data.")
+#   # Check if the specified columns exist in the data
+#   if (!all(c(response, predictors) %in% colnames(data))) {
+#     stop("The specified response or predictor variables are not found in the data.")
+#   }
+  
+#   # Handle grouping if interaction is specified or random effects are included
+#   if (any(grepl("\\|", predictors))) {
+#     # Mixed effects formula with random effects
+#     fixed_effects <- sub(" \\+ \\(1\\|.*\\)", "", predictors)
+#     group_vars <- strsplit(fixed_effects, " \\* | \\+ ")[[1]]
+#     subject_var <- gsub(".*\\|", "", predictors)
+#     data$s <- as.factor(data[[subject_var]])
+#   } else {
+#     # Standard formula without random effects
+#     group_vars <- predictors
+#   }
+  
+#   # Determine the number of grouping factors
+#   if (length(group_vars) == 1) {
+#     # Single grouping variable
+#     data$x <- as.factor(data[[group_vars[1]]])
+#   } else {
+#     # Interaction of two grouping variables
+#     data$x <- interaction(data[[group_vars[1]]], data[[group_vars[2]]], sep = " : ")
+#   }
+  
+#   # Set the response variable
+#   data$y <- data[[response]]
+
+#   # Set x range based on the unique levels of x
+#   if (is.null(xrange)) {
+#     xrange <- range(as.numeric(data$x)) + c(-wid, wid)
+#   }
+  
+#   # Handle saving the plot
+#   if (save) {
+#     svg(file = filename, width = width, height = height, bg = bg)
+#   } else {
+#     dev.new(width = width, height = height, noRStudioGD = TRUE)
+#   }
+  
+#   # Create the box plot using the WBplot function
+#   WBplot(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main, 
+#          xrange = xrange, yrange = yrange, tick_length = tick_length, x_tick_interval = x_tick_interval, 
+#          y_tick_interval = y_tick_interval, lwd = lwd, type = type, na.rm=na.rm)
+  
+#   # Jitter x-values for plotting individual points
+#   set.seed(42)
+#   data$x_jitter <- jitter(as.numeric(data$x), amount = amount)
+  
+#   # Set the color with alpha transparency for the points
+#   point_color <- rgb(169 / 255, 169 / 255, 169 / 255, alpha = alpha)  # darkgray with alpha transparency
+#   points(data$x_jitter, data$y, pch = 19, col = point_color, lwd = lwd / 3, cex = p.cex)
+  
+#   # Connect data points for repeated measures (if subject information is provided)
+#   if ("s" %in% colnames(data)) {
+#     subjects <- unique(data$s)
+#     for (subj in subjects) {
+#       subset_data <- data[data$s == subj, ]
+#       lines(subset_data$x_jitter, subset_data$y, col = 'darkgray', lwd = lwd, lty = 3)  # lty=3 for dotted line
+#     }
+#   }
+  
+#   # Close the SVG device if saving
+#   if (save) {
+#     dev.off()
+#   }
+# }
+
+BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05,
+                     xlab = '', ylab = 'PSC amplitude (pA)', main = '',
+                     xrange = NULL, yrange = c(-400, 0), tick_length = 0.2,
+                     x_tick_interval = NULL, y_tick_interval = 100,
+                     xlabel_angle = NULL,    # NEW: angle in degrees, or NULL for horizontal
+                     lwd = 1, type = 6, amount = 0.05, p.cex = 0.5,
+                     filename = 'boxplot.svg', height = 2.5, width = 4,
+                     bg = 'transparent', alpha = 0.6, na.rm = FALSE, save = FALSE) {
+
+  # formula
+  response   <- as.character(formula[[2]])
+  predictors <- all.vars(formula[[3]])
+  if (!all(c(response, predictors) %in% names(data))) {
+    stop("Response or predictor not found in data.")
   }
-  
-  # Handle grouping if interaction is specified or random effects are included
-  if (any(grepl("\\|", predictors))) {
-    # Mixed effects formula with random effects
-    fixed_effects <- sub(" \\+ \\(1\\|.*\\)", "", predictors)
-    group_vars <- strsplit(fixed_effects, " \\* | \\+ ")[[1]]
-    subject_var <- gsub(".*\\|", "", predictors)
-    data$s <- as.factor(data[[subject_var]])
+
+  if (length(predictors) == 1) {
+    data$x <- factor(data[[predictors[1]]])
   } else {
-    # Standard formula without random effects
-    group_vars <- predictors
+    data$x <- interaction(data[[predictors[1]]], data[[predictors[2]]], sep=" : ")
   }
-  
-  # Determine the number of grouping factors
-  if (length(group_vars) == 1) {
-    # Single grouping variable
-    data$x <- as.factor(data[[group_vars[1]]])
-  } else {
-    # Interaction of two grouping variables
-    data$x <- interaction(data[[group_vars[1]]], data[[group_vars[2]]], sep = " : ")
-  }
-  
-  # Set the response variable
   data$y <- data[[response]]
 
-  # Set x range based on the unique levels of x
   if (is.null(xrange)) {
-    xrange <- range(as.numeric(data$x)) + c(-wid, wid)
+    xrange <- range(as.numeric(data$x), na.rm=TRUE) + c(-wid, wid)
   }
-  
-  # Handle saving the plot
+
   if (save) {
-    svg(file = filename, width = width, height = height, bg = bg)
+    svg(filename, width=width, height=height, bg=bg)
+    on.exit(dev.off(), add=TRUE)
   } else {
-    dev.new(width = width, height = height, noRStudioGD = TRUE)
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
   }
-  
-  # Create the box plot using the WBplot function
-  WBplot(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main, 
-         xrange = xrange, yrange = yrange, tick_length = tick_length, x_tick_interval = x_tick_interval, 
-         y_tick_interval = y_tick_interval, lwd = lwd, type = type, na.rm=na.rm)
-  
-  # Jitter x-values for plotting individual points
+
+  # suppress default x‐labels
+  orig_axis <- graphics::axis
+  assign("axis",
+    function(side, at, labels = TRUE, tcl = NA, ...) {
+      if (side == 1) {
+        orig_axis(side, at = at, labels = FALSE, tcl = -tick_length, ...)
+      } else {
+        orig_axis(side, at = at, labels = labels, tcl = -tick_length, ...)
+      }
+    },
+    envir = .GlobalEnv
+  )
+  on.exit(assign("axis", orig_axis, envir = .GlobalEnv), add = TRUE)
+
+  # draw the boxplot (WBplot calls axis(1) & axis(2) internally)
+  WBplot(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main,
+         xrange = xrange, yrange = yrange, tick_length = tick_length,
+         x_tick_interval = x_tick_interval, y_tick_interval = y_tick_interval,
+         lwd = lwd, type = type, na.rm = na.rm)
+
+  # restore axis()
+  assign("axis", orig_axis, envir = .GlobalEnv)
+
+
+  # draw custom x‐labels
+  x_labels <- levels(data$x)
+
+  # strip off everything from the first " :"
+  labs <- sub("\\s*:\\s*.*$", "", x_labels)
+
+  # draw axis
+  at <- seq_along(labs)
+  if (is.null(xlabel_angle)) {
+    axis(1, at = at, labels = labs, tcl = -tick_length, lwd = lwd)
+  } else {
+    axis(1, at = at, labels = FALSE, tcl = -tick_length, lwd = lwd)
+    usr <- par("usr")
+    y0  <- usr[3] - 0.1 * diff(usr[3:4])
+    text(x = at, y = y0, labels = labs,
+         srt = xlabel_angle, adj = 1, xpd = TRUE)
+  }
+
+  # —————— jitter & paired/unpaired block ——————
   set.seed(42)
+  # **1)** generate jittered x positions
   data$x_jitter <- jitter(as.numeric(data$x), amount = amount)
-  
-  # Set the color with alpha transparency for the points
-  point_color <- rgb(169 / 255, 169 / 255, 169 / 255, alpha = alpha)  # darkgray with alpha transparency
-  points(data$x_jitter, data$y, pch = 19, col = point_color, lwd = lwd / 3, cex = p.cex)
-  
-  # Connect data points for repeated measures (if subject information is provided)
-  if ("s" %in% colnames(data)) {
-    subjects <- unique(data$s)
-    for (subj in subjects) {
-      subset_data <- data[data$s == subj, ]
-      lines(subset_data$x_jitter, subset_data$y, col = 'darkgray', lwd = lwd, lty = 3)  # lty=3 for dotted line
+
+  # **2)** identify paired subjects (≥2 non-NA y’s)
+  if ("s" %in% names(data)) {
+    counts        <- ave(!is.na(data$y), data$s, FUN = sum)
+    data$paired   <- counts >= 2
+  } else {
+    data$paired   <- FALSE
+  }
+
+  # **3)** draw lines for repeated measures (>=2) in correct x‐order
+  if ("s" %in% names(data)) {
+    for (subj in unique(data$s[data$paired])) {
+      sd <- subset(data, s == subj & !is.na(y))
+      # sort by the factor level of x, not by jitter
+      sd <- sd[order(as.numeric(sd$x)), ]
+      lines(sd$x_jitter, sd$y,
+            col = 'darkgray', lwd = lwd, lty = 3)
     }
   }
+
+  # **4)** draw the paired points (gray)
+  gray_col <- rgb(169/255,169/255,169/255, alpha = alpha)
+  points(data$x_jitter[data$paired],
+         data$y[data$paired],
+         pch = 19, col = gray_col, cex = p.cex, lwd = lwd/3)
+
+  # **5)** draw the strictly unpaired points (IndianRed)
+  unpaired <- !data$paired & !is.na(data$y)
+  red_col <- rgb(205/255,92/255,92/255, alpha = alpha)
+  points(data$x_jitter[unpaired],
+         data$y[unpaired],
+         pch = 19, col = red_col, cex = p.cex, lwd = lwd/3)
+
+  if (save) dev.off()
+}
+
+BoxPlot3 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
+                     xrange = NULL, yrange = c(-400, 0), xlabel_angle = NULL, tick_length = 0.2, 
+                     x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, type = 6, amount = 0.05, p.cex = 0.5,
+                     height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, na_rm_subjects = FALSE,
+                     test_result, alpha_level = 0.05, group_names = NULL, sig_offset = NULL) {
+
   
-  # Close the SVG device if saving
-  if (save) {
-    dev.off()
+  f_str <- deparse(formula)
+  has_error <- grepl('Error', f_str)
+
+  if (has_error) {
+    err_part <- sub('.*Error\\((.*)\\).*', '\\1', f_str)
+    subject_var <- strsplit(err_part, '/')[[1]][1]
+    subject_var <- gsub('[[:space:]]', '', subject_var)
+    main_formula_str <- sub('\\+\\s*Error\\(.*\\)', '', f_str)
+    main_formula <- as.formula(main_formula_str)
+  } else {
+    subject_var <- NULL
+    main_formula <- formula
+  }
+
+  response_var <- all.vars(formula(main_formula))[1]
+  predictors <- all.vars(formula(main_formula))[-1]
+
+  if (na_rm_subjects && !is.null(subject_var)) {
+    data <- df[ !ave(is.na(data[[response_var]]), data[[subject_var]], FUN = any), ]
+  }
+
+
+
+
+
+
+  BoxPlot2(formula = formula, data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, xlabel_angle = xlabel_angle, main = main,
+           xrange = xrange, yrange = yrange, tick_length = tick_length, y_tick_interval = y_tick_interval,
+           lwd = lwd, type = type, amount = amount, p.cex = p.cex, height = height, width = width,
+           bg = bg, na.rm = TRUE)
+
+  if (missing(test_result) || is.null(test_result) || nrow(test_result) == 0) {
+    return()
+  }
+
+  # Prepare data$x & data$y
+  response   <- response_var
+  # predictors <- all.vars(formula[[3]])
+  data$y     <- data[[response]]
+
+  if (length(predictors) == 1) {
+    data$x        <- factor(data[[predictors[1]]])
+    single_factor <- TRUE
+  } else {
+    data$x        <- interaction(
+      data[[predictors[1]]],
+      data[[predictors[2]]],
+      sep = " : "
+    )
+    single_factor <- FALSE
+  }
+
+  x_labels    <- levels(data$x)
+  x_positions <- setNames(seq_along(x_labels), x_labels)
+
+  # compute base offset and tick
+  y_span <- diff(range(data$y, na.rm = TRUE))
+  offset <- if (is.null(sig_offset)) 0.05 * y_span else sig_offset
+  tick   <- 0.25 * offset
+
+  # Loop over tests
+  for (i in seq_len(nrow(test_result))) {
+    p_adj <- test_result$`p adjusted`[i]
+    if (is.na(p_adj) || p_adj >= alpha_level) next
+
+    parts <- strsplit(as.character(test_result$contrast[i]), " vs ")[[1]]
+    if (length(parts) != 2) next
+    lev1 <- trimws(parts[1])
+    lev2 <- trimws(parts[2])
+
+    # Build the two labels that match interaction()
+    if (single_factor) {
+      label1 <- lev1
+      label2 <- lev2
+    } else {
+      comp      <- as.character(test_result$comparison[i])
+      outer_lev <- sub(".*? ([^ ]+) \\(.*", "\\1", comp)
+      if (grepl("\\(paired\\)", comp)) {
+        label1 <- paste0(lev1, " : ", outer_lev)
+        label2 <- paste0(lev2, " : ", outer_lev)
+      } else {
+        label1 <- paste0(outer_lev, " : ", lev1)
+        label2 <- paste0(outer_lev, " : ", lev2)
+      }
+    }
+
+    if (!(label1 %in% x_labels) || !(label2 %in% x_labels)) next
+    x1 <- x_positions[label1]
+    x2 <- x_positions[label2]
+
+    yvals <- c(data$y[data$x == label1], data$y[data$x == label2])
+    yvals <- yvals[!is.na(yvals)]
+    if (length(yvals) == 0) next
+    y_max <- max(yvals)
+    y_min <- min(yvals)
+
+    # shift unpaired sig bars by 6*tick
+    if (single_factor) {
+      shift_amt <- 0
+    } else {
+      paired    <- grepl("\\(paired\\)", comp)
+      shift_amt <- if (!paired) 6 * tick else 0
+    }
+
+    if (y_max > 0) {
+      y_line <- y_max + offset + shift_amt
+      segments(x1, y_line, x1, y_line - tick, lwd = lwd)
+      segments(x2, y_line, x2, y_line - tick, lwd = lwd)
+      text_y <- y_line + tick
+    } else {
+      y_line <- y_min - offset - shift_amt
+      segments(x1, y_line, x1, y_line + tick, lwd = lwd)
+      segments(x2, y_line, x2, y_line + tick, lwd = lwd)
+      text_y <- y_line - tick
+    }
+
+    segments(x1, y_line, x2, y_line, lwd = lwd)
+    text((x1 + x2) / 2, text_y, labels = "*", cex = 1.2)
   }
 }
 
-BoxPlot3 <- function(formula, data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)', main='', xrange=NULL, 
-  yrange=c(-400, 0), tick_length=0.2, x_tick_interval=NULL, y_tick_interval=100, lwd=1, type=6, amount=0.05, 
-    p.cex=0.5, filename='boxplot.svg', height=2.5, width=4, bg='transparent', alpha=0.6, na.rm=FALSE, 
-    test_results=NULL, alpha_level=0.05, group_names=NULL, sig_offset=NULL, save=FALSE) {
+
+
+# BoxPlot3 <- function(formula, data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)', main='', xrange=NULL, 
+#   yrange=c(-400, 0), tick_length=0.2, x_tick_interval=NULL, y_tick_interval=100, lwd=1, type=6, amount=0.05, 
+#     p.cex=0.5, filename='boxplot.svg', height=2.5, width=4, bg='transparent', alpha=0.6, na.rm=FALSE, 
+#     test_results=NULL, alpha_level=0.05, group_names=NULL, sig_offset=NULL, save=FALSE) {
   
-  BoxPlot2(formula=formula, data=data, wid=wid, cap=cap, xlab=xlab, 
-           ylab=ylab, xrange=xrange, yrange=yrange, tick_length=tick_length, 
-           y_tick_interval=y_tick_interval, lwd=lwd, type=type, amount=amount, 
-           p.cex=p.cex, filename=filename, height=height, width=width, 
-           na.rm=na.rm, save=save)
+#   BoxPlot2(formula=formula, data=data, wid=wid, cap=cap, xlab=xlab, 
+#            ylab=ylab, xrange=xrange, yrange=yrange, tick_length=tick_length, 
+#            y_tick_interval=y_tick_interval, lwd=lwd, type=type, amount=amount, 
+#            p.cex=p.cex, filename=filename, height=height, width=width, 
+#            na.rm=na.rm, save=save)
   
-  if (!is.null(test_results)){
-    response <- as.character(formula[[2]])
-    data$y <- data[[response]]
+#   if (!is.null(test_results)){
+#     response <- as.character(formula[[2]])
+#     data$y <- data[[response]]
     
-    # grouping variable (assumed to be the first predictor)
-    predictors <- all.vars(formula[[3]])
-    group_col <- predictors[1]
+#     # grouping variable (assumed to be the first predictor)
+#     predictors <- all.vars(formula[[3]])
+#     group_col <- predictors[1]
     
-    # if group_names is provided, recode else use the numeric levels
-    orig_levels <- sort(unique(data[[group_col]]))
-    if (!is.null(group_names)) {
-      if (length(group_names) != length(orig_levels)) {
-        stop("number of group_names should match the number of unique groups in the group column")
-      }
-      data$x <- factor(data[[group_col]], levels=orig_levels, labels=group_names)
-      groups <- group_names
-    } else {
-      groups <- as.character(orig_levels)
-      data$x <- factor(data[[group_col]], levels=groups)
-    }
+#     # if group_names is provided, recode else use the numeric levels
+#     orig_levels <- sort(unique(data[[group_col]]))
+#     if (!is.null(group_names)) {
+#       if (length(group_names) != length(orig_levels)) {
+#         stop("number of group_names should match the number of unique groups in the group column")
+#       }
+#       data$x <- factor(data[[group_col]], levels=orig_levels, labels=group_names)
+#       groups <- group_names
+#     } else {
+#       groups <- as.character(orig_levels)
+#       data$x <- factor(data[[group_col]], levels=groups)
+#     }
     
-    # map groups to x positions
-    x_positions <- setNames(seq_along(groups), groups)
-    y_range <- diff(range(data$y, na.rm=TRUE))
+#     # map groups to x positions
+#     x_positions <- setNames(seq_along(groups), groups)
+#     y_range <- diff(range(data$y, na.rm=TRUE))
     
-    # offset sig bars
-    offset <- if (is.null(sig_offset)) 0.05 * y_range else sig_offset
-    tick <- 0.25 * offset  # fixed tick height
+#     # offset sig bars
+#     offset <- if (is.null(sig_offset)) 0.05 * y_range else sig_offset
+#     tick <- 0.25 * offset  # fixed tick height
     
-    for (i in 1:nrow(test_results)) {
-      p_val <- as.numeric(test_results[i, "p adjusted"])
-      if (p_val < alpha_level) {
-        # Determine groups to compare.
-        if (is.null(group_names)) {
-          # if group_names are provided, assumes numeric order corresponds to testing order
-          if (i >= length(groups)) {
-            warning("Test result index exceeds number of available group pairs.")
-            next
-          }
-          group1 <- groups[i]
-          group2 <- groups[i + 1]
-        } else {
-          contrast_str <- as.character(test_results[i, "contrast"])
-          groups_in_contrast <- strsplit(contrast_str, " vs ")[[1]]
-          if (length(groups_in_contrast) != 2) next
-          group1 <- groups_in_contrast[1]
-          group2 <- groups_in_contrast[2]
-        }
+#     for (i in 1:nrow(test_results)) {
+#       p_val <- as.numeric(test_results[i, "p adjusted"])
+#       if (p_val < alpha_level) {
+#         # Determine groups to compare.
+#         if (is.null(group_names)) {
+#           # if group_names are provided, assumes numeric order corresponds to testing order
+#           if (i >= length(groups)) {
+#             warning("Test result index exceeds number of available group pairs.")
+#             next
+#           }
+#           group1 <- groups[i]
+#           group2 <- groups[i + 1]
+#         } else {
+#           contrast_str <- as.character(test_results[i, "contrast"])
+#           groups_in_contrast <- strsplit(contrast_str, " vs ")[[1]]
+#           if (length(groups_in_contrast) != 2) next
+#           group1 <- groups_in_contrast[1]
+#           group2 <- groups_in_contrast[2]
+#         }
         
-        # get x positions
-        if (!(group1 %in% names(x_positions)) || !(group2 %in% names(x_positions))) {
-          warning(paste("One of the groups in contrast", group1, "vs", group2, "was not found."))
-          next
-        }
-        x1 <- x_positions[group1]
-        x2 <- x_positions[group2]
+#         # get x positions
+#         if (!(group1 %in% names(x_positions)) || !(group2 %in% names(x_positions))) {
+#           warning(paste("One of the groups in contrast", group1, "vs", group2, "was not found."))
+#           next
+#         }
+#         x1 <- x_positions[group1]
+#         x2 <- x_positions[group2]
         
-        # Retrieve y-values for these groups.
-        y_vals_group1 <- data$y[as.character(data$x) == group1]
-        y_vals_group2 <- data$y[as.character(data$x) == group2]
-        y_vals <- c(y_vals_group1, y_vals_group2)
-        y_max <- max(y_vals, na.rm=TRUE)
-        y_min <- min(y_vals, na.rm=TRUE)
+#         # Retrieve y-values for these groups.
+#         y_vals_group1 <- data$y[as.character(data$x) == group1]
+#         y_vals_group2 <- data$y[as.character(data$x) == group2]
+#         y_vals <- c(y_vals_group1, y_vals_group2)
+#         y_max <- max(y_vals, na.rm=TRUE)
+#         y_min <- min(y_vals, na.rm=TRUE)
         
-        if (is.infinite(y_max)) {
-          warning(paste("No valid y-values found for contrast", group1, "vs", group2))
-          next
-        }
+#         if (is.infinite(y_max)) {
+#           warning(paste("No valid y-values found for contrast", group1, "vs", group2))
+#           next
+#         }
         
-        # significance bar above the max if positive
-        if (y_max > 0) {
-          y_line <- y_max + offset
-          segments(x0=x1, y0=y_line, x1=x1, y1=y_line - tick, lwd=lwd)
-          segments(x0=x2, y0=y_line, x1=x2, y1=y_line - tick, lwd=lwd)
-          text_y <- y_line + tick 
-        } else {
-          # significance bar below the min if negative
-          y_line <- y_min - offset
-          segments(x0=x1, y0=y_line, x1=x1, y1=y_line + tick, lwd=lwd)
-          segments(x0=x2, y0=y_line, x1=x2, y1=y_line + tick, lwd=lwd)
-          text_y <- y_line - tick 
-        }
+#         # significance bar above the max if positive
+#         if (y_max > 0) {
+#           y_line <- y_max + offset
+#           segments(x0=x1, y0=y_line, x1=x1, y1=y_line - tick, lwd=lwd)
+#           segments(x0=x2, y0=y_line, x1=x2, y1=y_line - tick, lwd=lwd)
+#           text_y <- y_line + tick 
+#         } else {
+#           # significance bar below the min if negative
+#           y_line <- y_min - offset
+#           segments(x0=x1, y0=y_line, x1=x1, y1=y_line + tick, lwd=lwd)
+#           segments(x0=x2, y0=y_line, x1=x2, y1=y_line + tick, lwd=lwd)
+#           text_y <- y_line - tick 
+#         }
         
-        # horizontal line connecting boxes
-        segments(x0=x1, y0=y_line, x1=x2, y1=y_line, lwd=lwd)
+#         # horizontal line connecting boxes
+#         segments(x0=x1, y0=y_line, x1=x2, y1=y_line, lwd=lwd)
         
-        # 
-        star_label <- "*"
+#         # 
+#         star_label <- "*"
         
-        # show sig *
-        text(x=(x1 + x2) / 2, y=text_y, labels=star_label)
-      }
-    }
-  }
-}
+#         # show sig *
+#         text(x=(x1 + x2) / 2, y=text_y, labels=star_label)
+#       }
+#     }
+#   }
+# }
 
 scatter_plot <- function(scatter, xlim=c(0, 400), ylim=c(0, 400), x_tick_interval=100, y_tick_interval=100, height=4, width=4, main='',
                          colors=c("black", "indianred"), open_symbols=FALSE, lwd=1, p.cex=0.5, filename='scatter.svg', save=FALSE) {
@@ -6720,6 +6966,216 @@ drawPlot2 <- function(traces, func=product2N, lwd=1.2, cex=1, filter=FALSE, xbar
 }
 
 
+# MCwilcox <- function(formula, df, alternative = 'two.sided',
+#                      exact = NULL, na_rm_subjects = TRUE, p_adjust = 'holm') {
+#   f_str <- deparse(formula)
+#   has_error <- grepl('Error', f_str)
+
+#   if (has_error) {
+#     err_part <- sub('.*Error\\((.*)\\).*', '\\1', f_str)
+#     subject_var <- strsplit(err_part, '/')[[1]][1]
+#     subject_var <- gsub('[[:space:]]', '', subject_var)
+#     main_formula_str <- sub('\\+\\s*Error\\(.*\\)', '', f_str)
+#     main_formula <- as.formula(main_formula_str)
+#   } else {
+#     subject_var <- NULL
+#     main_formula <- formula
+#   }
+
+#   response_var <- all.vars(formula(main_formula))[1]
+#   predictors <- all.vars(formula(main_formula))[-1]
+
+#   if (na_rm_subjects && !is.null(subject_var)) {
+#     df <- df[ !ave(is.na(df[[response_var]]), df[[subject_var]], FUN = any), ]
+#   }
+
+#   if (length(predictors) < 1) {
+#     stop('Formula must contain at least one predictor for comparisons')
+#   }
+
+#   paired_var <- predictors[1]
+#   unpaired_var <- if (length(predictors) > 1) predictors[2] else NULL
+#   results <- list()
+
+#   ### Paired ###
+#   if (!is.null(subject_var) && !is.null(unpaired_var)) {
+#     if (is.factor(df[[paired_var]])) {
+#       levels_pair <- levels(df[[paired_var]])
+#     } else {
+#       levels_pair <- sort(unique(df[[paired_var]]))
+#     }
+
+#     for (lev in levels_pair) {
+#       subset_df <- df[df[[paired_var]] == lev, ]
+#       if (is.factor(subset_df[[unpaired_var]])) {
+#         levels_unpair <- levels(subset_df[[unpaired_var]])
+#       } else {
+#         levels_unpair <- sort(unique(subset_df[[unpaired_var]]))
+#       }
+#       if (length(levels_unpair) < 2) next
+
+#       for (i in seq_len(length(levels_unpair) - 1)) {
+#         lev1 <- levels_unpair[i]
+#         lev2 <- levels_unpair[i + 1]
+#         d1 <- subset_df[subset_df[[unpaired_var]] == lev1, ]
+#         d2 <- subset_df[subset_df[[unpaired_var]] == lev2, ]
+#         common_subj <- intersect(d1[[subject_var]], d2[[subject_var]])
+#         d1 <- d1[d1[[subject_var]] %in% common_subj, ]
+#         d2 <- d2[d2[[subject_var]] %in% common_subj, ]
+#         d1 <- d1[order(d1[[subject_var]]), ]
+#         d2 <- d2[order(d2[[subject_var]]), ]
+#         y1 <- d1[[response_var]]
+#         y2 <- d2[[response_var]]
+
+#         if (length(y1) > 0 && length(y1) == length(y2)) {
+#           test <- wilcox.test(y1, y2, paired = TRUE, alternative = alternative, exact = exact)
+#           stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+#           stat_value <- as.numeric(test$statistic)
+#           results[[length(results) + 1]] <- data.frame(
+#             comparison   = paste('within', paired_var, lev, '(paired)'),
+#             contrast     = paste(unpaired_var, ':', lev1, 'vs', lev2),
+#             n            = min(sum(!is.na(y1)), sum(!is.na(y2))),
+#             test         = test$method,
+#             alternative  = test$alternative,
+#             `test stat`  = stat_name,
+#             stat         = stat_value,
+#             `p value`    = test$p.value,
+#             family       = 'paired',
+#             stringsAsFactors = FALSE,
+#             check.names = FALSE
+#           )
+#         }
+#       }
+#     }
+#   }
+
+#   ### Unpaired across levels of paired_var within unpaired_var
+#   if (!is.null(unpaired_var)) {
+#     if (is.factor(df[[unpaired_var]])) {
+#       levels_unpair_all <- levels(df[[unpaired_var]])
+#     } else {
+#       levels_unpair_all <- sort(unique(df[[unpaired_var]]))
+#     }
+
+#     for (lev in levels_unpair_all) {
+#       subset_df <- df[df[[unpaired_var]] == lev, ]
+#       if (is.factor(subset_df[[paired_var]])) {
+#         groups_pair <- levels(subset_df[[paired_var]])
+#       } else {
+#         groups_pair <- sort(unique(subset_df[[paired_var]]))
+#       }
+#       if (length(groups_pair) < 2) next
+#       d1 <- subset_df[subset_df[[paired_var]] == groups_pair[1], ]
+#       d2 <- subset_df[subset_df[[paired_var]] == groups_pair[2], ]
+
+#       test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+#       stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+#       stat_value <- as.numeric(test$statistic)
+
+#       results[[length(results) + 1]] <- data.frame(
+#         comparison = paste('within', unpaired_var, lev, '(unpaired)'),
+#         contrast   = paste(paired_var, ':', groups_pair[1], 'vs', groups_pair[2]),
+#         n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+#         test       = test$method,
+#         alternative= test$alternative,
+#         `test stat`= stat_name,
+#         stat       = stat_value,
+#         `p value`  = test$p.value,
+#         family     = 'unpaired',
+#         stringsAsFactors = FALSE,
+#         check.names = FALSE
+#       )
+#     }
+#   }
+
+#   ### Unpaired across levels of unpaired_var within paired_var, if no subjects
+#   if (is.null(subject_var) && !is.null(unpaired_var)) {
+#     if (is.factor(df[[paired_var]])) {
+#       levels_pair_all <- levels(df[[paired_var]])
+#     } else {
+#       levels_pair_all <- sort(unique(df[[paired_var]]))
+#     }
+
+#     for (lev in levels_pair_all) {
+#       subset_df <- df[df[[paired_var]] == lev, ]
+#       if (is.factor(subset_df[[unpaired_var]])) {
+#         groups_unpair <- levels(subset_df[[unpaired_var]])
+#       } else {
+#         groups_unpair <- sort(unique(subset_df[[unpaired_var]]))
+#       }
+#       if (length(groups_unpair) < 2) next
+#       d1 <- subset_df[subset_df[[unpaired_var]] == groups_unpair[1], ]
+#       d2 <- subset_df[subset_df[[unpaired_var]] == groups_unpair[2], ]
+
+#       test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+#       stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+#       stat_value <- as.numeric(test$statistic)
+
+#       results[[length(results) + 1]] <- data.frame(
+#         comparison = paste('within', paired_var, lev, '(unpaired)'),
+#         contrast   = paste(unpaired_var, ':', groups_unpair[1], 'vs', groups_unpair[2]),
+#         n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+#         test       = test$method,
+#         alternative= test$alternative,
+#         `test stat`= stat_name,
+#         stat       = stat_value,
+#         `p value`  = test$p.value,
+#         family     = 'unpaired',
+#         stringsAsFactors = FALSE,
+#         check.names = FALSE
+#       )
+#     }
+#   }
+
+#   ### Single-predictor unpaired comparison
+#   if (is.null(subject_var) && is.null(unpaired_var)) {
+#     if (is.factor(df[[paired_var]])) {
+#       groups <- levels(df[[paired_var]])
+#     } else {
+#       groups <- sort(unique(df[[paired_var]]))
+#     }
+#     if (length(groups) >= 2) {
+#       d1 <- df[df[[paired_var]] == groups[1], ]
+#       d2 <- df[df[[paired_var]] == groups[2], ]
+
+#       test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+#       stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+#       stat_value <- as.numeric(test$statistic)
+
+#       results[[length(results) + 1]] <- data.frame(
+#         comparison = paste('between', paired_var),
+#         contrast   = paste(groups[1], 'vs', groups[2]),
+#         n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+#         test       = test$method,
+#         alternative= test$alternative,
+#         `test stat`= stat_name,
+#         stat       = stat_value,
+#         `p value`  = test$p.value,
+#         family     = 'unpaired',
+#         stringsAsFactors = FALSE,
+#         check.names = FALSE
+#       )
+#     }
+#   }
+
+#   out <- if (length(results) == 1) results[[1]] else do.call(rbind, results)
+
+#   out$`p adjusted` <- NA
+#   for (fam in unique(out$family)) {
+#     idx <- which(out$family == fam)
+#     out$`p adjusted`[idx] <- p.adjust(out$`p value`[idx], method = p_adjust)
+#   }
+
+#   out$family <- factor(out$family, levels = c("paired", "unpaired"))
+#   out <- out[order(
+#     out$family,
+#     sub("within (\\w+).*", "\\1", out$comparison),
+#     suppressWarnings(as.numeric(sub(".*within \\w+ (\\w+) \\(.*", "\\1", out$comparison)))
+#   ), ]
+#   out$family <- NULL
+#   return(out)
+# }
+
 MCwilcox <- function(formula, df, alternative = 'two.sided',
                      exact = NULL, na_rm_subjects = TRUE, p_adjust = 'holm') {
   f_str <- deparse(formula)
@@ -6743,16 +7199,16 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     df <- df[ !ave(is.na(df[[response_var]]), df[[subject_var]], FUN = any), ]
   }
 
-  if (length(predictors) < 1) {
-    stop('Formula must contain at least one predictor for comparisons')
+  if (length(predictors) < 2) {
+    stop('Formula must contain at least two predictors for comparisons')
   }
 
   paired_var <- predictors[1]
-  unpaired_var <- if (length(predictors) > 1) predictors[2] else NULL
+  unpaired_var <- predictors[2]
   results <- list()
 
-  ### Paired ###
-  if (!is.null(subject_var) && !is.null(unpaired_var)) {
+  # paired
+  if (!is.null(subject_var)) {
     if (is.factor(df[[paired_var]])) {
       levels_pair <- levels(df[[paired_var]])
     } else {
@@ -6786,8 +7242,9 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
           stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
           stat_value <- as.numeric(test$statistic)
           results[[length(results) + 1]] <- data.frame(
+            parameter    = response_var,
             comparison   = paste('within', paired_var, lev, '(paired)'),
-            contrast     = paste(unpaired_var, ':', lev1, 'vs', lev2),
+            contrast     = paste(lev1, 'vs', lev2),
             n            = min(sum(!is.na(y1)), sum(!is.na(y2))),
             test         = test$method,
             alternative  = test$alternative,
@@ -6803,47 +7260,46 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
   }
 
-  ### Unpaired across levels of paired_var within unpaired_var
-  if (!is.null(unpaired_var)) {
-    if (is.factor(df[[unpaired_var]])) {
-      levels_unpair_all <- levels(df[[unpaired_var]])
-    } else {
-      levels_unpair_all <- sort(unique(df[[unpaired_var]]))
-    }
-
-    for (lev in levels_unpair_all) {
-      subset_df <- df[df[[unpaired_var]] == lev, ]
-      if (is.factor(subset_df[[paired_var]])) {
-        groups_pair <- levels(subset_df[[paired_var]])
-      } else {
-        groups_pair <- sort(unique(subset_df[[paired_var]]))
-      }
-      if (length(groups_pair) < 2) next
-      d1 <- subset_df[subset_df[[paired_var]] == groups_pair[1], ]
-      d2 <- subset_df[subset_df[[paired_var]] == groups_pair[2], ]
-
-      test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
-      stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
-      stat_value <- as.numeric(test$statistic)
-
-      results[[length(results) + 1]] <- data.frame(
-        comparison = paste('within', unpaired_var, lev, '(unpaired)'),
-        contrast   = paste(paired_var, ':', groups_pair[1], 'vs', groups_pair[2]),
-        n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
-        test       = test$method,
-        alternative= test$alternative,
-        `test stat`= stat_name,
-        stat       = stat_value,
-        `p value`  = test$p.value,
-        family     = 'unpaired',
-        stringsAsFactors = FALSE,
-        check.names = FALSE
-      )
-    }
+  # unpaired
+  if (is.factor(df[[unpaired_var]])) {
+    levels_unpair_all <- levels(df[[unpaired_var]])
+  } else {
+    levels_unpair_all <- sort(unique(df[[unpaired_var]]))
   }
 
-  ### Unpaired across levels of unpaired_var within paired_var, if no subjects
-  if (is.null(subject_var) && !is.null(unpaired_var)) {
+  for (lev in levels_unpair_all) {
+    subset_df <- df[df[[unpaired_var]] == lev, ]
+    if (is.factor(subset_df[[paired_var]])) {
+      groups_pair <- levels(subset_df[[paired_var]])
+    } else {
+      groups_pair <- sort(unique(subset_df[[paired_var]]))
+    }
+    if (length(groups_pair) < 2) next
+    d1 <- subset_df[subset_df[[paired_var]] == groups_pair[1], ]
+    d2 <- subset_df[subset_df[[paired_var]] == groups_pair[2], ]
+
+    test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
+    stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
+    stat_value <- as.numeric(test$statistic)
+
+    results[[length(results) + 1]] <- data.frame(
+      parameter    = response_var,
+      comparison = paste('within', unpaired_var, lev, '(unpaired)'),
+      contrast   = paste(groups_pair[1], 'vs', groups_pair[2]),
+      n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
+      test       = test$method,
+      alternative= test$alternative,
+      `test stat`= stat_name,
+      stat       = stat_value,
+      `p value`  = test$p.value,
+      family     = 'unpaired',
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  }
+
+  # unpaired: only if no subject_var
+  if (is.null(subject_var)) {
     if (is.factor(df[[paired_var]])) {
       levels_pair_all <- levels(df[[paired_var]])
     } else {
@@ -6866,8 +7322,9 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
       stat_value <- as.numeric(test$statistic)
 
       results[[length(results) + 1]] <- data.frame(
+        parameter    = response_var,
         comparison = paste('within', paired_var, lev, '(unpaired)'),
-        contrast   = paste(unpaired_var, ':', groups_unpair[1], 'vs', groups_unpair[2]),
+        contrast   = paste(groups_unpair[1], 'vs', groups_unpair[2]),
         n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
         test       = test$method,
         alternative= test$alternative,
@@ -6881,38 +7338,7 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
   }
 
-  ### Single-predictor unpaired comparison
-  if (is.null(subject_var) && is.null(unpaired_var)) {
-    if (is.factor(df[[paired_var]])) {
-      groups <- levels(df[[paired_var]])
-    } else {
-      groups <- sort(unique(df[[paired_var]]))
-    }
-    if (length(groups) >= 2) {
-      d1 <- df[df[[paired_var]] == groups[1], ]
-      d2 <- df[df[[paired_var]] == groups[2], ]
-
-      test <- wilcox.test(d1[[response_var]], d2[[response_var]], paired = FALSE, alternative = alternative, exact = exact)
-      stat_name <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
-      stat_value <- as.numeric(test$statistic)
-
-      results[[length(results) + 1]] <- data.frame(
-        comparison = paste('between', paired_var),
-        contrast   = paste(groups[1], 'vs', groups[2]),
-        n          = paste(sum(!is.na(d1[[response_var]])), 'vs', sum(!is.na(d2[[response_var]]))),
-        test       = test$method,
-        alternative= test$alternative,
-        `test stat`= stat_name,
-        stat       = stat_value,
-        `p value`  = test$p.value,
-        family     = 'unpaired',
-        stringsAsFactors = FALSE,
-        check.names = FALSE
-      )
-    }
-  }
-
-  out <- if (length(results) == 1) results[[1]] else do.call(rbind, results)
+  out <- do.call(rbind, results)
 
   out$`p adjusted` <- NA
   for (fam in unique(out$family)) {
@@ -6926,8 +7352,17 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     sub("within (\\w+).*", "\\1", out$comparison),
     suppressWarnings(as.numeric(sub(".*within \\w+ (\\w+) \\(.*", "\\1", out$comparison)))
   ), ]
+
+  out <- out[order(out$comparison), ]
   out$family <- NULL
+  rownames(out) <- seq(dim(out)[1])
   return(out)
 }
 
-
+save_graph <- function(svg_path, filename='graph1.svg', width=6, height=4, bg="transparent") {
+  old_wd <- getwd()
+  setwd(svg_path)
+  dev.copy(svg, file=filename, width=width, height=height, bg=bg)
+  dev.off()
+  setwd(old_wd)
+}
