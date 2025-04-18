@@ -7198,22 +7198,22 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
 
   # drop subjects with any missing response, if requested
   if (na_rm_subjects && !is.null(subject_var)) {
-    df <- df[ !ave(is.na(df[[response_var]]), df[[subject_var]], FUN = any), ]
+    df <- df[!ave(is.na(df[[response_var]]), df[[subject_var]], FUN = any), ]
   }
 
   results <- list()
 
-  # one predictor + Error(subject) → paired tests across its levels
+  # --- single predictor + Error(subject) → paired only ---
   if (!is.null(subject_var) && length(predictors) == 1) {
-    wvar   <- predictors[1]
-    levs   <- if (is.factor(df[[wvar]])) levels(df[[wvar]]) else sort(unique(df[[wvar]]))
+    wvar <- predictors[1]
+    levs <- if (is.factor(df[[wvar]])) levels(df[[wvar]]) else sort(unique(df[[wvar]]))
     if (length(levs) < 2) {
       stop("Need at least two levels of ", wvar, " for paired comparisons")
     }
     for (i in seq_len(length(levs)-1)) {
       a <- levs[i]; b <- levs[i+1]
-      d1 <- df[df[[wvar]] == a, ]
-      d2 <- df[df[[wvar]] == b, ]
+      d1 <- df[df[[wvar]]==a, ]
+      d2 <- df[df[[wvar]]==b, ]
       common <- intersect(d1[[subject_var]], d2[[subject_var]])
       d1 <- d1[d1[[subject_var]] %in% common, ]
       d2 <- d2[d2[[subject_var]] %in% common, ]
@@ -7221,10 +7221,8 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
       d2 <- d2[order(d2[[subject_var]]), ]
       y1 <- d1[[response_var]]; y2 <- d2[[response_var]]
       if (length(y1)>0 && length(y1)==length(y2)) {
-        test <- wilcox.test(y1, y2,
-                            paired      = TRUE,
-                            alternative = alternative,
-                            exact       = exact)
+        test <- wilcox.test(y1, y2, paired = TRUE,
+                            alternative = alternative, exact = exact)
         snm <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
         snt <- as.numeric(test$statistic)
         results[[length(results)+1]] <- data.frame(
@@ -7245,10 +7243,11 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
     out <- do.call(rbind, results)
     out$`p adjusted` <- p.adjust(out$`p value`, method = p_adjust)
+    out$family <- NULL
     return(out)
   }
 
-  # one predictor ONLY (no Error) → unpaired adjacent tests
+  # --- single predictor (no Error) → unpaired adjacent tests ---
   if (is.null(subject_var) && length(predictors) == 1) {
     uvar <- predictors[1]
     levs <- if (is.factor(df[[uvar]])) levels(df[[uvar]]) else sort(unique(df[[uvar]]))
@@ -7257,12 +7256,10 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
     for (i in seq_len(length(levs)-1)) {
       a <- levs[i]; b <- levs[i+1]
-      d1 <- df[df[[uvar]] == a, response_var]
-      d2 <- df[df[[uvar]] == b, response_var]
-      test <- wilcox.test(d1, d2,
-                          paired      = FALSE,
-                          alternative = alternative,
-                          exact       = exact)
+      d1 <- df[df[[uvar]]==a, response_var]
+      d2 <- df[df[[uvar]]==b, response_var]
+      test <- wilcox.test(d1, d2, paired=FALSE,
+                          alternative = alternative, exact = exact)
       snm <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
       snt <- as.numeric(test$statistic)
       results[[length(results)+1]] <- data.frame(
@@ -7282,16 +7279,17 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
     out <- do.call(rbind, results)
     out$`p adjusted` <- p.adjust(out$`p value`, method = p_adjust)
+    out$family <- NULL
     return(out)
   }
 
-  # two predictors, with or without Error(subject)
+  # --- two predictors (with or without Error) → mixed ---
   if (length(predictors) < 2) {
     stop('Formula must contain at least one predictor (single unpaired) or two (for paired+unpaired)')
   }
   pv <- predictors[1]; uv <- predictors[2]
 
-  # (C1) paired within pv if Error subject present
+  # (A) paired within pv if Error(subject) present
   if (!is.null(subject_var)) {
     lv_p <- if (is.factor(df[[pv]])) levels(df[[pv]]) else sort(unique(df[[pv]]))
     for (lev in lv_p) {
@@ -7309,10 +7307,8 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
         d2 <- d2[order(d2[[subject_var]]), ]
         y1 <- d1[[response_var]]; y2 <- d2[[response_var]]
         if (length(y1)>0 && length(y1)==length(y2)) {
-          test <- wilcox.test(y1, y2,
-                              paired      = TRUE,
-                              alternative = alternative,
-                              exact       = exact)
+          test <- wilcox.test(y1, y2, paired = TRUE,
+                              alternative = alternative, exact = exact)
           snm <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
           snt <- as.numeric(test$statistic)
           results[[length(results)+1]] <- data.frame(
@@ -7334,7 +7330,7 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
   }
 
-  # unpaired
+  # (B) unpaired across uv
   lv_u_all <- if (is.factor(df[[uv]])) levels(df[[uv]]) else sort(unique(df[[uv]]))
   for (lev in lv_u_all) {
     subdf <- df[df[[uv]]==lev, ]
@@ -7343,9 +7339,8 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     d1 <- subdf[subdf[[pv]]==gp[1], ]
     d2 <- subdf[subdf[[pv]]==gp[2], ]
     test <- wilcox.test(d1[[response_var]], d2[[response_var]],
-                        paired      = FALSE,
-                        alternative = alternative,
-                        exact       = exact)
+                        paired=FALSE,
+                        alternative = alternative, exact = exact)
     snm <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
     snt <- as.numeric(test$statistic)
     results[[length(results)+1]] <- data.frame(
@@ -7366,7 +7361,7 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     )
   }
 
-  # unpaired
+  # (C) if no subject_var, also do reverse unpaired within pv
   if (is.null(subject_var)) {
     lv_p_all <- if (is.factor(df[[pv]])) levels(df[[pv]]) else sort(unique(df[[pv]]))
     for (lev in lv_p_all) {
@@ -7376,9 +7371,8 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
       d1 <- subdf[subdf[[uv]]==gu[1], ]
       d2 <- subdf[subdf[[uv]]==gu[2], ]
       test <- wilcox.test(d1[[response_var]], d2[[response_var]],
-                          paired      = FALSE,
-                          alternative = alternative,
-                          exact       = exact)
+                          paired=FALSE,
+                          alternative = alternative, exact = exact)
       snm <- if (!is.null(names(test$statistic))) names(test$statistic) else NA
       snt <- as.numeric(test$statistic)
       results[[length(results)+1]] <- data.frame(
@@ -7400,14 +7394,15 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     }
   }
 
+  # assemble and finalize
   out <- do.call(rbind, results)
   out$`p adjusted` <- NA
   for (fam in unique(out$family)) {
-    idx <- which(out$family==fam)
+    idx <- which(out$family == fam)
     out$`p adjusted`[idx] <- p.adjust(out$`p value`[idx], method = p_adjust)
   }
 
-  # restore your ordering
+  # reorder exactly as before
   out$family <- factor(out$family, levels = c("paired","unpaired"))
   out <- out[ order(
     out$family,
@@ -7415,6 +7410,8 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     suppressWarnings(as.numeric(sub(".*within \\w+ (\\w+) \\(.*", "\\1", out$comparison)))
   ), ]
   out <- out[ order(out$comparison), ]
+
+  # **always** drop the family column
   out$family <- NULL
   rownames(out) <- seq_len(nrow(out))
   return(out)
