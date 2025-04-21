@@ -1,4 +1,4 @@
-# These steps 
+
 # By manually creating the /tmp/.X11-unix directory with proper permissions, 
 # ensuring no conflicting X server processes are running, restarting XQuartz, 
 # and setting the DISPLAY variable, you’ve set up the correct environment 
@@ -65,6 +65,7 @@ PSC_analysis_tk <- function() {
   # divide window into sidebar and main panels
   sidebarFrame <- tkframe(tt)
   mainFrame <- tkframe(tt)
+  plotWidget <<- NULL
   tkgrid(sidebarFrame, row=0, column=0, sticky='ns')
   tkgrid(mainFrame, row=0, column=1, sticky='nsew')
   tkgrid.rowconfigure(tt, 0, weight=0)
@@ -279,7 +280,15 @@ PSC_analysis_tk <- function() {
     if (ds > 1) {
       response_data <<- response_data[seq(1, length(response_data), by=ds)]
     }
-    tkrreplot(plotWidget, fun=drawPlot1)
+    # tkrreplot(plotWidget, fun=drawPlot1)
+
+    if (is.null(plotWidget)) {
+      plotWidget <<- tkrplot(mainFrame, fun=drawPlot1)
+      tkgrid(     plotWidget, row=0, column=0, sticky='nsew')
+    } else {
+      tkrreplot(plotWidget, fun=drawPlot1)
+    }
+
   })
   tkgrid(runAnalysisButton, row=5, column=0, columnspan=3, pady=5)
     
@@ -363,8 +372,8 @@ PSC_analysis_tk <- function() {
     names(df_out) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(df_out))
     names(df_out) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(df_out))
     names(df_out)[names(df_out) == 'half_width'] <- 'half width'
-    tkdelete(consoleText, '1.0', 'end')
-    tkinsert(consoleText, 'end', 'Analysis complete.')
+    # tkdelete(consoleText, '1.0', 'end')
+    # tkinsert(consoleText, 'end', 'Analysis complete.')
     tkdelete(fitOutputText, '1.0', 'end')
     tkinsert(fitOutputText, 'end', paste(capture.output(print(df_out)), collapse='\n'))
   })
@@ -435,9 +444,15 @@ PSC_analysis_tk <- function() {
   
   clearOutputButton <- tkbutton(sidebarFrame, text='Clear Output', command=function() {
     analysis_output <<- NULL
-    tkdelete(consoleText, '1.0', 'end')
+    # tkdelete(consoleText, '1.0', 'end')
     tkdelete(fitOutputText, '1.0', 'end')
-    tkrreplot(plotWidget, fun=drawPlot1)
+    # tkrreplot(plotWidget, fun=drawPlot1)
+    # plotWidget <<- tkrplot(mainFrame, fun=drawPlot1)
+    # tkgrid(    plotWidget,    row=0, column=0, sticky='nsew')
+    if (!is.null(plotWidget)) {
+      tkrreplot(plotWidget, fun=drawPlot1)
+    }
+
   })
   tkgrid(clearOutputButton, row=9, column=0, columnspan=3, pady=5)
   
@@ -458,11 +473,11 @@ PSC_analysis_tk <- function() {
       xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
   }
   
-  plotWidget <- tkrplot(tt, fun=drawPlot1)
-  tkgrid(plotWidget, row=0, column=1, sticky='nsew')
+  # plotWidget <- tkrplot(tt, fun=drawPlot1)
+  # tkgrid(plotWidget, row=0, column=1, sticky='nsew')
   
-  consoleText <- tktext(mainFrame, width=80, height=4)
-  tkgrid(consoleText, row=1, column=1, sticky='nsew')
+  # consoleText <- tktext(mainFrame, width=80, height=4)
+  # tkgrid(consoleText, row=1, column=1, sticky='nsew')
   
   fitOutputLabel <- tklabel(sidebarFrame, text='Fit Output:')
   tkgrid(fitOutputLabel, row=10, column=0, columnspan=3, sticky='w', pady=c(10,2), padx=20)
@@ -481,6 +496,9 @@ PSC_analysis_tk()
 
 ###########################
 # Shiny version of analyse_PSC function
+
+# open -n -a R
+
 
 rm(list=ls(all=TRUE))
 graphics.off()
