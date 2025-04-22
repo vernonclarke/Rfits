@@ -864,7 +864,7 @@ analyseABFtk <- function() {
     tkgrid(runAnalysisButton,       row = 10, column = 0, columnspan = 3, pady = 5)
     tkgrid(reviewButton,            row = 11, column = 0, columnspan = 3, pady = 5)
     tkgrid(avgApprovedTracesButton, row = 12, column = 0, columnspan = 3, pady = 5)
-    tkgrid(tkDownloadBtn,          row = 13, column = 0, columnspan = 3, pady = 5)
+    tkgrid(tkDownloadBtn,           row = 13, column = 0, columnspan = 3, pady = 5)
 
     tkfocus(tt)
   }

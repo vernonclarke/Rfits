@@ -48,9 +48,9 @@ load_required_packages <- function(packages) {
   invisible(lapply(packages, library, character.only=TRUE))
 }
 
-required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal',
-                       'dbscan', 'tkrplot', 'tcltk', 'readxl', 'shiny', 'readxl')
+required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase', 'shiny', 'signal', 'readABF', 'readxl','tcltk', 'tkrplot')
 load_required_packages(required.packages)
+
 
 # insert your username and repository path
 username <- 'euo9382'
