@@ -109,13 +109,9 @@ analyseABFtk <- function() {
       return()
     }
 
-    # combine averaged_data list into a data frame
     df <- as.data.frame(do.call(cbind, averaged_data))
-    if (!is.null(names(averaged_data))) {
-      colnames(df) <- names(averaged_data)
-    }
+    colnames(df) <- as.character(seq_len(length(averaged_data)))
 
-    # determine download folder
     download_folder <- tclvalue(folderPathVar)
     if (nchar(download_folder) == 0) {
       tkmessageBox(message = "No folder selected for download.")
@@ -123,7 +119,7 @@ analyseABFtk <- function() {
     }
     file_path <- file.path(download_folder, 'averaged_data.csv')
 
-    # write CSV
+    # write CSV (no time column, just the numbered averages)
     write.csv(df, file = file_path, row.names = FALSE)
     tkmessageBox(message = paste('Averaged data saved to', file_path))
   }
@@ -139,18 +135,17 @@ analyseABFtk <- function() {
       })
     })
     names(responses) <- names(datasets)
-    baseline2zero <- function(y, dt, stimulation_time, baseline) {
-      idx1 <- (stimulation_time - baseline) / dt
-      idx2 <- baseline / dt
-      y1 <- y[idx1:length(y)]
-      y1 <- y1 - mean(y1[1:idx2])
-      y1 - mean(y1[1:idx2])
+    baseline2zero <- function(y, dt, stim, baseline) {
+      idx_baseline <- round(baseline / dt)
+      idx_start    <- round((stim - baseline) / dt) + 1
+      y0 <- y - mean(y[1:idx_baseline])
+      y0[idx_start:length(y0)]
     }
     responses0 <- lapply(seq_len(N), function(iii) {
       sapply(seq_len(ncol(responses[[iii]])), function(jj) {
         baseline2zero(responses[[iii]][, jj],
                       dt = sampling_intervals[iii],
-                      stimulation_time = stimulation_time,
+                      stim = stimulation_time,
                       baseline = baseline)
       })
     })
@@ -437,18 +432,17 @@ analyseABFtk <- function() {
     data_column <- as.numeric(tclvalue(dataColVar))
     if (is.na(data_column) || data_column < 1) data_column <- 1
 
-    baseline2zero <- function(y, dt, stimulation_time, baseline) {
-      idx1 <- (stimulation_time - baseline) / dt
-      idx2 <- baseline / dt
-      y1 <- y[idx1:length(y)]
-      y1 <- y1 - mean(y1[1:idx2])
-      y1 - mean(y1[1:idx2])
+    baseline2zero <- function(y, dt, stim, baseline) {
+      idx_baseline <- round(baseline / dt)
+      idx_start    <- round((stim - baseline) / dt) + 1
+      y0 <- y - mean(y[1:idx_baseline])
+      y0[idx_start:length(y0)]
     }
 
     group_corrected_mean <- lapply(groups_list, function(group_indices) {
       traces_corrected <- lapply(group_indices, function(i) {
         trace <- master_abf$data[[i]][, data_column]
-        baseline2zero(trace, dt = dt_val, stimulation_time = stim_time, baseline = base_val)
+        baseline2zero(trace, dt = dt_val, stim = stim_time, baseline = base_val)
       })
       trace_mat <- do.call(cbind, traces_corrected)
       rowMeans(trace_mat)
@@ -1018,6 +1012,13 @@ analyseABFshiny <- function() {
       log="", avgLog=""
     )
 
+    baseline2zero <- function(y, dt, stim, baseline) {
+      idx_baseline <- round(baseline / dt)
+      idx_start    <- round((stim - baseline) / dt) + 1
+      y0 <- y - mean(y[1:idx_baseline])
+      y0[idx_start:length(y0)]
+    }
+
     observeEvent(input$load, {
       req(input$abfFiles)
       paths <- input$abfFiles$datapath
@@ -1112,14 +1113,12 @@ analyseABFshiny <- function() {
       }
       egs_plot(time, trace, show_bar = FALSE)
       axis(1); axis(2)
-      usr <- par("usr")
-      y0  <- usr[3] + 0.05*(usr[4]-usr[3])
-      text(input$stimTime, y0, "*", col = "black", cex = 2.5)
+      # usr <- par("usr")
+      # y0  <- usr[3] + 0.05*(usr[4]-usr[3])
+      # text(input$stimTime, y0, "*", col = "black", cex = 2.5)
     })
 
     observeEvent(input$accept, {
-
-      # review must be active
       if (is.null(vals$mode)) {
         showNotification(
           "Error: No review in progress. Click 'Review Recordings' first.",
@@ -1130,42 +1129,44 @@ analyseABFshiny <- function() {
       }
 
       if (vals$mode == "concat") {
-        # concatenated: just add trace #
+        # concatenated mode
         vals$curGroup <- union(vals$curGroup, vals$ct)
-        msg <- paste0("Accepted trace ", vals$ct)
-      } else {
-        # separate: include ABF filename and trace #
-        fidx <- vals$curFile
-        vals$traces2avg[[fidx]] <- union(vals$traces2avg[[fidx]], vals$ct)
-        fname <- names(vals$datasets)[fidx]
-        msg <- paste0("Accepted ", fname, " trace ", vals$ct)
-      }
-      # append to log
-      vals$log <- paste0(vals$log, msg, "\n")
+        vals$log <- paste0(vals$log, "Accepted trace ", vals$ct, "\n")
 
-      # immediately advance as before
-      isolate({ input$nextReview })
-      if (vals$mode == "concat") {
+        isolate({ input$nextReview })
         if (vals$ct < vals$total) {
           vals$ct <- vals$ct + 1
         } else {
           vals$log <- paste0(vals$log, "Review complete for all traces.\n")
         }
+
       } else {
-        ds <- vals$datasets[[vals$curFile]]
+        # separate mode
+        fidx <- vals$curFile
+        ds   <- vals$datasets[[fidx]]
+        fname <- names(vals$datasets)[fidx]
+
+        # log the accept
+        vals$traces2avg[[fidx]] <- union(vals$traces2avg[[fidx]], vals$ct)
+        vals$log <- paste0(vals$log, "Accepted ", fname, " trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
         if (vals$ct < length(ds$data)) {
           vals$ct <- vals$ct + 1
         } else if (vals$curFile < length(vals$datasets)) {
+          # finished this file (but not the last) → log and advance
+          vals$log <- paste0(vals$log, fname, " complete\n")
           vals$curFile <- vals$curFile + 1
           vals$ct      <- 1
         } else {
+          # last file → log complete and final message
+          vals$log <- paste0(vals$log, fname, " complete\n")
           vals$log <- paste0(vals$log, "Review complete: Approved recordings stored.\n")
         }
       }
     })
 
     observeEvent(input$reject, {
-   
       if (is.null(vals$mode)) {
         showNotification(
           "Error: No review in progress. Click 'Review Recordings' first.",
@@ -1175,19 +1176,37 @@ analyseABFshiny <- function() {
         return()
       }
 
-      vals$log <- paste0(vals$log, "Rejected trace ", vals$ct, "\n")
-      # immediately advance
-      isolate({ input$nextReview })
       if (vals$mode == "concat") {
-        if (vals$ct < vals$total) vals$ct <- vals$ct + 1
-        else vals$log <- paste0(vals$log, "Review complete for all traces.\n")
+        # concatenated mode
+        vals$log <- paste0(vals$log, "Rejected trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
+        if (vals$ct < vals$total) {
+          vals$ct <- vals$ct + 1
+        } else {
+          vals$log <- paste0(vals$log, "Review complete for all traces.\n")
+        }
+
       } else {
-        ds <- vals$datasets[[vals$curFile]]
+        # separate mode
+        fidx <- vals$curFile
+        ds   <- vals$datasets[[fidx]]
+        fname <- names(vals$datasets)[fidx]
+
+        # log the reject
+        vals$log <- paste0(vals$log, "Rejected ", fname, " trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
         if (vals$ct < length(ds$data)) {
           vals$ct <- vals$ct + 1
         } else if (vals$curFile < length(vals$datasets)) {
-          vals$curFile <- vals$curFile + 1; vals$ct <- 1
+          # finished this file → log and advance
+          vals$log <- paste0(vals$log, fname, " complete\n")
+          vals$curFile <- vals$curFile + 1
+          vals$ct      <- 1
         } else {
+          # last file → log complete and final message
+          vals$log <- paste0(vals$log, fname, " complete\n")
           vals$log <- paste0(vals$log, "Review complete: Approved recordings stored.\n")
         }
       }
@@ -1217,40 +1236,39 @@ analyseABFshiny <- function() {
       req(vals$mode)
       updateTabsetPanel(session, "mainTabs", selected = "Average")
 
-      # common dt
+      # common dt in ms
       dt <- if (vals$mode == "concat") {
         vals$master$samplingIntervalInSec * 1000
       } else {
         vals$datasets[[1]]$samplingIntervalInSec * 1000
       }
 
-      # index of the first sample at (stimTime - baseline)
-      idx1 <- round((input$stimTime - input$baseline) / dt) + 1
-
       if (vals$mode == "concat") {
         if (length(vals$groups) == 0) {
           vals$avgLog <- "No groups to average.\n"
           return()
         }
-        # baseline-correct & crop
-        bc <- lapply(vals$groups, function(gr) {
-          mat <- do.call(cbind, lapply(gr, function(i)
-            vals$master$data[[i]][, as.integer(input$column)]))
-          y_full <- rowMeans(mat) -
-            mean(mat[1:round(input$baseline / dt), , drop=TRUE])
-          y_full[idx1:length(y_full)]
+        vals$avg <- lapply(vals$groups, function(gr) {
+          # combine accepted traces, compute mean
+          y_full <- rowMeans(
+            do.call(cbind, lapply(gr, function(i)
+              vals$master$data[[i]][, as.integer(input$column)]))
+          )
+          baseline2zero(y_full, dt, input$stimTime, input$baseline)
         })
-        vals$avg <- bc
+
       } else {
-        # separate mode
+        # separate files
         bc2 <- mapply(function(ds, idxs) {
           if (length(idxs) == 0) return(NULL)
-          mat <- do.call(cbind, lapply(idxs, function(i)
-            ds$data[[i]][, as.integer(input$column)]))
-          y_full <- rowMeans(mat) -
-            mean(mat[1:round(input$baseline / dt), , drop=TRUE])
-          y_full[idx1:length(y_full)]
-        }, vals$datasets, vals$traces2avg, SIMPLIFY = FALSE)
+          y_full <- rowMeans(
+            do.call(cbind, lapply(idxs, function(i)
+              ds$data[[i]][, as.integer(input$column)]))
+          )
+          baseline2zero(y_full, dt, input$stimTime, input$baseline)
+        }, vals$datasets, vals$traces2avg,
+        SIMPLIFY = FALSE)
+
         vals$avg <- bc2[!sapply(bc2, is.null)]
       }
 
@@ -1321,14 +1339,9 @@ analyseABFshiny <- function() {
     output$downloadData <- downloadHandler(
       filename = function() "averaged_data.csv",
       content = function(file) {
-        dt   <- vals$metadata[[1]]$samplingIntervalInSec * 1000
-        time <- seq(0, by = dt, length.out = length(vals$avg[[1]]))
-
-        df <- do.call(cbind, lapply(vals$avg, as.vector))
-        df <- as.data.frame(df)
-        colnames(df) <- paste0("Average_", seq_along(vals$avg))
-        df <- cbind(time = time, df)
-
+        # combine only the averaged traces (no time column)
+        df <- as.data.frame(do.call(cbind, lapply(vals$avg, as.vector)))
+        colnames(df) <- as.character(seq_along(vals$avg))
         write.csv(df, file, row.names = FALSE)
       }
     )
@@ -1339,3 +1352,4 @@ analyseABFshiny <- function() {
 }
 
 analyseABFshiny()
+
