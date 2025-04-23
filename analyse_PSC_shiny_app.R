@@ -1,5 +1,9 @@
 
-# By manually creating the /tmp/.X11-unix directory with proper permissions, 
+error: Error in structure(.External(.C_dotTclObjv, objv), class = "tclObj") : 
+  [tcl] invalid command name "toplevel".
+
+
+  # By manually creating the /tmp/.X11-unix directory with proper permissions, 
 # ensuring no conflicting X server processes are running, restarting XQuartz, 
 # and setting the DISPLAY variable, you’ve set up the correct environment 
 # for your Tcl/Tk applications in R.
@@ -81,7 +85,7 @@ PSC_analysis_tk <- function() {
   tkgrid.columnconfigure(tt, 1, weight=1)
   
   # sidebar controls
-  fileLabel <- tklabel(sidebarFrame, text='Upload CSV or XLSX:')
+  fileLabel <- tklabel(sidebarFrame, text='Upload csv or xlsx:')
   tkgrid(fileLabel, row=0, column=0, sticky='w')
   filePathVar <- tclVar('')
   fileEntry <- tkentry(sidebarFrame, textvariable=filePathVar, width=30)
@@ -478,39 +482,80 @@ PSC_analysis_tk <- function() {
     }
   )
   
-  downloadResultsButton <- tkbutton(buttonFrame, text='Download Output (CSV/XLSX)', command=function() {
-    if (!exists('analysis_output') || is.null(analysis_output)) {
-      tkmessageBox(message='No analysis output available!')
-      return()
-    }
-    filePath <- tclvalue(tkgetSaveFile(filetypes='{{Excel File} {.xlsx}} {{CSV File} {.csv}}'))
-    if (nchar(filePath) == 0) return()
-
-    extension <- tools::file_ext(filePath)
-    data_list <- list(
-      output = analysis_output$output,
-      traces = analysis_output$traces,
-      `fit criterion` = data.frame(AIC = analysis_output$AIC, BIC = analysis_output$BIC),
-      `model message` = data.frame(message = analysis_output$model.message)
-    )
-
-    if (tolower(extension) == "csv") {
-      for (name in names(data_list)) {
-        write.csv(data_list[[name]], file = sub("\\.csv$", paste0("_", name, ".csv"), filePath), row.names = FALSE)
+    downloadResultsButton <- tkbutton(buttonFrame, text='Download Output (csv/xlsx)', command=function() {
+      if (!exists('analysis_output') || is.null(analysis_output)) {
+        tkmessageBox(message='No analysis output available!')
+        return()
       }
-    } else if (tolower(extension) == "xlsx") {
-      if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
-      openxlsx::library(openxlsx)
-      wb <- openxlsx::createWorkbook()
-      for (name in names(data_list)) {
-        openxlsx::addWorksheet(wb, name)
-        openxlsx::writeData(wb, name, data_list[[name]])
+      filePath <- tclvalue(tkgetSaveFile(filetypes='{{Excel File} {.xlsx}} {{CSV File} {.csv}}'))
+      if (nchar(filePath) == 0) return()
+      ext <- tolower(tools::file_ext(filePath))
+
+      data_list <- list(
+        output          = analysis_output$output,
+        traces          = analysis_output$traces,
+        `fit criterion` = data.frame(AIC = analysis_output$AIC, BIC = analysis_output$BIC),
+        `model message` = data.frame(message = analysis_output$model.message)
+      )
+
+      metadata_labels <- c(
+        'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
+        'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
+        'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
+        'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
+        'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
+        'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
+        'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
+      )
+
+      metadata_values <- c(
+        tclvalue(columnVar),tclvalue(dtVar),tclvalue(stimTimeVar),tclvalue(baselineVar),
+        tclvalue(nVar),tclvalue(yAblineVar),tclvalue(funcVar),tclvalue(dsVar),
+        tclvalue(userTmaxVar),as.character(as.logical(as.numeric(tclvalue(repeatConstraintVar)))),
+        tclvalue(NVar),tclvalue(IEIVar),tclvalue(smoothVar),tclvalue(methodVar),
+        tclvalue(weightMethodVar),as.character(as.logical(as.numeric(tclvalue(sequentialFitVar)))),
+        tclvalue(intervalMinVar),tclvalue(intervalMaxVar),tclvalue(lowerVar),tclvalue(upperVar),
+        tclvalue(latencyLimitVar),tclvalue(iterVar),tclvalue(metropolisScaleVar),
+        tclvalue(fitAttemptsVar),as.character(as.logical(as.numeric(tclvalue(RWmVar)))),
+        as.character(as.logical(as.numeric(tclvalue(filterVar)))),tclvalue(fcVar),
+        tclvalue(halfWidthFitLimitVar),tclvalue(seedVar),tclvalue(dpVar),
+        tclvalue(fastConstraintMethodVar),tclvalue(fastDecayLimitVar),
+        as.character(as.logical(as.numeric(tclvalue(firstDelayConstraintVar))))
+      )
+
+      coerce_val <- function(v) {
+        if (nzchar(v)) {
+          n <- suppressWarnings(as.numeric(v))
+          if (!is.na(n)) return(n)
+        }
+        v
       }
-      openxlsx::saveWorkbook(wb, filePath, overwrite = TRUE)
-    } else {
-      tkmessageBox(message="Unsupported file type. Use .csv or .xlsx")
-    }
-  })
+
+      if (ext == 'csv') {
+        for (nm in names(data_list)) {
+          write.csv(data_list[[nm]], file = sub("\\.csv$", paste0("_", nm, ".csv"), filePath), row.names = FALSE)
+        }
+        meta_df <- data.frame(name = metadata_labels, value = sapply(metadata_values, coerce_val), stringsAsFactors = FALSE)
+        write.csv(meta_df, file = sub("\\.csv$", "_metadata.csv", filePath), row.names = FALSE)
+
+      } else if (ext == 'xlsx') {
+        wb <- createWorkbook()
+        for (nm in names(data_list)) {
+          addWorksheet(wb, nm)
+          writeData(wb, nm, data_list[[nm]])
+        }
+        addWorksheet(wb, "metadata")
+        writeData(wb, "metadata", c("parameter", "value"), startRow = 1, startCol = 1, colNames = FALSE)
+        for (i in seq_along(metadata_labels)) {
+          writeData(wb, "metadata", metadata_labels[i], startRow = i + 1, startCol = 1, colNames = FALSE)
+          writeData(wb, "metadata", coerce_val(metadata_values[i]), startRow = i + 1, startCol = 2, colNames = FALSE)
+        }
+        saveWorkbook(wb, filePath, overwrite = TRUE)
+
+      } else {
+        tkmessageBox(message = "Unsupported file type. Use .csv or .xlsx")
+      }
+    })
 
   exportSVGButton <- tkbutton(buttonFrame, text='Export Plot to SVG', command=function() {
     if (!exists('analysis_output') || is.null(analysis_output)) {
@@ -555,10 +600,10 @@ PSC_analysis_tk <- function() {
   
   tkgrid(runAnalysisButton,      row=0, column=0, padx=5, pady=2)
   tkgrid(runMainAnalysisButton,  row=0, column=1, padx=5, pady=2)
-  tkgrid(exportSVGButton,        row=1, column=0, padx=5, pady=2)
-  tkgrid(clearOutputButton,      row=1, column=1, padx=5, pady=2)
-  tkgrid(downloadOutputButton,   row=2, column=0, padx=5, pady=2)
-  tkgrid(downloadResultsButton,  row=2, column=1, padx=5, pady=2)
+  tkgrid(downloadResultsButton,  row=1, column=1, padx=5, pady=2)
+  tkgrid(downloadOutputButton,   row=1, column=0, padx=5, pady=2)
+  tkgrid(exportSVGButton,        row=2, column=0, padx=5, pady=2)
+  tkgrid(clearOutputButton,      row=2, column=1, padx=5, pady=2)
 
   # Main Panel plot
   drawPlot1 <- function() {
@@ -634,7 +679,7 @@ load_required_packages <- function(packages) {
 }
 
 required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal',
-                       'dbscan', 'tkrplot', 'tcltk', 'readxl', 'shiny', 'readxl')
+                       'dbscan', 'tkrplot', 'tcltk', 'readxl', 'shiny')
 load_required_packages(required.packages)
 
 # Define your username and repository path, and source your custom functions.
@@ -649,7 +694,7 @@ ui <- fluidPage(
   titlePanel('PSC Analysis'),
   sidebarLayout(
     sidebarPanel(
-      fileInput('file', 'Upload CSV or XLSX', accept=c('.csv', '.xlsx')),
+      fileInput('file', 'Upload csv or xlsx', accept=c('.csv', '.xlsx')),
       uiOutput('column_selector'),
       
       tabsetPanel(
@@ -706,10 +751,10 @@ ui <- fluidPage(
       numericInput('userTmax', 'User Maximum Time for Fit:', NA),
       actionButton('run_initial', 'Run Initial Analysis'),
       actionButton('run_main', 'Run Main Analysis'),
-      actionButton('clear_output', 'Clear Output'),
+      downloadButton('download_xlsx',  'Download Output (*.xlsx)'),
       downloadButton('download_output', 'Download RData'),
       downloadButton('download_svg', 'Download SVG Plot'),
-      downloadButton('download_xlsx',  'Download Output (XLSX)')
+      actionButton('clear_output', 'Clear Output')
     ),
     mainPanel(
       plotOutput('plot', height='500px'),
@@ -1022,13 +1067,13 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       req(state$analysis)
-      if (!requireNamespace("openxlsx", quietly = TRUE)) {
-        install.packages("openxlsx")
-      }
+
       wb <- openxlsx::createWorkbook()
+
+      # result sheets
       data_list <- list(
-        output         = state$analysis$output,
-        traces         = state$analysis$traces,
+        output          = state$analysis$output,
+        traces          = state$analysis$traces,
         `fit criterion` = data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC),
         `model message` = data.frame(message = state$analysis$model.message)
       )
@@ -1036,6 +1081,80 @@ server <- function(input, output, session) {
         openxlsx::addWorksheet(wb, nm)
         openxlsx::writeData(wb, nm, data_list[[nm]])
       }
+
+      # metadata sheet
+      metadata_labels <- c(
+        'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
+        'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
+        'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
+        'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
+        'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
+        'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
+        'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
+      )
+      metadata_values <- list(
+        input$data_col,
+        input$dt,
+        input$stimulation_time,
+        input$baseline,
+        input$n,
+        input$y_abline,
+        input$func,
+        input$ds,
+        input$userTmax,
+        input$fast_constraint,
+        input$N,
+        input$IEI,
+        input$smooth,
+        input$method,
+        input$weight_method,
+        input$sequential_fit,
+        input$interval_min,
+        input$interval_max,
+        input$lower,
+        input$upper,
+        input$latency_limit,
+        input$iter,
+        input$metropolis_scale,
+        input$fit_attempts,
+        input$RWm,
+        input$filter,
+        input$fc,
+        input$half_width_fit_limit,
+        input$seed,
+        input$dp,
+        input$fast_constraint_method,
+        input$fast_decay_limit,
+        input$first_delay_constraint
+      )
+
+      numeric_labels <- c(
+        'dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:',
+        'Downsample Factor:','User maximum time for fit:','N:','IEI:','Smooth:',
+        'Min interval:','Max interval:','Latency limit:','MLE Iterations:',
+        'Metropolis Scale:','Fit Attempts:','Filter cutoff (Hz):',
+        'Half-width fit limit:','Seed:','Decimal points:'
+      )
+      logical_labels <- c(
+        'Add fast constraint:','Sequential Fit:','Random Walk Metropolis:','Filter:',
+        'First delay constraint:'
+      )
+
+      openxlsx::addWorksheet(wb, "metadata")
+      openxlsx::writeData(wb, "metadata", c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
+      for (i in seq_along(metadata_labels)) {
+        lbl <- metadata_labels[i]
+        val <- metadata_values[[i]]
+        openxlsx::writeData(wb, "metadata", lbl,       startRow = i+1, startCol = 1, colNames = FALSE)
+        if (lbl %in% numeric_labels) {
+          openxlsx::writeData(wb, "metadata", as.numeric(val), startRow = i+1, startCol = 2, colNames = FALSE)
+        } else if (lbl %in% logical_labels) {
+          openxlsx::writeData(wb, "metadata", as.logical(val), startRow = i+1, startCol = 2, colNames = FALSE)
+        } else {
+          openxlsx::writeData(wb, "metadata", val,      startRow = i+1, startCol = 2, colNames = FALSE)
+        }
+      }
+
       openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
     }
   )
