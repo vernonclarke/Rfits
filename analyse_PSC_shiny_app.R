@@ -38,6 +38,83 @@
 # for xquartz to work properly in (some) systems open R from terminal:
 # open -n -a R
 
+# analysis_output is global
+
+
+# 1. in Plot Settings dropdown menu add xlim and ylim: if blank do plots 'as is' (ie current outputs) ELSE allow user to enter say 25, 400; this  changes plot dynamically (i.e. immediately when press return)
+# 2. export plot to svg button
+# 3. download output button change button name to download Rdata
+# 4. make new 'download output' button that saves analysis_output with names(analysis_output)
+
+ this output can be retrieved from analysis_output: 
+ "output"        "fits"          "fits.se"       "gof"           "AIC"           "BIC"           "model.message" "sign"          "traces"       
+
+remove "fit_results" "fits"
+
+so create data_List for export:
+
+c(analysis_output$AIC, analysis_output$BIC)
+data_list <- list(output=analysis_output$output, traces=analysis_output$traces, 'fit criterion'=c(analysis_output$AIC, analysis_output$BIC), 'model message'=analysis_output$model.message)
+then export data_list each element to separate sheet or a single file...
+export and save as either xlsx or csv
+
+using a function something like this to change list to 
+
+I want option as a csv or xlsx
+
+list2excel(data_list, paste0(identifier, '.xlsx'), wd=xlsx_path)
+
+list2excel <- function(data_list, file_name, wd = getwd(), center_align = TRUE) {
+  # Load the openxlsx library
+  library(openxlsx)
+  
+  # Create a new workbook
+  workbook <- createWorkbook()
+  
+  # Define styles: bold and centered for headers, and centered for data
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center")
+  center_style <- createStyle(halign = "center", valign = "center")
+  
+  # Loop over each element in the list
+  for (i in seq_along(data_list)) {
+    # Use the name of the list element as the sheet name
+    sheet_name <- names(data_list)[i]
+    
+    # Default to "Sheet1", "Sheet2", etc., if the name is missing
+    if (is.null(sheet_name) || sheet_name == "") {
+      sheet_name <- paste0("Sheet", i)
+    }
+    
+    # Add a new sheet with the specified name to the workbook
+    addWorksheet(workbook, sheet_name)
+    
+    # Write the data to the sheet
+    writeData(workbook, sheet_name, data_list[[i]])
+    
+    # Apply header style to make headers bold and centered
+    addStyle(workbook, sheet_name, style = header_style, rows = 1, cols = 1:ncol(data_list[[i]]), gridExpand = TRUE)
+    
+    # Apply center alignment to all cells if center_align is TRUE
+    if (center_align) {
+      addStyle(workbook, sheet_name, style = center_style, rows = 1:(nrow(data_list[[i]]) + 1), 
+               cols = 1:ncol(data_list[[i]]), gridExpand = TRUE)
+    }
+  }
+  
+  # Create the full file path
+  file_path <- file.path(wd, file_name)
+  
+  # Save the workbook
+  saveWorkbook(workbook, file_path, overwrite = TRUE)
+}
+
+
+# 5. deal with signs
+
+
+
+
+
 rm(list=ls(all=TRUE))
 graphics.off()
 
@@ -48,7 +125,7 @@ load_required_packages <- function(packages) {
   invisible(lapply(packages, library, character.only=TRUE))
 }
 
-required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase', 'shiny', 'signal', 'readABF', 'readxl','tcltk', 'tkrplot')
+required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase', 'shiny', 'signal', 'readABF', 'readxl','tcltk', 'tkrplot', 'openxlsx')
 load_required_packages(required.packages)
 
 
@@ -248,6 +325,15 @@ PSC_analysis_tk <- function() {
   tkgrid(tklabel(graphSettingsFrame, text='y-bar units:'), row=4, column=0, sticky='w')
   tkgrid(tkentry(graphSettingsFrame, textvariable=ybarLabVar, width=10), row=4, column=1)
   
+  xlimVar <- tclVar('')
+  tkgrid(tklabel(graphSettingsFrame, text='x limits (e.g., 25,400):'), row=7, column=0, sticky='w')
+  xlimEntry <- tkentry(graphSettingsFrame, textvariable=xlimVar, width=20)
+  tkgrid(xlimEntry, row=7, column=1)
+
+  tkbind(xlimEntry, "<Return>", function() {
+    if (!is.null(plotWidget)) tkrreplot(plotWidget, fun=drawPlotXlim)
+  })
+
   # Additional sidebar controls
   userTmaxVar <- tclVar('')
   tkgrid(tklabel(sidebarFrame, text='User maximum time for fit:'), row=3, column=0, sticky='w', pady=5)
@@ -258,8 +344,20 @@ PSC_analysis_tk <- function() {
   repeatConstraintCheck <- tkcheckbutton(sidebarFrame, variable=repeatConstraintVar)
   tkgrid(repeatConstraintCheck, row=4, column=1)
   
+  buttonFrame <- tkframe(sidebarFrame)
+  tkgrid(buttonFrame, row=5, column=0, columnspan=3, pady=10, sticky='ew')
+
+  tkgrid.columnconfigure(sidebarFrame, 0, weight=1)
+  tkgrid.columnconfigure(sidebarFrame, 1, weight=0)
+  tkgrid.columnconfigure(sidebarFrame, 2, weight=1)
+
+  tkgrid.columnconfigure(buttonFrame, 0, weight=1)
+  tkgrid.columnconfigure(buttonFrame, 1, weight=0)
+  tkgrid.columnconfigure(buttonFrame, 2, weight=0)
+  tkgrid.columnconfigure(buttonFrame, 3, weight=1)
+
   # Analysis action buttons
-  runAnalysisButton <- tkbutton(sidebarFrame, text='Run Initial Analysis', command=function() {
+  runAnalysisButton <- tkbutton(buttonFrame, text='Run Initial Analysis', command=function() {
     filePath <- tclvalue(filePathVar)
     if (nchar(filePath) == 0) {
       tkmessageBox(message='Please select a file first')
@@ -290,9 +388,8 @@ PSC_analysis_tk <- function() {
     }
 
   })
-  tkgrid(runAnalysisButton, row=5, column=0, columnspan=3, pady=5)
     
-  runMainAnalysisButton <- tkbutton(sidebarFrame, text='Run Main Analysis', command=function() {
+  runMainAnalysisButton <- tkbutton(buttonFrame, text='Run Main Analysis', command=function() {
     fast.constraint        <- as.logical(as.numeric(tclvalue(repeatConstraintVar)))
     ds                     <- as.numeric(tclvalue(dsVar))
     dt                     <- as.numeric(tclvalue(dtVar)) * ds
@@ -349,10 +446,20 @@ PSC_analysis_tk <- function() {
       
       out$traces <- traces_fun2(y=y, fits=out$fits, dt=dt, N=N, IEI=IEI, stimulation_time=stimulation_time,
                                 baseline=baseline, func=func, filter=filter, fc=fc)
+      xlim_input <- tclvalue(xlimVar)
+      if (nchar(xlim_input) > 0) {
+        xlim_vals <- as.numeric(unlist(strsplit(xlim_input, ',')))
+        if (length(xlim_vals) == 2) {
+          out$traces <- out$traces[out$traces$x >= xlim_vals[1] & out$traces$x <= xlim_vals[2], ]
+        }
+      }
+
       tkrreplot(plotWidget, fun=function() {
-        drawPlot2(traces=out$traces, func=func, lwd=lwd, cex=0.6, filter=filter, xbar=as.numeric(tclvalue(xbarVar)),
-                  ybar=as.numeric(tclvalue(ybarVar)), xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+        drawPlot2(traces=out$traces, func=func, lwd=lwd, cex=0.6, filter=filter,
+                  xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+                  xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
       })
+
     } else {
       out <- nFIT_sequential(response=y, n=n, dt=dt, func=func, method=method, weight_method=weight_method,
                   stimulation_time=stimulation_time, baseline=baseline, fit.limits=fit.limits, fast.decay.limit=fast.decay.limit,
@@ -377,9 +484,8 @@ PSC_analysis_tk <- function() {
     tkdelete(fitOutputText, '1.0', 'end')
     tkinsert(fitOutputText, 'end', paste(capture.output(print(df_out)), collapse='\n'))
   })
-  tkgrid(runMainAnalysisButton, row=7, column=0, columnspan=3, pady=5)
   
-  downloadOutputButton <- tkbutton(sidebarFrame, text='Download Output', 
+  downloadOutputButton <- tkbutton(buttonFrame, text='Download RData', 
     command=function() {
       if (!exists('analysis_output') || is.null(analysis_output)) {
         tkmessageBox(message='No analysis output available!')
@@ -439,10 +545,70 @@ PSC_analysis_tk <- function() {
       }
     }
   )
-
-  tkgrid(downloadOutputButton, row=8, column=0, columnspan=3, pady=5)
   
-  clearOutputButton <- tkbutton(sidebarFrame, text='Clear Output', command=function() {
+  downloadResultsButton <- tkbutton(buttonFrame, text='Download Output (CSV/XLSX)', command=function() {
+    if (!exists('analysis_output') || is.null(analysis_output)) {
+      tkmessageBox(message='No analysis output available!')
+      return()
+    }
+    filePath <- tclvalue(tkgetSaveFile(filetypes='{{Excel File} {.xlsx}} {{CSV File} {.csv}}'))
+    if (nchar(filePath) == 0) return()
+
+    extension <- tools::file_ext(filePath)
+    data_list <- list(
+      output = analysis_output$output,
+      traces = analysis_output$traces,
+      `fit criterion` = data.frame(AIC = analysis_output$AIC, BIC = analysis_output$BIC),
+      `model message` = data.frame(message = analysis_output$model.message)
+    )
+
+    if (tolower(extension) == "csv") {
+      for (name in names(data_list)) {
+        write.csv(data_list[[name]], file = sub("\\.csv$", paste0("_", name, ".csv"), filePath), row.names = FALSE)
+      }
+    } else if (tolower(extension) == "xlsx") {
+      if (!requireNamespace("openxlsx", quietly = TRUE)) install.packages("openxlsx")
+      openxlsx::library(openxlsx)
+      wb <- openxlsx::createWorkbook()
+      for (name in names(data_list)) {
+        openxlsx::addWorksheet(wb, name)
+        openxlsx::writeData(wb, name, data_list[[name]])
+      }
+      openxlsx::saveWorkbook(wb, filePath, overwrite = TRUE)
+    } else {
+      tkmessageBox(message="Unsupported file type. Use .csv or .xlsx")
+    }
+  })
+
+  exportSVGButton <- tkbutton(buttonFrame, text='Export Plot to SVG', command=function() {
+    if (!exists('analysis_output') || is.null(analysis_output)) {
+      tkmessageBox(message='No analysis available to export!')
+      return()
+    }
+    saveFile <- tclvalue(tkgetSaveFile(filetypes='{{SVG Files} {.svg}}'))
+    if (nchar(saveFile) > 0) {
+      # Parse and apply xlim if provided
+      traces <- analysis_output$traces
+      xlim_input <- tclvalue(xlimVar)
+      if (nchar(xlim_input) > 0) {
+        xlim_vals <- as.numeric(unlist(strsplit(xlim_input, ',')))
+        if (length(xlim_vals) == 2) {
+          traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+        }
+      }
+      
+      svg(filename=saveFile, width=7, height=5)
+      drawPlot2(traces=traces, func=get(tclvalue(funcVar)), lwd=as.numeric(tclvalue(lwdVar)), cex=0.6,
+                filter=as.logical(as.numeric(tclvalue(filterVar))),
+                xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+                xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+      dev.off()
+      tkmessageBox(message='SVG plot saved successfully.')
+    }
+  })
+
+  
+  clearOutputButton <- tkbutton(buttonFrame, text='Clear Output', command=function() {
     analysis_output <<- NULL
     # tkdelete(consoleText, '1.0', 'end')
     tkdelete(fitOutputText, '1.0', 'end')
@@ -454,8 +620,14 @@ PSC_analysis_tk <- function() {
     }
 
   })
-  tkgrid(clearOutputButton, row=9, column=0, columnspan=3, pady=5)
   
+  tkgrid(runAnalysisButton,      row=0, column=0, padx=5, pady=2)
+  tkgrid(runMainAnalysisButton,  row=0, column=1, padx=5, pady=2)
+  tkgrid(exportSVGButton,        row=1, column=0, padx=5, pady=2)
+  tkgrid(clearOutputButton,      row=1, column=1, padx=5, pady=2)
+  tkgrid(downloadOutputButton,   row=2, column=0, padx=5, pady=2)
+  tkgrid(downloadResultsButton,  row=2, column=1, padx=5, pady=2)
+
   # Main Panel plot
   drawPlot1 <- function() {
     
@@ -473,6 +645,23 @@ PSC_analysis_tk <- function() {
       xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
   }
   
+  drawPlotXlim <- function() {
+    xlim_input <- tclvalue(xlimVar)
+    traces <- if (exists("analysis_output") && !is.null(analysis_output)) analysis_output$traces else NULL
+    if (is.null(traces)) return()
+
+    if (nchar(xlim_input) > 0) {
+      xlim_vals <- as.numeric(unlist(strsplit(xlim_input, ",")))
+      if (length(xlim_vals) == 2) {
+        traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+      }
+    }
+
+    drawPlot2(traces=traces, func=get(tclvalue(funcVar)), lwd=as.numeric(tclvalue(lwdVar)), cex=0.6,
+              filter=as.logical(as.numeric(tclvalue(filterVar))),
+              xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+              xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+  }
   # plotWidget <- tkrplot(tt, fun=drawPlot1)
   # tkgrid(plotWidget, row=0, column=1, sticky='nsew')
   
@@ -480,13 +669,15 @@ PSC_analysis_tk <- function() {
   # tkgrid(consoleText, row=1, column=1, sticky='nsew')
   
   fitOutputLabel <- tklabel(sidebarFrame, text='Fit Output:')
-  tkgrid(fitOutputLabel, row=10, column=0, columnspan=3, sticky='w', pady=c(10,2), padx=20)
+  tkgrid(fitOutputLabel, row=11, column=0, columnspan=3, sticky='w', pady=c(10,2), padx=20)
   
   fitOutputText <- tktext(sidebarFrame, width=90, height=5)
-  tkgrid(fitOutputText, row=11, column=0, columnspan=3, sticky='w', padx=20)
+  tkgrid(fitOutputText, row=12, column=0, columnspan=3, sticky='w', padx=20)
   
   tkfocus(tt)
 }
+
+
 
 # Launch the PSC Analysis interface
 PSC_analysis_tk()
@@ -575,7 +766,8 @@ ui <- fluidPage(
                  numericInput('xbar', 'x-bar Length:', 50),
                  numericInput('ybar', 'y-bar Length:', 50),
                  textInput('xbar_lab', 'x-axis Units:', 'ms'),
-                 textInput('ybar_lab', 'y-axis Units:', 'pA')
+                 textInput('ybar_lab', 'y-axis Units:', 'pA'),
+                 textInput('xlim', 'x limits (e.g., 0,400):', '')
         )
       ),
       
@@ -583,7 +775,9 @@ ui <- fluidPage(
       actionButton('run_initial', 'Run Initial Analysis'),
       actionButton('run_main', 'Run Main Analysis'),
       actionButton('clear_output', 'Clear Output'),
-      downloadButton('download_output', 'Download Output')
+      downloadButton('download_output', 'Download RData'),
+      downloadButton('download_svg', 'Download SVG Plot'),
+      downloadButton('download_xlsx',  'Download Output (XLSX)')
     ),
     mainPanel(
       plotOutput('plot', height='500px'),
@@ -674,7 +868,14 @@ server <- function(input, output, session) {
                      'product2N'=product2N,
                      'product3N'=product3N,
                      product1N)
-      drawPlot2(traces=state$analysis$traces, func=func, lwd=lwd,
+
+      xlim_vals <- if (nchar(input$xlim) > 0) as.numeric(unlist(strsplit(input$xlim, ","))) else NULL
+      traces <- state$analysis$traces
+      if (!is.null(xlim_vals) && length(xlim_vals) == 2) {
+        traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+      }
+
+      drawPlot2(traces=traces, func=func, lwd=lwd,
                 filter=input$filter, xbar=xbar, ybar=ybar,
                 xbar_lab=xbar_lab, ybar_lab=ybar_lab)
     }
@@ -843,6 +1044,67 @@ server <- function(input, output, session) {
       )
       
       save(results, file=file)
+    }
+  )
+
+  output$download_svg <- downloadHandler(
+    filename = function() {
+      paste0('PSC_plot_', Sys.Date(), '.svg')
+    },
+    content = function(file) {
+      req(state$analysis)
+      func <- switch(input$func,
+                     'product1N' = product1N,
+                     'product2N' = product2N,
+                     'product3N' = product3N,
+                     product1N)
+
+      traces <- state$analysis$traces
+      xlim_vals <- if (nchar(input$xlim) > 0) as.numeric(unlist(strsplit(input$xlim, ","))) else NULL
+      if (!is.null(xlim_vals) && length(xlim_vals) == 2) {
+        traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+      }
+
+      svg(filename = file, width = 7, height = 5)
+      drawPlot2(
+        traces = traces,
+        func = func,
+        lwd = as.numeric(input$lwd),
+        filter = input$filter,
+        xbar = as.numeric(input$xbar),
+        ybar = as.numeric(input$ybar),
+        xbar_lab = input$xbar_lab,
+        ybar_lab = input$ybar_lab
+      )
+      dev.off()
+    }
+  )
+
+  output$download_xlsx <- downloadHandler(
+    filename = function() {
+      paste0(
+        tools::file_path_sans_ext(basename(input$file$name)),
+        "_", input$data_col,
+        "_PSC_analysis.xlsx"
+      )
+    },
+    content = function(file) {
+      req(state$analysis)
+      if (!requireNamespace("openxlsx", quietly = TRUE)) {
+        install.packages("openxlsx")
+      }
+      wb <- openxlsx::createWorkbook()
+      data_list <- list(
+        output         = state$analysis$output,
+        traces         = state$analysis$traces,
+        `fit criterion` = data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC),
+        `model message` = data.frame(message = state$analysis$model.message)
+      )
+      for (nm in names(data_list)) {
+        openxlsx::addWorksheet(wb, nm)
+        openxlsx::writeData(wb, nm, data_list[[nm]])
+      }
+      openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
     }
   )
   
