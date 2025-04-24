@@ -7424,3 +7424,2406 @@ save_graph <- function(svg_path, filename='graph1.svg', width=6, height=4, bg="t
   dev.off()
   setwd(old_wd)
 }
+
+
+# wrappers for tk and shiny apps
+
+analyseABFtk <- function() {
+
+  extract_metadata <- function(abf_dataset) {
+    list(
+      path                  = abf_dataset$path,
+      formatVersion         = abf_dataset$formatVersion,
+      channelNames          = abf_dataset$channelNames,
+      channelUnits          = abf_dataset$channelUnits,
+      samplingIntervalInSec = abf_dataset$samplingIntervalInSec,
+      header                = abf_dataset$header,
+      tags                  = abf_dataset$tags,
+      sections              = abf_dataset$sections
+    )
+  }
+
+  choose_data_column <- function(channelUnits, experiment) {
+    if (experiment == 'voltage clamp') {
+      idx <- grep('A', channelUnits, ignore.case = TRUE)
+    } else if (experiment == 'current clamp') {
+      idx <- grep('V', channelUnits, ignore.case = TRUE)
+    } else {
+      idx <- integer(0)
+    }
+    if (length(idx) > 0) return(idx[1])
+    else return(NA)
+  }
+
+  check_consistency <- function(metadata) {
+    dt_values <- sapply(metadata, function(meta) meta$samplingIntervalInSec * 1000)
+    traces_values <- sapply(metadata, function(meta) meta$header$lActualEpisodes)
+    expType <- tclvalue(experimentVar)
+    unit_values <- sapply(metadata, function(meta) {
+      col_idx <- choose_data_column(meta$channelUnits, expType)
+      if (!is.na(col_idx)) meta$channelUnits[col_idx] else NA_character_
+    })
+    dt_good <- (length(unique(dt_values)) == 1)
+    traces_good <- (length(unique(traces_values)) == 1)
+    unit_good <- (length(unique(unit_values)) == 1)
+    if (dt_good && traces_good && unit_good) {
+      return('Data is consistent')
+    } else {
+      error_msgs <- c()
+      if (!dt_good) error_msgs <- c(error_msgs, paste('Inconsistent dt values:', paste(dt_values, collapse = ', ')))
+      if (!unit_good) error_msgs <- c(error_msgs, paste('Inconsistent Units:', paste(unit_values, collapse = ', ')))
+      if (!traces_good) error_msgs <- c(error_msgs, paste('Inconsistent Traces:', paste(traces_values, collapse = ', ')))
+      return(paste(error_msgs, collapse = '; '))
+    }
+  }
+
+  egs_plot <- function(x, y, sign = -1, xlim = NULL, ylim = NULL, lwd = 1, show_text = FALSE, 
+                       xbar = 100, ybar = 50, color = '#4C77BB', show_bar = FALSE, cex = 0.6) {
+    if (is.null(ylim))
+      ylim <- if (sign == 1) c(0, max(y)) else c(-max(-y), 0)
+    if (is.null(xlim))
+      xlim <- c(min(x), max(x))
+    idx1 <- which.min(abs(x - xlim[1]))
+    idx2 <- which.min(abs(x - xlim[2]))
+    plot(x[idx1:idx2], y[idx1:idx2], type = 'l', col = color, xlim = xlim, ylim = ylim, bty = 'n', 
+      lwd = lwd, lty = 1, axes = FALSE, frame = FALSE, xlab = '', ylab = '')
+    if (show_bar) {
+      ybar_start <- min(ylim) + (max(ylim) - min(ylim)) / 20
+      x_start <- max(xlim) - xbar - 50
+      y_start <- ybar_start
+      x_end <- x_start + xbar
+      y_end <- y_start + ybar
+      segments(x_start, y_start, x_end, y_start, lwd = lwd, col = 'black')
+      segments(x_start, y_start, x_start, y_end, lwd = lwd, col = 'black')
+      if (show_text) {
+        text(x = (x_start + x_end) / 2, y = y_start - ybar / 20, labels = paste(xbar, 'ms'), 
+             adj = c(0.5, 1), cex = cex)
+        text(x = x_start - xbar / 4, y = (y_start + y_end) / 2, labels = paste(ybar, 'pA'), 
+             adj = c(0.5, 0.5), srt = 90, cex = cex)
+      }
+    }
+  }
+
+  load_abf_data <- function(abf_files = NULL, abf_path = NULL) {
+    abf_path <- if (is.null(abf_path)) getwd() else abf_path
+    setwd(abf_path)
+    N <- length(abf_files)
+    datasets <- lapply(seq_len(N), function(ii) readABF(abf_files[ii]))
+    names(datasets) <- abf_files
+    metadata <- lapply(datasets, extract_metadata)
+    return(list(datasets = datasets, metadata = metadata))
+  }
+
+  download_data <- function() {
+    # check for averaged data
+    if (is.null(averaged_data) || length(averaged_data) == 0) {
+      tkmessageBox(message = "No averaged data available.")
+      return()
+    }
+
+    df <- as.data.frame(do.call(cbind, averaged_data))
+    colnames(df) <- as.character(seq_len(length(averaged_data)))
+
+    download_folder <- tclvalue(folderPathVar)
+    if (nchar(download_folder) == 0) {
+      tkmessageBox(message = "No folder selected for download.")
+      return()
+    }
+    file_path <- file.path(download_folder, 'averaged_data.csv')
+
+    # write CSV (no time column, just the numbered averages)
+    write.csv(df, file = file_path, row.names = FALSE)
+    tkmessageBox(message = paste('Averaged data saved to', file_path))
+  }
+
+  abf_averages <- function(datasets, baseline = 100, stimulation_time = 350, traces2average = NULL, dataCol = 1, ylim = NULL, xlim = NULL, 
+    color = 'darkgray', xbar = 100, ybar = 50, width = 5.25, height = 2.75, save = FALSE, plotIt = TRUE) {
+    
+    N <- length(datasets)
+    sampling_intervals <- sapply(datasets, function(ds) ds$samplingIntervalInSec * 1000)
+    responses <- lapply(seq_len(N), function(iii) {
+      sapply(seq_along(datasets[[iii]]$data), function(ii) {
+        datasets[[iii]]$data[[ii]][, dataCol]
+      })
+    })
+    names(responses) <- names(datasets)
+    baseline2zero <- function(y, dt, stim, baseline) {
+      idx_baseline <- round(baseline / dt)
+      idx_start    <- round((stim - baseline) / dt) + 1
+      y0 <- y - mean(y[1:idx_baseline])
+      y0[idx_start:length(y0)]
+    }
+    responses0 <- lapply(seq_len(N), function(iii) {
+      sapply(seq_len(ncol(responses[[iii]])), function(jj) {
+        baseline2zero(responses[[iii]][, jj],
+                      dt = sampling_intervals[iii],
+                      stim = stimulation_time,
+                      baseline = baseline)
+      })
+    })
+    names(responses0) <- names(responses)
+    responses0_mean <- if(is.null(traces2average)) {
+      lapply(seq_len(N), function(iii) apply(responses0[[iii]], 1, mean))
+    } else {
+      lapply(seq_len(N), function(iii)
+        apply(responses0[[iii]][, traces2average[[iii]], drop = FALSE], 1, mean))
+    }
+    time <- lapply(seq_len(N), function(iii) {
+      dt_val <- sampling_intervals[iii]
+      stim_time <- stimulation_time
+      base_val <- baseline
+      seq(from = stim_time - base_val, by = dt_val, length.out = length(responses0_mean[[iii]]))
+    })
+    if(plotIt){
+      par(mfrow = c(1, N))
+      show_bar <- rep(FALSE, N)
+      if (N > 0) show_bar[N] <- TRUE
+      for(ii in seq_len(N)) {
+        for(ii in seq_len(N)) {
+          egs_plot(x = time[[ii]], y = responses0_mean[[ii]], color = 'darkgray',
+                   show_bar = FALSE, show_text = FALSE)
+        }
+      }
+    }
+    return(list(raw_data = responses,
+                baseline_corrected_data = responses0,
+                baseline_corrected_mean_data = responses0_mean,
+                datasets = datasets))
+  }
+
+  combine_abf_data <- function(result) {
+    master_abf <- list()
+    master_abf$data <- list()
+    master_abf$source_files <- c()
+    master_abf$samplingIntervalInSec <- result$datasets[[1]]$samplingIntervalInSec
+    for(i in seq_along(result$datasets)) {
+      ds <- result$datasets[[i]]
+      n_traces <- length(ds$data)
+      master_abf$data <- c(master_abf$data, ds$data)
+      master_abf$source_files <- c(master_abf$source_files, rep(names(result$datasets)[i], n_traces))
+    }
+    return(master_abf)
+  }
+
+  smart_axis_limits <- function(vec, n_steps = 5) {
+    rng <- range(vec)
+    spread <- diff(rng)
+    
+    # Pick a base that's a nice round number (1, 2, 5, 10, 20, 50, 100, etc.)
+    raw_step <- spread / n_steps
+    base <- 10^floor(log10(raw_step))
+    
+    # Refine to nicer step (1, 2, or 5 × 10^n)
+    nice_steps <- c(1, 2, 5, 10)
+    best_step <- base * nice_steps[which.min(abs(nice_steps * base - raw_step))]
+    
+    lower <- floor(rng[1] / best_step) * best_step
+    upper <- ceiling(rng[2] / best_step) * best_step
+    c(lower, upper)
+  }
+
+  # global variables
+  master_abf <<- NULL      # Will hold either a concatenated master object or the original structure.
+  averaged_data <<- NULL   # Will hold the averaged (baseline_corrected_mean) data.
+  traces2average <<- list()  # Used in separate mode.
+  # For concatenated (master) mode:
+  current_trace <<- 1      
+  total_traces <<- 0       
+  current_group_selected <<- integer(0)  
+  groups_list <<- list()  
+  # For separate (non-concatenated) mode:
+  current_dataset <<- 1  
+
+  # review functions
+  # for concatenated
+  review_master_recordings <- function() {
+    if (is.null(master_abf)) {
+      tkmessageBox(message = "No master ABF data available. Please load data first.")
+      return()
+    }
+    total_traces <<- length(master_abf$data)
+    current_trace <<- 1L
+    current_group_selected <<- integer(0)
+    groups_list <<- list()
+
+    # clear out old widgets
+    children <- as.character(tkwinfo('children', plotPanel))
+    if (length(children) > 0) {
+      sapply(children, function(ch) tcl("destroy", ch))
+    }
+
+    reviewFrame <<- tkframe(plotPanel)
+    tkgrid(reviewFrame, row = 0, column = 0, sticky = 'nsew')
+
+    infoLabel <<- tklabel(
+      reviewFrame,
+      text = paste('Trace', current_trace, 'of', total_traces)
+    )
+    tkgrid(infoLabel, row = 0, column = 0, columnspan = 3)
+
+    reviewPlot <<- tkrplot(
+      reviewFrame,
+      fun = function() {
+        mat   <- master_abf$data[[current_trace]]
+        dt    <- master_abf$samplingIntervalInSec * 1000
+        time  <- seq(0, by = dt, length.out = nrow(mat))
+        dc    <- as.numeric(tclvalue(dataColVar))
+        if (is.na(dc) || dc < 1 || dc > ncol(mat)) dc <- 1
+        trace <- mat[, dc]
+        par(cex.lab = 0.6, cex.axis = 0.6, cex.main = 0.6)
+        plot(
+          time, trace, type = 'l', col = 'darkgray', xlab = 'time (ms)',
+          xlim = smart_axis_limits(time),
+          ylim = smart_axis_limits(trace),
+          ylab = tclvalue(unitVar),
+          axes = FALSE, bty = 'l',
+          main = paste('Trace', current_trace, 'of', total_traces)
+        )
+        axis(1); axis(2, las = 1)
+      },
+      hscale = 1, vscale = 1
+    )
+    tkgrid(reviewPlot, row = 1, column = 0, columnspan = 3)
+
+    # helper to advance and redraw
+    move_next_master <- function() {
+      tkconfigure(acceptButton, state = 'normal')
+      tkconfigure(rejectButton, state = 'normal')
+      if (current_trace < total_traces) {
+        current_trace <<- current_trace + 1L
+        tkconfigure(infoLabel, text = paste('Trace', current_trace, 'of', total_traces))
+        tkrreplot(reviewPlot)
+      } else {
+        tkmessageBox(message = "Review complete for all traces.")
+      }
+    }
+
+    acceptButton <<- tkbutton(
+      reviewFrame, text = 'Accept',
+      command = function() {
+        current_group_selected <<- c(current_group_selected, current_trace)
+        tkconfigure(acceptButton, state = 'disabled')
+        tkconfigure(rejectButton, state = 'normal')
+        move_next_master()
+      }
+    )
+    tkgrid(acceptButton, row = 2, column = 0)
+
+    rejectButton <<- tkbutton(
+      reviewFrame, text = 'Reject',
+      command = function() {
+        tkconfigure(rejectButton, state = 'disabled')
+        tkconfigure(acceptButton, state = 'normal')
+        move_next_master()
+      }
+    )
+    tkgrid(rejectButton, row = 2, column = 1)
+
+    nextTraceButton <<- tkbutton(
+      reviewFrame, text = 'Next Trace',
+      command = move_next_master
+    )
+    tkgrid(nextTraceButton, row = 2, column = 2)
+
+    averageGroupButton <<- tkbutton(
+      reviewFrame, text = 'Add Selected Group',
+      command = function() {
+        if (length(current_group_selected) == 0) {
+          tkinsert(consoleText, 'end', 'No traces selected in current group.\n')
+        } else {
+          groups_list[[length(groups_list) + 1]] <<- current_group_selected
+          msg <- paste(
+            'Group', length(groups_list),
+            'selected with traces:', paste(current_group_selected, collapse = ', ')
+          )
+          tkinsert(consoleText, 'end', paste0(msg, '\n'))
+          current_group_selected <<- integer(0)
+        }
+      }
+    )
+    tkgrid(averageGroupButton, row = 3, column = 0, columnspan = 3)
+
+    selectionCompleteButton <<- tkbutton(
+      reviewFrame, text = 'Selection Complete',
+      command = function() {
+        tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
+      }
+    )
+    tkgrid(selectionCompleteButton, row = 4, column = 0, columnspan = 3)
+  }
+
+  # for non-concatenated
+  review_recordings <- function() {
+    children <- as.character(tkwinfo('children', plotPanel))
+    if (length(children)>0) sapply(children, function(ch) tcl("destroy", ch))
+
+    if (!exists('abf_analysis_result', envir=.GlobalEnv)) {
+      tkmessageBox(message="No analysis result available for review.")
+      return()
+    }
+    result <- get('abf_analysis_result', envir=.GlobalEnv)
+    datasets <- result$datasets
+    traces2average <<- vector('list', length(datasets))
+    for (i in seq_along(traces2average)) traces2average[[i]] <<- integer(0)
+    current_dataset <<- 1L
+    current_trace   <<- 1L
+
+    reviewFrame <<- tkframe(plotPanel)
+    tkgrid(reviewFrame, row=0, column=0, sticky='nsew')
+
+    infoLabel <<- tklabel(reviewFrame, text = paste(names(datasets)[1],'trace 1'))
+    tkgrid(infoLabel, row=0, column=0, columnspan=2)
+
+    reviewPlot <<- tkrplot(reviewFrame, fun = function() {
+      ds    <- datasets[[current_dataset]]
+      fname <- names(datasets)[current_dataset]
+      tkconfigure(infoLabel, text=paste(fname,'trace',current_trace))
+      if (current_trace>length(ds$data)) {
+        plot.new(); text(0.5,0.5,paste('No more recordings in',fname))
+      } else {
+        mat <- ds$data[[current_trace]]
+        dc  <- as.numeric(tclvalue(dataColVar))
+        if (is.na(dc)||dc<1||dc>ncol(mat)) dc <- 1
+        dt  <- ds$samplingIntervalInSec*1000
+        time<- seq(0,by=dt,length.out=nrow(mat))
+        trace <- mat[,dc]
+        par(cex.lab=0.6, cex.axis=0.6, cex.main=0.6)
+        plot(time, trace, type='l', col='darkgray', xlab='time (ms)',
+             xlim=smart_axis_limits(time), ylim=smart_axis_limits(trace),
+             ylab=tclvalue(unitVar), axes=FALSE,
+             main=paste(fname,'trace',current_trace), bty='l')
+        axis(1); axis(2, las=1)
+      }
+    }, hscale=1, vscale=1)
+    tkgrid(reviewPlot, row=1, column=0, columnspan=2)
+
+    move_next <- function() {
+      tkconfigure(acceptButton, state='normal', relief='raised')
+      tkconfigure(rejectButton, state='normal', relief='raised')
+      ds    <- datasets[[current_dataset]]
+      fname <- names(datasets)[current_dataset]
+      if (current_trace<length(ds$data)) {
+        current_trace <<- current_trace + 1L
+      } else {
+        tkinsert(consoleText,'end',paste0(fname,' complete\n'))
+        if (current_dataset<length(datasets)) {
+          current_dataset <<- current_dataset+1L
+          current_trace   <<- 1L
+        } else {
+          tkinsert(consoleText,'end','Review complete: Approved recordings stored.\n')
+          return()
+        }
+      }
+      tkrreplot(reviewPlot)
+    }
+
+    acceptButton <- tkbutton(reviewFrame, text='Accept', command=function() {
+      traces2average[[current_dataset]] <<- c(traces2average[[current_dataset]], current_trace)
+      move_next()
+    })
+    tkgrid(acceptButton, row=2, column=0)
+
+    rejectButton <- tkbutton(reviewFrame, text='Reject', command=move_next)
+    tkgrid(rejectButton, row=2, column=1)
+
+    nextTraceButton <<- tkbutton(reviewFrame, text='Next Recording', command=move_next)
+    tkgrid(nextTraceButton, row=3, column=0, columnspan=2)
+  }
+
+  # averaging Functions
+  # function to average selected groups for concatenated mode.
+  average_selected_groups <- function() {
+    if (length(groups_list) == 0) {
+      tkmessageBox(message = "No groups available for averaging. Please select groups first.")
+      return()
+    }
+
+    dt_val <- master_abf$samplingIntervalInSec * 1000
+    stim_time <- as.numeric(tclvalue(stimTimeVar))
+    base_val <- as.numeric(tclvalue(baselineVar))
+    data_column <- as.numeric(tclvalue(dataColVar))
+    if (is.na(data_column) || data_column < 1) data_column <- 1
+
+    baseline2zero <- function(y, dt, stim, baseline) {
+      idx_baseline <- round(baseline / dt)
+      idx_start    <- round((stim - baseline) / dt) + 1
+      y0 <- y - mean(y[1:idx_baseline])
+      y0[idx_start:length(y0)]
+    }
+
+    group_corrected_mean <- lapply(groups_list, function(group_indices) {
+      traces_corrected <- lapply(group_indices, function(i) {
+        trace <- master_abf$data[[i]][, data_column]
+        baseline2zero(trace, dt = dt_val, stim = stim_time, baseline = base_val)
+      })
+      trace_mat <- do.call(cbind, traces_corrected)
+      rowMeans(trace_mat)
+    })
+
+    averaged_data <<- group_corrected_mean
+
+    # Ensure that this update is reflected properly when cycling
+    current_avg_index <<- 1
+
+    # Code for clearing existing UI elements
+    children <- as.character(tkwinfo('children', plotPanel))
+    for (child in children) {
+      tryCatch({ tkdestroy(.Tk.ID[[child]]) }, error = function(e) {}, silent = TRUE)
+    }
+
+    # Create a new frame for displaying averages
+    avgFrame <<- tkframe(plotPanel)
+    tkgrid(avgFrame, row = 0, column = 0, sticky = 'nsew')
+
+    # Function to draw the current average
+    drawAvgPlot <- function() {
+      num_groups <- length(group_corrected_mean)
+      if (num_groups < 1) {
+        plot.new()
+        text(0.5, 0.5, 'No averaged data available')
+        return()
+      }
+
+      dt_val <- master_abf$samplingIntervalInSec * 1000
+      stim_time <- as.numeric(tclvalue(stimTimeVar))
+      all_y <- unlist(group_corrected_mean)
+      shared_ylim <- range(all_y)
+      max_time <- max(sapply(group_corrected_mean, function(avg) dt_val * (length(avg) - 1)))
+      shared_xlim <- c(0, max_time)
+
+      par(mfrow = c(1, 1))
+      cex <- 0.6
+      par(cex.lab = cex, cex.axis = cex, cex.main = cex)
+
+      avg_trace <- group_corrected_mean[[current_avg_index]]
+      time <- seq(from = stim_time - base_val, by = dt_val, length.out = length(avg_trace))
+      stim_y <- avg_trace[which.min(abs(time - stim_time))]
+
+      egs_plot(x = time, y = avg_trace, color = 'darkgray', show_bar = TRUE, show_text = TRUE, 
+        xbar = as.numeric(tclvalue(xbarVar)), ybar = as.numeric(tclvalue(ybarVar)), 
+        xlim = shared_xlim, ylim = shared_ylim, cex = cex)
+      points(stim_time, stim_y, pch = 8, col = 'black')
+      text(stim_time, stim_y, labels = 'stim', pos = 3, cex = 0.6)
+    }
+
+    avgPlot <<- tkrplot(avgFrame, fun = drawAvgPlot, hscale = 1, vscale = 1)
+    tkgrid(avgPlot, row = 0, column = 0)
+
+    navFrame <- tkframe(avgFrame)
+    tkgrid(navFrame, row = 1, column = 0)
+
+    tkgrid(tklabel(navFrame, text = 'Average:'), row = 0, column = 0, padx = 5)
+    avgLabel <- tklabel(navFrame, text = paste(current_avg_index, 'of', length(averaged_data)))
+    tkgrid(avgLabel, row = 0, column = 1, padx = 5)
+
+    nextAvgButton <- tkbutton(navFrame, text = 'Next', command = function(){
+      if (current_avg_index < length(averaged_data)) {
+        current_avg_index <<- current_avg_index + 1
+      } else {
+        current_avg_index <<- 1
+      }
+      tkconfigure(avgLabel, text = paste(current_avg_index, 'of', length(averaged_data)))
+      tkrreplot(avgPlot)
+    })
+    tkgrid(nextAvgButton, row = 0, column = 2, padx = 5)
+
+    tkdelete(consoleText, '1.0', 'end')
+    tkinsert(consoleText, 'end', 'Averaging complete. Check the updated plot.')
+  }
+
+  # for separate mode (non-concatenated):
+  averageApprovedTraces_sep <- function() {
+    if(length(traces2average) == 0 || all(sapply(traces2average, length) == 0)){
+      tkmessageBox(message = "No approved traces available. Please review recordings first.")
+      return()
+    }
+    folderPath <- tclvalue(folderPathVar)
+    if(nchar(folderPath) == 0){
+      tkmessageBox(message = "Please select an ABF folder first.")
+      return()
+    }
+    selIndices <- as.integer(tkcurselection(abfListBox))
+    allFiles <- as.character(tkget(abfListBox, 0, 'end'))
+    abf_files <- if(length(selIndices)==0) allFiles else allFiles[selIndices+1]
+    if(length(abf_files)==0){
+      tkmessageBox(message = "No ABF files selected.")
+      return()
+    }
+    baseline <- as.numeric(tclvalue(baselineVar))
+    stimTime <- as.numeric(tclvalue(stimTimeVar))
+    xbar <- as.numeric(tclvalue(xbarVar))
+    ybar <- as.numeric(tclvalue(ybarVar))
+    
+    result <- tryCatch({
+      abf_out <<- abf_averages(
+        datasets = abf_analysis_result$datasets,
+        traces2average = traces2average,
+        baseline = baseline,
+        stimulation_time = stimTime,
+        dataCol = as.numeric(tclvalue(dataColVar)),
+        xlim = NULL, ylim = NULL,
+        color = 'darkgray',
+        xbar = xbar, ybar = ybar,
+        width = 5.25, height = 2.75,
+        plotIt = FALSE
+      )
+      abf_out
+    }, error = function(e){
+      tkmessageBox(message = paste('Error during averaging of approved traces:', e$message))
+      NULL
+    })
+    if(!is.null(result)){
+      tkdelete(consoleText, '1.0', 'end')
+      msg <- sprintf("Averaging on approved traces complete.\nProcessed %d file(s).", length(abf_files))
+      tkinsert(consoleText, 'end', paste0(msg, '\n'))
+      abf_analysis_result <<- result
+      
+      averaged_data <<- result$baseline_corrected_mean_data
+      datasets <- result$datasets
+      current_avg_index <<- 1
+      
+      children <- as.character(tkwinfo('children', plotPanel))
+      for(child in children){
+        tryCatch({ tkdestroy(.Tk.ID[[child]]) }, error = function(e){}, silent = TRUE)
+      }
+      
+      avgFrame <- tkframe(plotPanel)
+      tkgrid(avgFrame, row = 0, column = 0, sticky = 'nsew')
+      
+      drawSingleAvg <- function(){
+        if(length(averaged_data) == 0){
+          plot.new()
+          text(0.5, 0.5, 'No averaged data')
+          return()
+        }
+        cex <- 0.6
+        par(cex.lab = cex, cex.axis = cex, cex.main = cex)
+        dt_val <- datasets[[current_avg_index]]$samplingIntervalInSec * 1000
+        time <- seq(from = stimTime - baseline, by = dt_val, length.out = length(averaged_data[[current_avg_index]]))
+        all_y <- unlist(averaged_data)
+        ylim <- range(all_y)
+        xlim <- c(0, max(sapply(averaged_data, function(y) length(y) * dt_val)))
+        stim_time <- as.numeric(tclvalue(stimTimeVar))
+        trace_y <- averaged_data[[current_avg_index]]
+        stim_y <- trace_y[which.min(abs(time - stim_time))]
+
+        egs_plot(x = time, y = trace_y, color = 'darkgray',
+                 show_bar = TRUE, show_text = TRUE,
+                 xbar = xbar, ybar = ybar,
+                 xlim = xlim, ylim = ylim, cex = cex)
+
+        points(stim_time, stim_y, pch = 8, col = 'black')
+        text(stim_time, stim_y, labels = 'stim', pos = 3, cex = 0.6)
+      }
+      
+      reviewPlot <<- tkrplot(avgFrame, fun = drawSingleAvg, hscale = 1, vscale = 1)
+      tkgrid(reviewPlot, row = 0, column = 0, columnspan = 3)
+      
+      tkgrid(tklabel(avgFrame, text = 'Average:'), row = 1, column = 0)
+      avgLabel <- tklabel(avgFrame, text = paste(current_avg_index, 'of', length(averaged_data)))
+      tkgrid(avgLabel, row = 1, column = 1)
+      
+      nextAvgButton <- tkbutton(avgFrame, text = 'Next', command = function(){
+        if(current_avg_index < length(averaged_data)){
+          current_avg_index <<- current_avg_index + 1
+        } else {
+          current_avg_index <<- 1
+        }
+        tkconfigure(avgLabel, text = paste(current_avg_index, 'of', length(averaged_data)))
+        tkrreplot(reviewPlot)
+      })
+      tkgrid(nextAvgButton, row = 1, column = 2)
+    }
+  }
+
+  # UI Setup
+  ABF_analysis_tk <- function() {
+    tt <- tktoplevel()
+    tkwm.title(tt, 'ABF Analysis')
+    sidebarFrame <- tkframe(tt)
+    mainFrame   <- tkframe(tt)
+    tkgrid(sidebarFrame, row = 0, column = 0, sticky = 'ns')
+    tkgrid(mainFrame,   row = 0, column = 1, sticky = 'nsew')
+    tkgrid.rowconfigure(tt, 0, weight = 1)
+    tkgrid.columnconfigure(tt, 1, weight = 1)
+
+    # save mainFrame as the global plot panel
+    plotPanel <<- mainFrame
+
+    folderLabel <- tklabel(sidebarFrame, text = 'Select ABF Folder:')
+    tkgrid(folderLabel, row = 0, column = 0, sticky = 'w')
+    folderPathVar <<- tclVar('')
+    folderEntry <- tkentry(sidebarFrame, textvariable = folderPathVar, width = 30)
+    tkgrid(folderEntry, row = 0, column = 1, sticky = 'w')
+
+    browseFolderButton <- tkbutton(sidebarFrame, text = 'Browse', command = function(){
+      folderPath <- tclvalue(tkchooseDirectory())
+      if(nchar(folderPath) > 0){
+        tclvalue(folderPathVar) <<- folderPath
+        abf_list <- list.files(path = folderPath, pattern = '\\.abf$', ignore.case = TRUE)
+        if(length(abf_list) == 0){
+          tkmessageBox(message = "No ABF files found in the selected folder.")
+        } else {
+          tkdelete(abfListBox, 0, 'end')
+          for(f in abf_list){ tkinsert(abfListBox, 'end', f) }
+          firstFilePath <- file.path(folderPath, abf_list[1])
+          ds <- readABF(firstFilePath)
+          dummy_result <- list(metadata = list(extract_metadata(ds)))
+          updateAdditionalParams(dummy_result)
+        }
+      }
+    })
+    tkgrid(browseFolderButton, row = 0, column = 2, padx = 5)
+
+    abfListLabel <- tklabel(sidebarFrame, text = 'ABF Files:')
+    tkgrid(abfListLabel, row = 1, column = 0, sticky = 'w', pady = 5)
+    
+    tkgrid.columnconfigure(sidebarFrame, 0, weight = 1)
+    tkgrid.columnconfigure(sidebarFrame, 1, weight = 1)
+    tkgrid.columnconfigure(sidebarFrame, 2, weight = 1)
+    abfListBox <<- tklistbox(sidebarFrame, height = 5, selectmode = 'multiple')
+    tkgrid(abfListBox, row = 2, column = 0, columnspan = 3, sticky = 'we', padx = 10, pady = 5)
+
+    paramFrame <- tkframe(sidebarFrame)
+    tkgrid(paramFrame, row = 3, column = 0, columnspan = 3, sticky = 'w')
+    experimentVar <<- tclVar('voltage clamp')
+    unitVar       <<- tclVar('')
+    dataColVar    <<- tclVar('')
+    dtVar         <<- tclVar('')
+    ntracesVar    <<- tclVar('')
+
+    tkgrid(tklabel(paramFrame, text = 'Experiment:'), row = 0, column = 0, sticky = 'w')
+    experimentCombo <- ttkcombobox(paramFrame, textvariable = experimentVar,
+                                   values = c('voltage clamp', 'current clamp'), width = 15)
+    tkgrid(experimentCombo, row = 0, column = 1, sticky = 'w')
+
+    tkgrid(tklabel(paramFrame, text = 'Units:'), row = 1, column = 0, sticky = 'w')
+    unitEntry <- tkentry(paramFrame, textvariable = unitVar, width = 10)
+    tkgrid(unitEntry, row = 1, column = 1, sticky = 'w')
+
+    tkgrid(tklabel(paramFrame, text = 'Data Column:'), row = 2, column = 0, sticky = 'w')
+    dataColEntry <- tkentry(paramFrame, textvariable = dataColVar, width = 10)
+    tkgrid(dataColEntry, row = 2, column = 1, sticky = 'w')
+    tkbind(dataColEntry, '<FocusOut>', function() {
+      dc <- as.numeric(tclvalue(dataColVar))
+      if (!exists('abf_analysis_result', envir = .GlobalEnv)) return()
+      cu <- abf_analysis_result$datasets[[1]]$channelUnits
+      if (!is.na(dc) && dc >= 1 && dc <= length(cu)) {
+        tclvalue(unitVar) <<- cu[dc]
+      }
+    })
+
+    tkgrid(tklabel(paramFrame, text = 'dt (ms):'), row = 3, column = 0, sticky = 'w')
+    dtEntry <- tkentry(paramFrame, textvariable = dtVar, width = 10)
+    tkgrid(dtEntry, row = 3, column = 1, sticky = 'w')
+
+    tkgrid(tklabel(paramFrame, text = '# traces:'), row = 4, column = 0, sticky = 'w')
+    ntracesEntry <- tkentry(paramFrame, textvariable = ntracesVar, width = 10)
+    tkgrid(ntracesEntry, row = 4, column = 1, sticky = 'w')
+
+    baselineVar <<- tclVar('100')
+    stimTimeVar <<- tclVar('150')
+    xbarVar     <<- tclVar('100')
+    ybarVar     <<- tclVar('50')
+    concatMode  <<- tclVar('0')
+
+    tkgrid(tklabel(sidebarFrame, text = 'Baseline:'), row = 4, column = 0, sticky = 'w')
+    tkgrid(tkentry(sidebarFrame, textvariable = baselineVar, width = 10), row = 4, column = 1, sticky = 'w')
+    tkgrid(tklabel(sidebarFrame, text = 'Stimulation Time:'), row = 5, column = 0, sticky = 'w')
+    tkgrid(tkentry(sidebarFrame, textvariable = stimTimeVar, width = 10), row = 5, column = 1, sticky = 'w')
+    tkgrid(tklabel(sidebarFrame, text = 'x-bar length:'), row = 6, column = 0, sticky = 'w')
+    tkgrid(tkentry(sidebarFrame, textvariable = xbarVar, width = 10), row = 6, column = 1, sticky = 'w')
+    tkgrid(tklabel(sidebarFrame, text = 'y-bar length:'), row = 7, column = 0, sticky = 'w')
+    tkgrid(tkentry(sidebarFrame, textvariable = ybarVar, width = 10), row = 7, column = 1, sticky = 'w')
+
+    concatButton <- tkcheckbutton(sidebarFrame, variable = concatMode,
+                                  text = 'Concatenate Imported ABFs')
+    tkgrid(concatButton, row = 8, column = 0, columnspan = 3)
+
+    tkgrid.columnconfigure(sidebarFrame, 0, weight = 1)
+    tkgrid.columnconfigure(sidebarFrame, 1, weight = 1)
+    tkgrid.columnconfigure(sidebarFrame, 2, weight = 1)
+
+    consoleText <<- tktext(sidebarFrame, height = 5)
+    tkgrid(consoleText, row = 9, column = 0, columnspan = 3, sticky = 'we', padx = 10, pady = 5)
+
+    updateAdditionalParams <<- function(result) {
+      if (!is.null(result) && length(result$metadata) >= 1) {
+        meta1 <- result$metadata[[1]]
+        tclvalue(dtVar) <<- as.character(meta1$samplingIntervalInSec * 1000)
+        if (as.character(tclvalue(concatMode)) != '1') {
+          if (!is.null(meta1$header$lActualEpisodes))
+            tclvalue(ntracesVar) <<- as.character(meta1$header$lActualEpisodes)
+          else
+            tclvalue(ntracesVar) <<- 'N/A'
+        }
+        expType <- tclvalue(experimentVar)
+        col_idx <- choose_data_column(meta1$channelUnits, expType)
+        if (!is.na(col_idx)) {
+          tclvalue(unitVar) <<- meta1$channelUnits[col_idx]
+          tclvalue(dataColVar) <<- as.character(col_idx)
+        } else {
+          tclvalue(unitVar) <<- 'N/A'
+          tclvalue(dataColVar) <<- 'N/A'
+        }
+      }
+    }
+    tkbind(experimentCombo, '<<ComboboxSelected>>', function() {
+      if (exists('abf_analysis_result', envir = .GlobalEnv)) {
+        updateAdditionalParams(get('abf_analysis_result', envir = .GlobalEnv))
+      }
+    })
+
+    runAnalysis <<- function() {
+        # clear previous right‑panel widgets (graphs, metadata, table)
+        children <- as.character(tkwinfo('children', plotPanel))
+        if (length(children) > 0) {
+          sapply(children, function(ch) tcl("destroy", ch))
+        }
+
+        # ... now your existing load_abf_data logic follows ...
+        folderPath <- tclvalue(folderPathVar)
+        if (nchar(folderPath) == 0) {
+          tkmessageBox(message = "Please select an ABF folder first.")
+          return()
+        }
+
+      folderPath <- tclvalue(folderPathVar)
+      if (nchar(folderPath) == 0) {
+        tkmessageBox(message = "Please select an ABF folder first.")
+        return()
+      }
+      selIndices <- as.integer(tkcurselection(abfListBox))
+      allFiles    <- as.character(tkget(abfListBox, 0, 'end'))
+      abf_files   <- if (length(selIndices) == 0) allFiles else allFiles[selIndices + 1]
+      if (length(abf_files) == 0) {
+        tkmessageBox(message = "No ABF files selected.")
+        return()
+      }
+      result <- tryCatch({
+        load_abf_data(abf_files = abf_files, abf_path = folderPath)
+      }, error = function(e) {
+        tkmessageBox(message = paste('Error during data loading:', e$message))
+        NULL
+      })
+      if (!is.null(result)) {
+        tkdelete(consoleText, '1.0', 'end')
+        tkinsert(consoleText, 'end', paste0('Data loaded. Processed ', length(abf_files), ' file(s).\n'))
+        assign('abf_analysis_result', result, envir = .GlobalEnv)
+        updateAdditionalParams(result)
+
+        # display metadata
+        meta1 <- result$metadata[[1]]
+        first <- result$datasets[[1]]$data[[1]]
+        length_sweep <- nrow(first)
+        metaText <- paste(
+          paste0("Format version: ", meta1$formatVersion),
+          paste0("Sampling interval: ", meta1$samplingIntervalInSec, " s"),
+          paste0("Channel names: ", paste(meta1$channelNames, collapse = " ")),
+          paste0("Channel units: ", paste(meta1$channelUnits, collapse = " ")),
+          paste0("Number of sweeps: ", meta1$header$lActualEpisodes),
+          paste0("Length of first sweep: ", length_sweep),
+          paste0("Path: ", meta1$path),
+          sep = "\n"
+        )
+        kids <- as.character(tkwinfo('children', plotPanel))
+        for (k in kids) tryCatch(tkdestroy(.Tk.ID[[k]]), error = function(e) {}, silent = TRUE)
+        metaFrame  <- tkframe(plotPanel)
+        tkgrid(metaFrame, row = 0, column = 0, sticky = 'w', pady = 2)
+        metaLabel  <- tklabel(metaFrame, text = metaText, justify = 'left')
+        tkgrid(metaLabel)
+
+        # display first 10 rows of first trace
+        out <- first[1:10, ]
+        colnames(out) <- meta1$channelUnits
+        rownames(out) <- seq(nrow(out))
+        tableFrame  <- tkframe(plotPanel)
+        tkgrid(tableFrame, row = 1, column = 0, sticky = 'nsew')
+        textWidget  <<- tktext(tableFrame, width = 50, height = 11, wrap = 'none')
+        tkgrid(textWidget, row = 0, column = 0)
+        for (line in capture.output(print(out))) {
+          tkinsert(textWidget, 'end', paste0(line, '\n'))
+        }
+
+        cons_msg <- check_consistency(result$metadata)
+        if (cons_msg == 'Data is consistent') {
+          tkinsert(consoleText, 'end', paste0(cons_msg, '\n'))
+        } else {
+          tkinsert(consoleText, 'end', paste0('ERROR: ', cons_msg, '\n'))
+        }
+
+        if (as.character(tclvalue(concatMode)) == '1') {
+          master_abf <<- combine_abf_data(result)
+          tclvalue(ntracesVar) <<- as.character(length(master_abf$data))
+        } else {
+          master_abf <<- result
+        }
+        tkconfigure(runAnalysisButton, text = 'Load Data')
+      }
+    }
+
+    runAnalysisButton        <<- tkbutton(sidebarFrame, text = 'Load Data',               command = runAnalysis)
+    reviewButton             <<- tkbutton(sidebarFrame, text = 'Review Recordings',        command = function() {
+                                  if (as.character(tclvalue(concatMode)) == '1') review_master_recordings()
+                                  else review_recordings()
+                                })
+    avgApprovedTracesButton  <<- tkbutton(sidebarFrame, text = 'Average Approved Traces', command = function() {
+                                  if (as.character(tclvalue(concatMode)) == '1') average_selected_groups()
+                                  else averageApprovedTraces_sep()
+                                })
+    tkDownloadBtn            <<- tkbutton(sidebarFrame, text = 'Download Data',            command = download_data)
+
+    tkgrid(runAnalysisButton,       row = 10, column = 0, columnspan = 3, pady = 5)
+    tkgrid(reviewButton,            row = 11, column = 0, columnspan = 3, pady = 5)
+    tkgrid(avgApprovedTracesButton, row = 12, column = 0, columnspan = 3, pady = 5)
+    tkgrid(tkDownloadBtn,           row = 13, column = 0, columnspan = 3, pady = 5)
+
+    tkfocus(tt)
+  }
+
+  # launch UI
+  ABF_analysis_tk()
+}
+
+############################################################################################
+analyseABFshiny <- function() {
+
+  extract_metadata <- function(abf_dataset) {
+    list(
+      path                  = abf_dataset$path,
+      formatVersion         = abf_dataset$formatVersion,
+      channelNames          = abf_dataset$channelNames,
+      channelUnits          = abf_dataset$channelUnits,
+      samplingIntervalInSec = abf_dataset$samplingIntervalInSec,
+      header                = abf_dataset$header
+    )
+  }
+
+  choose_data_column <- function(channelUnits, experiment) {
+    if (experiment == 'voltage clamp') {
+      idx <- grep('A', channelUnits, ignore.case = TRUE)
+    } else if (experiment == 'current clamp') {
+      idx <- grep('V', channelUnits, ignore.case = TRUE)
+    } else {
+      idx <- integer(0)
+    }
+    if (length(idx) > 0) return(idx[1])
+    NA_integer_
+  }
+
+  combine_abf_data <- function(result) {
+    master_abf <- list(data = list(), samplingIntervalInSec = result$datasets[[1]]$samplingIntervalInSec)
+    for (i in seq_along(result$datasets)) {
+      ds <- result$datasets[[i]]
+      master_abf$data <- c(master_abf$data, ds$data)
+    }
+    master_abf
+  }
+
+  egs_plot <- function(x, y, sign = -1, xlim = NULL, ylim = NULL, lwd = 1,
+                       show_text = FALSE, xbar = 100, ybar = 50,
+                       color = 'darkgray', show_bar = FALSE, cex = 0.6) {
+    if (is.null(ylim))
+      ylim <- if (sign==1) c(0,max(y)) else c(-max(-y),0)
+    if (is.null(xlim))
+      xlim <- c(min(x), max(x))
+    idx1 <- which.min(abs(x - xlim[1]))
+    idx2 <- which.min(abs(x - xlim[2]))
+    plot(x[idx1:idx2], y[idx1:idx2], type='l', col=color, xlim=xlim, ylim=ylim,
+         axes=FALSE, xlab='time (ms)', ylab='')
+    if (show_bar) {
+      segments(max(x)-xbar, min(ylim), max(x), min(ylim))
+      segments(max(x), min(ylim), max(x), min(ylim)+ybar)
+      if (show_text) {
+        text(max(x)-xbar/2, min(ylim)-0.05*diff(ylim), paste(xbar,'ms'))
+        text(max(x)+0.02*diff(xlim), min(ylim)+ybar/2, paste(ybar,'pA'), srt=90)
+      }
+    }
+  }
+
+  ui <- fluidPage(
+    titlePanel("ABF Analysis"),
+    sidebarLayout(
+      sidebarPanel(
+        tabsetPanel(
+          id = "sideTabs",
+          tabPanel("Main",
+            fileInput("abfFiles","Upload ABF Files", multiple=TRUE, accept=".abf"),
+            checkboxInput("concatenate","Concatenate ABFs",FALSE),
+            actionButton("load","Load Data"), br(), br(),
+            actionButton("review","Review Recordings"), br(), br(),
+            actionButton("accept","Accept"), actionButton("reject","Reject"),
+            actionButton("nextReview","Next"), br(), br(),
+            actionButton("addGroup","Add Selected Group"), br(), br(),
+            actionButton("completeSel","Selection Complete"), br(), br(),
+            actionButton("average","Average Approved Traces"), br(), br(),
+            actionButton("nextAvg","Next Average"), br(), br(),
+            downloadButton("downloadData","Download Averaged CSV")
+          ),
+          tabPanel("Settings",
+            selectInput("experiment","Experiment", c("voltage clamp","current clamp")),
+            uiOutput("columnUI"),
+            verbatimTextOutput("unitsText"),
+            numericInput("dt","dt (ms)", NA),
+            numericInput("ntraces","# traces", NA),
+            numericInput("baseline","Baseline (ms)", 100),
+            numericInput("stimTime","Stimulation time (ms)", 150),
+            numericInput("xbar","x-bar length (ms)", 100),
+            numericInput("ybar","y-bar length (pA)", 50)
+          )
+        )
+      ),
+      mainPanel(
+        tabsetPanel(
+          id = "mainTabs",
+          tabPanel("Metadata",
+            verbatimTextOutput("metaText"),
+            tableOutput("firstTable")
+          ),
+          tabPanel("Review",
+            fluidRow(
+              column(8,   # ~66% for the plot
+                plotOutput("reviewPlot", height="600px", width="100%")
+              ),
+              column(4,   # ~33% for the console box
+                wellPanel(
+                  style="height:600px; overflow:auto; padding:10px;",
+                  verbatimTextOutput("console")
+                )
+              )
+            )
+          ),
+
+          tabPanel("Average",
+            fluidRow(
+              column(8,
+                plotOutput("avgPlot", height="600px", width="100%")
+              ),
+              column(4,
+                wellPanel(
+                  style="height:600px; overflow:auto; padding:10px;",
+                  verbatimTextOutput("avgInfo")
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+
+  server <- function(input, output, session) {
+    vals <- reactiveValues(
+      datasets=NULL, metadata=NULL,
+      master=NULL, traces2avg=NULL,
+      mode=NULL, ct=1, total=0,
+      curGroup=NULL, groups=list(),
+      avg=NULL, ca=1,
+      log="", avgLog=""
+    )
+
+    baseline2zero <- function(y, dt, stim, baseline) {
+      idx_baseline <- round(baseline / dt)
+      idx_start    <- round((stim - baseline) / dt) + 1
+      y0 <- y - mean(y[1:idx_baseline])
+      y0[idx_start:length(y0)]
+    }
+
+    observeEvent(input$load, {
+      req(input$abfFiles)
+      paths <- input$abfFiles$datapath
+      names(paths) <- input$abfFiles$name
+      vals$datasets <- lapply(paths, readABF)
+      vals$metadata <- lapply(vals$datasets, extract_metadata)
+      m1 <- vals$metadata[[1]]
+      updateNumericInput(session, "dt", value = m1$samplingIntervalInSec * 1000)
+      updateNumericInput(session, "ntraces", value = m1$header$lActualEpisodes)
+      sel <- choose_data_column(m1$channelUnits, input$experiment)
+      updateSelectInput(session, "column", choices = seq_along(m1$channelUnits), selected = sel)
+      vals$log <- ""
+      updateTabsetPanel(session, "sideTabs", selected = "Settings")
+    })
+
+    observe({
+      req(vals$datasets)    # only run once data are loaded
+
+      total <- if (input$concatenate) {
+        # sum traces across every ABF
+        sum(vapply(vals$datasets, function(ds) length(ds$data), integer(1)))
+      } else {
+        # original sweep count in the first ABF
+        vals$metadata[[1]]$header$lActualEpisodes
+      }
+
+      updateNumericInput(session, "ntraces", value = total)
+    })
+
+    output$columnUI <- renderUI({
+      req(vals$metadata)
+      selectInput("column","Data Column", seq_along(vals$metadata[[1]]$channelUnits))
+    })
+    output$unitsText <- renderText({
+      req(input$column)
+      paste0("Units: ", vals$metadata[[1]]$channelUnits[as.integer(input$column)])
+    })
+    output$metaText <- renderText({
+      req(vals$metadata)
+      m <- vals$metadata[[1]]; first <- vals$datasets[[1]]$data[[1]]
+      c(
+        paste0("Format version: ", m$formatVersion),
+        paste0("Sampling interval: ", m$samplingIntervalInSec, " s"),
+        paste0("Channel names: ", paste(m$channelNames, collapse=" ")),
+        paste0("Channel units: ", paste(m$channelUnits, collapse=" ")),
+        paste0("Number of sweeps: ", m$header$lActualEpisodes),
+        paste0("Length of first sweep: ", nrow(first)),
+        paste0("Path: ", m$path)
+      )
+    })
+    output$firstTable <- renderTable({
+      req(vals$datasets, input$column)
+      out <- vals$datasets[[1]]$data[[1]][1:10, ]
+      colnames(out) <- vals$metadata[[1]]$channelUnits
+      head(out, 10)
+    })
+
+    # Review
+    observeEvent(input$review, {
+      req(vals$datasets, input$column)
+      vals$mode <- if (input$concatenate) "concat" else "sep"
+      if (vals$mode == "concat") {
+        vals$master <- combine_abf_data(list(datasets = vals$datasets))
+        vals$total  <- length(vals$master$data)
+        vals$ct     <- 1
+        vals$curGroup <- integer(0)
+        vals$groups   <- list()
+      } else {
+        vals$curFile   <- 1; vals$ct <- 1
+        vals$traces2avg <- vector("list", length(vals$datasets))
+        for (i in seq_along(vals$traces2avg)) vals$traces2avg[[i]] <- integer(0)
+      }
+      vals$log <- ""
+      updateTabsetPanel(session, "mainTabs", selected = "Review")
+    })
+
+    output$reviewPlot <- renderPlot({
+      req(vals$mode, vals$datasets, input$column)
+      par(mar = c(6, 4, 2, 2)) 
+      colIdx <- as.integer(input$column)
+      if (vals$mode == "concat") {
+        mat <- vals$master$data[[vals$ct]]
+        dt  <- vals$master$samplingIntervalInSec * 1000
+        time <- seq(0, by = dt, length.out = nrow(mat))
+        trace <- mat[, colIdx]
+      } else {
+        ds   <- vals$datasets[[vals$curFile]]
+        mat  <- ds$data[[vals$ct]]
+        dt   <- ds$samplingIntervalInSec * 1000
+        time <- seq(0, by = dt, length.out = nrow(mat))
+        trace<- mat[, colIdx]
+      }
+      egs_plot(time, trace, show_bar = FALSE)
+      axis(1); axis(2)
+      # usr <- par("usr")
+      # y0  <- usr[3] + 0.05*(usr[4]-usr[3])
+      # text(input$stimTime, y0, "*", col = "black", cex = 2.5)
+    })
+
+    observeEvent(input$accept, {
+      if (is.null(vals$mode)) {
+        showNotification(
+          "Error: No review in progress. Click 'Review Recordings' first.",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+      if (vals$mode == "concat") {
+        # concatenated mode
+        vals$curGroup <- union(vals$curGroup, vals$ct)
+        vals$log <- paste0(vals$log, "Accepted trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
+        if (vals$ct < vals$total) {
+          vals$ct <- vals$ct + 1
+        } else {
+          vals$log <- paste0(vals$log, "Review complete for all traces.\n")
+        }
+
+      } else {
+        # separate mode
+        fidx <- vals$curFile
+        ds   <- vals$datasets[[fidx]]
+        fname <- names(vals$datasets)[fidx]
+
+        # log the accept
+        vals$traces2avg[[fidx]] <- union(vals$traces2avg[[fidx]], vals$ct)
+        vals$log <- paste0(vals$log, "Accepted ", fname, " trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
+        if (vals$ct < length(ds$data)) {
+          vals$ct <- vals$ct + 1
+        } else if (vals$curFile < length(vals$datasets)) {
+          # finished this file (but not the last) → log and advance
+          vals$log <- paste0(vals$log, fname, " complete\n")
+          vals$curFile <- vals$curFile + 1
+          vals$ct      <- 1
+        } else {
+          # last file → log complete and final message
+          vals$log <- paste0(vals$log, fname, " complete\n")
+          vals$log <- paste0(vals$log, "Review complete: Approved recordings stored.\n")
+        }
+      }
+    })
+
+    observeEvent(input$reject, {
+      if (is.null(vals$mode)) {
+        showNotification(
+          "Error: No review in progress. Click 'Review Recordings' first.",
+          type = "error",
+          duration = 5
+        )
+        return()
+      }
+
+      if (vals$mode == "concat") {
+        # concatenated mode
+        vals$log <- paste0(vals$log, "Rejected trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
+        if (vals$ct < vals$total) {
+          vals$ct <- vals$ct + 1
+        } else {
+          vals$log <- paste0(vals$log, "Review complete for all traces.\n")
+        }
+
+      } else {
+        # separate mode
+        fidx <- vals$curFile
+        ds   <- vals$datasets[[fidx]]
+        fname <- names(vals$datasets)[fidx]
+
+        # log the reject
+        vals$log <- paste0(vals$log, "Rejected ", fname, " trace ", vals$ct, "\n")
+
+        isolate({ input$nextReview })
+        if (vals$ct < length(ds$data)) {
+          vals$ct <- vals$ct + 1
+        } else if (vals$curFile < length(vals$datasets)) {
+          # finished this file → log and advance
+          vals$log <- paste0(vals$log, fname, " complete\n")
+          vals$curFile <- vals$curFile + 1
+          vals$ct      <- 1
+        } else {
+          # last file → log complete and final message
+          vals$log <- paste0(vals$log, fname, " complete\n")
+          vals$log <- paste0(vals$log, "Review complete: Approved recordings stored.\n")
+        }
+      }
+    })
+
+    output$console <- renderText(vals$log)
+
+    observeEvent(input$addGroup, {
+      if (length(vals$curGroup) == 0) {
+        vals$log <- paste0(vals$log, "No traces selected in current group.\n")
+      } else {
+        vals$groups[[length(vals$groups) + 1]] <- vals$curGroup
+        vals$log <- paste0(vals$log,
+                           "Group ", length(vals$groups),
+                           " selected: ",
+                           paste(vals$curGroup, collapse = ","),
+                           "\n")
+        vals$curGroup <- integer(0)
+      }
+    })
+    observeEvent(input$completeSel, {
+      vals$log <- paste0(vals$log, "Review complete: Approved traces stored.\n")
+    })
+
+    # average traces
+    observeEvent(input$average, {
+      req(vals$mode)
+      updateTabsetPanel(session, "mainTabs", selected = "Average")
+
+      # common dt in ms
+      dt <- if (vals$mode == "concat") {
+        vals$master$samplingIntervalInSec * 1000
+      } else {
+        vals$datasets[[1]]$samplingIntervalInSec * 1000
+      }
+
+      if (vals$mode == "concat") {
+        if (length(vals$groups) == 0) {
+          vals$avgLog <- "No groups to average.\n"
+          return()
+        }
+        vals$avg <- lapply(vals$groups, function(gr) {
+          # combine accepted traces, compute mean
+          y_full <- rowMeans(
+            do.call(cbind, lapply(gr, function(i)
+              vals$master$data[[i]][, as.integer(input$column)]))
+          )
+          baseline2zero(y_full, dt, input$stimTime, input$baseline)
+        })
+
+      } else {
+        # separate files
+        bc2 <- mapply(function(ds, idxs) {
+          if (length(idxs) == 0) return(NULL)
+          y_full <- rowMeans(
+            do.call(cbind, lapply(idxs, function(i)
+              ds$data[[i]][, as.integer(input$column)]))
+          )
+          baseline2zero(y_full, dt, input$stimTime, input$baseline)
+        }, vals$datasets, vals$traces2avg,
+        SIMPLIFY = FALSE)
+
+        vals$avg <- bc2[!sapply(bc2, is.null)]
+      }
+
+      vals$ca     <- 1
+      vals$avgLog <- "Averaging complete.\n"
+    })
+
+    observeEvent(input$nextAvg, {
+      req(vals$avg)
+      n <- length(vals$avg)
+      vals$ca <- if (vals$ca < n) vals$ca + 1 else 1
+    })
+
+    output$avgPlot <- renderPlot({
+      req(vals$avg)
+      par(mar = c(2, 2, 1, 1))
+
+      # data
+      y   <- vals$avg[[vals$ca]]
+      dt  <- vals$metadata[[1]]$samplingIntervalInSec * 1000
+      time <- seq(0, by = dt, length.out = length(y))
+
+      # plot trace
+      egs_plot(time, y, show_bar  = FALSE, show_text = FALSE, color = 'darkgray')
+
+      usr    <- par("usr")
+      x_min  <- usr[1]; x_max <- usr[2]
+      y_min  <- usr[3]; y_max <- usr[4]
+      x_span <- x_max - x_min
+      y_span <- y_max - y_min
+
+      margin_x <- 0.05 * x_span
+      margin_y <- 0.05 * y_span
+
+      # bottom-right origin for bars
+      x0 <- x_max - input$xbar - margin_x
+      y0 <- y_min + margin_y
+
+      # draw bars
+      segments(x0, y0, x0 + input$xbar, y0, lwd = 1)           # xbar
+      segments(x0, y0, x0, y0 + input$ybar, lwd = 1)           # ybar
+
+      text(x0 + input$xbar/2,
+           y0 - 0.03 * y_span,
+           paste0(input$xbar, " ms"),
+           adj = c(0.5, 1),
+           cex = 1.2)
+
+      text(
+        x = x0 - margin_x/2,
+        y = y0 + input$ybar/2,
+        labels = paste0(input$ybar, " pA"),
+        srt    = 90,
+        adj    = c(0.5, 0.5),  # center in both directions
+        cex    = 1.2)
+
+      # stimulation marker at baseline
+      text(input$baseline, 0, "*", col = "black", cex = 2.5)
+      text(input$baseline, 0, labels = "stim", pos = 3, cex = 1)
+    })
+
+    output$avgInfo <- renderText({
+      req(vals$avg)
+      paste0("Average ", vals$ca, " of ", length(vals$avg), "\n", vals$avgLog)
+    })
+
+    # download as csv
+    output$downloadData <- downloadHandler(
+      filename = function() "averaged_data.csv",
+      content = function(file) {
+        # combine only the averaged traces (no time column)
+        df <- as.data.frame(do.call(cbind, lapply(vals$avg, as.vector)))
+        colnames(df) <- as.character(seq_along(vals$avg))
+        write.csv(df, file, row.names = FALSE)
+      }
+    )
+  }
+
+  shinyApp(ui, server)
+
+}
+
+
+
+analysePSCtk <- function() {
+
+  PSC_analysis_tk <- function() {
+    tt <- tktoplevel()
+    tkwm.title(tt, 'PSC Analysis')
+    
+    # divide window into sidebar and main panels
+    sidebarFrame <- tkframe(tt)
+    mainFrame <- tkframe(tt)
+    plotWidget <<- NULL
+    tkgrid(sidebarFrame, row=0, column=0, sticky='ns')
+    tkgrid(mainFrame, row=0, column=1, sticky='nsew')
+    tkgrid.rowconfigure(tt, 0, weight=0)
+    tkgrid.columnconfigure(tt, 1, weight=1)
+    
+    # sidebar controls
+    fileLabel <- tklabel(sidebarFrame, text='Upload csv or xlsx:')
+    tkgrid(fileLabel, row=0, column=0, sticky='w')
+    filePathVar <- tclVar('')
+    fileEntry <- tkentry(sidebarFrame, textvariable=filePathVar, width=30)
+    tkgrid(fileEntry, row=0, column=1, sticky='w')
+    browseButton <- tkbutton(sidebarFrame, text='Browse', command=function() {
+      filePath <- tclvalue(tkgetOpenFile(filetypes='{{CSV Files} {.csv}} {{Excel Files} {.xlsx .xls}}'))
+      if (nchar(filePath) > 0) {
+        tclvalue(filePathVar) <- filePath
+        ext <- tools::file_ext(filePath)
+        if (tolower(ext) == 'csv') {
+          uploaded_data <<- read.csv(filePath)
+        } else {
+          uploaded_data <<- readxl::read_excel(filePath)
+        }
+        columns <<- names(uploaded_data)
+        tkconfigure(columnCombo, values=columns)
+      }
+    })
+    tkgrid(browseButton, row=0, column=2, padx=5)
+    
+    colLabel <- tklabel(sidebarFrame, text='Select column:')
+    tkgrid(colLabel, row=1, column=0, sticky='w')
+    columnVar <- tclVar('')
+    columnCombo <- ttkcombobox(sidebarFrame, textvariable=columnVar, values='', width=20)
+    tkgrid(columnCombo, row=1, column=1, columnspan=2, sticky='w')
+    
+    # Notebook for option tabs
+    nb <- ttknotebook(sidebarFrame)
+    tkgrid(nb, row=2, column=0, columnspan=3, pady=5, sticky='nsew')
+    
+    mainOptionsFrame   <- tkframe(nb)
+    fitOptionsFrame    <- tkframe(nb)
+    mleSettingsFrame   <- tkframe(nb)
+    advancedFrame      <- tkframe(nb)
+    graphSettingsFrame <- tkframe(nb)
+    
+    tkadd(nb, mainOptionsFrame, text='Main Options')
+    tkadd(nb, fitOptionsFrame, text='Fit Options')
+    tkadd(nb, mleSettingsFrame, text='MLE Settings')
+    tkadd(nb, advancedFrame, text='Advanced')
+    tkadd(nb, graphSettingsFrame, text='Plot Settings')
+    
+    # Main Options Tab
+    dtVar <- tclVar('0.1')
+    stimTimeVar <- tclVar('100')
+    baselineVar <- tclVar('50')
+    nVar <- tclVar('30')
+    yAblineVar <- tclVar('0.1')
+    funcVar <- tclVar('product1N')
+    tkgrid(tklabel(mainOptionsFrame, text='dt (ms):'), row=0, column=0, sticky='w')
+    tkgrid(tkentry(mainOptionsFrame, textvariable=dtVar, width=10), row=0, column=1)
+    tkgrid(tklabel(mainOptionsFrame, text='Stimulation Time:'), row=1, column=0, sticky='w')
+    tkgrid(tkentry(mainOptionsFrame, textvariable=stimTimeVar, width=10), row=1, column=1)
+    tkgrid(tklabel(mainOptionsFrame, text='Baseline:'), row=2, column=0, sticky='w')
+    tkgrid(tkentry(mainOptionsFrame, textvariable=baselineVar, width=10), row=2, column=1)
+    tkgrid(tklabel(mainOptionsFrame, text='n:'), row=3, column=0, sticky='w')
+    tkgrid(tkentry(mainOptionsFrame, textvariable=nVar, width=10), row=3, column=1)
+    tkgrid(tklabel(mainOptionsFrame, text='Fit cutoff:'), row=4, column=0, sticky='w')
+    tkgrid(tkentry(mainOptionsFrame, textvariable=yAblineVar, width=10), row=4, column=1)
+    tkgrid(tklabel(mainOptionsFrame, text='Function:'), row=5, column=0, sticky='w')
+    funcChoices <- c('product1N', 'product2N', 'product3N')
+    funcCombo <- ttkcombobox(mainOptionsFrame, textvariable=funcVar, values=funcChoices, width=10)
+    tkgrid(funcCombo, row=5, column=1)
+    
+    dsVar <- tclVar('1')
+    tkgrid(tklabel(mainOptionsFrame, text='Downsample Factor:'), row=6, column=0, sticky='w')
+    tkgrid(tkentry(mainOptionsFrame, textvariable=dsVar, width=10), row=6, column=1)
+    
+    # Fit Options Tab
+    NVar <- tclVar('1')
+    IEIVar <- tclVar('50')
+    smoothVar <- tclVar('5')
+    methodVar <- tclVar('BF.LM')
+    weightMethodVar <- tclVar('none')
+    sequentialFitVar <- tclVar('0')
+    intervalMinVar <- tclVar('0.1')
+    intervalMaxVar <- tclVar('0.9')
+    lowerVar <- tclVar('')
+    upperVar <- tclVar('')
+    latencyLimitVar <- tclVar('')
+    tkgrid(tklabel(fitOptionsFrame, text='N:'), row=0, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=NVar, width=10), row=0, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='IEI:'), row=1, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=IEIVar, width=10), row=1, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Smooth:'), row=2, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=smoothVar, width=10), row=2, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Method:'), row=3, column=0, sticky='w')
+    methodChoices <- c('BF.LM', 'LM', 'GN', 'port', 'robust', 'MLE')
+    methodCombo <- ttkcombobox(fitOptionsFrame, textvariable=methodVar, values=methodChoices, width=10)
+    tkgrid(methodCombo, row=3, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Weighting:'), row=4, column=0, sticky='w')
+    weightChoices <- c('none', '~y_sqrt', '~y')
+    weightCombo <- ttkcombobox(fitOptionsFrame, textvariable=weightMethodVar, values=weightChoices, width=10)
+    tkgrid(weightCombo, row=4, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Sequential Fit:'), row=5, column=0, sticky='w')
+    sequentialFitCheck <- tkcheckbutton(fitOptionsFrame, variable=sequentialFitVar)
+    tkgrid(sequentialFitCheck, row=5, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Min interval:'), row=6, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=intervalMinVar, width=10), row=6, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Max interval:'), row=7, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=intervalMaxVar, width=10), row=7, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Lower bounds:'), row=8, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=lowerVar, width=10), row=8, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Upper bounds:'), row=9, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=upperVar, width=10), row=9, column=1)
+    tkgrid(tklabel(fitOptionsFrame, text='Latency limit:'), row=10, column=0, sticky='w')
+    tkgrid(tkentry(fitOptionsFrame, textvariable=latencyLimitVar, width=10), row=10, column=1)
+    
+    # MLE Settings Tab
+    iterVar <- tclVar('1000')
+    metropolisScaleVar <- tclVar('1.5')
+    fitAttemptsVar <- tclVar('10')
+    RWmVar <- tclVar('0')
+    tkgrid(tklabel(mleSettingsFrame, text='MLE Iterations:'), row=0, column=0, sticky='w')
+    tkgrid(tkentry(mleSettingsFrame, textvariable=iterVar, width=10), row=0, column=1)
+    tkgrid(tklabel(mleSettingsFrame, text='Metropolis Scale:'), row=1, column=0, sticky='w')
+    tkgrid(tkentry(mleSettingsFrame, textvariable=metropolisScaleVar, width=10), row=1, column=1)
+    tkgrid(tklabel(mleSettingsFrame, text='Fit Attempts:'), row=2, column=0, sticky='w')
+    tkgrid(tkentry(mleSettingsFrame, textvariable=fitAttemptsVar, width=10), row=2, column=1)
+    tkgrid(tklabel(mleSettingsFrame, text='Random Walk Metropolis:'), row=3, column=0, sticky='w')
+    RWmCheck <- tkcheckbutton(mleSettingsFrame, variable=RWmVar)
+    tkgrid(RWmCheck, row=3, column=1)
+    
+    # Advanced Tab
+    filterVar <- tclVar('0')
+    fcVar <- tclVar('1000')
+    # relDecayFitLimitVar <- tclVar('0.1')
+    halfWidthFitLimitVar <- tclVar('500')
+    seedVar <- tclVar('42')
+    dpVar <- tclVar('3')
+    fastConstraintVar <- tclVar('0')
+    fastConstraintMethodVar <- tclVar('rise')
+    fastDecayLimitVar <- tclVar('')
+    firstDelayConstraintVar <- tclVar('0')
+    tkgrid(tklabel(advancedFrame, text='Filter:'), row=0, column=0, sticky='w')
+    filterCheck <- tkcheckbutton(advancedFrame, variable=filterVar)
+    tkgrid(filterCheck, row=0, column=1)
+    tkgrid(tklabel(advancedFrame, text='Filter cutoff (Hz):'), row=1, column=0, sticky='w')
+    tkgrid(tkentry(advancedFrame, textvariable=fcVar, width=10), row=1, column=1)
+    tkgrid(tklabel(advancedFrame, text='Half-width fit limit:'), row=3, column=0, sticky='w')
+    tkgrid(tkentry(advancedFrame, textvariable=halfWidthFitLimitVar, width=10), row=3, column=1)
+    tkgrid(tklabel(advancedFrame, text='Seed:'), row=4, column=0, sticky='w')
+    tkgrid(tkentry(advancedFrame, textvariable=seedVar, width=10), row=4, column=1)
+    tkgrid(tklabel(advancedFrame, text='Decimal points:'), row=5, column=0, sticky='w')
+    tkgrid(tkentry(advancedFrame, textvariable=dpVar, width=10), row=5, column=1)
+    tkgrid(tklabel(advancedFrame, text='Fast constraint:'), row=6, column=0, sticky='w')
+    fastConstraintCheck <- tkcheckbutton(advancedFrame, variable=fastConstraintVar)
+    tkgrid(fastConstraintCheck, row=6, column=1)
+    tkgrid(tklabel(advancedFrame, text='Fast constraint method:'), row=7, column=0, sticky='w')
+    fastConstraintChoices <- c('rise', 'peak')
+    fastConstraintCombo <- ttkcombobox(advancedFrame, textvariable=fastConstraintMethodVar, values=fastConstraintChoices, width=10)
+    tkgrid(fastConstraintCombo, row=7, column=1)
+    tkgrid(tklabel(advancedFrame, text='Fast decay limit(s):'), row=8, column=0, sticky='w')
+    tkgrid(tkentry(advancedFrame, textvariable=fastDecayLimitVar, width=10), row=8, column=1)
+    tkgrid(tklabel(advancedFrame, text='First delay constraint:'), row=9, column=0, sticky='w')
+    firstDelayCheck <- tkcheckbutton(advancedFrame, variable=firstDelayConstraintVar)
+    tkgrid(firstDelayCheck, row=9, column=1)
+    
+    # Graph Settings Tab
+    lwdVar <- tclVar('1.2')
+    xbarVar <- tclVar('50')
+    ybarVar <- tclVar('50')
+    xbarLabVar <- tclVar('ms')
+    ybarLabVar <- tclVar('pA')
+    tkgrid(tklabel(graphSettingsFrame, text='Line width:'), row=0, column=0, sticky='w')
+    tkgrid(tkentry(graphSettingsFrame, textvariable=lwdVar, width=10), row=0, column=1)
+    tkgrid(tklabel(graphSettingsFrame, text='x-bar length:'), row=1, column=0, sticky='w')
+    tkgrid(tkentry(graphSettingsFrame, textvariable=xbarVar, width=10), row=1, column=1)
+    tkgrid(tklabel(graphSettingsFrame, text='x-bar units:'), row=2, column=0, sticky='w')
+    tkgrid(tkentry(graphSettingsFrame, textvariable=xbarLabVar, width=10), row=2, column=1)
+    tkgrid(tklabel(graphSettingsFrame, text='y-bar length:'), row=3, column=0, sticky='w')
+    tkgrid(tkentry(graphSettingsFrame, textvariable=ybarVar, width=10), row=3, column=1)
+    tkgrid(tklabel(graphSettingsFrame, text='y-bar units:'), row=4, column=0, sticky='w')
+    tkgrid(tkentry(graphSettingsFrame, textvariable=ybarLabVar, width=10), row=4, column=1)
+    
+    xlimVar <- tclVar('')
+    tkgrid(tklabel(graphSettingsFrame, text='x limits (e.g., 25,400):'), row=7, column=0, sticky='w')
+    xlimEntry <- tkentry(graphSettingsFrame, textvariable=xlimVar, width=20)
+    tkgrid(xlimEntry, row=7, column=1)
+
+    tkbind(xlimEntry, "<Return>", function() {
+      if (!is.null(plotWidget)) tkrreplot(plotWidget, fun=drawPlotXlim)
+    })
+
+    # Additional sidebar controls
+    userTmaxVar <- tclVar('')
+    tkgrid(tklabel(sidebarFrame, text='User maximum time for fit:'), row=3, column=0, sticky='w', pady=5)
+    tkgrid(tkentry(sidebarFrame, textvariable=userTmaxVar, width=10), row=3, column=1, pady=5)
+    
+    repeatConstraintVar <- tclVar('0')
+    tkgrid(tklabel(sidebarFrame, text='Add fast constraint:'), row=4, column=0, sticky='w')
+    repeatConstraintCheck <- tkcheckbutton(sidebarFrame, variable=repeatConstraintVar)
+    tkgrid(repeatConstraintCheck, row=4, column=1)
+    
+    buttonFrame <- tkframe(sidebarFrame)
+    tkgrid(buttonFrame, row=5, column=0, columnspan=3, pady=10, sticky='ew')
+
+    tkgrid.columnconfigure(sidebarFrame, 0, weight=1)
+    tkgrid.columnconfigure(sidebarFrame, 1, weight=0)
+    tkgrid.columnconfigure(sidebarFrame, 2, weight=1)
+
+    tkgrid.columnconfigure(buttonFrame, 0, weight=1)
+    tkgrid.columnconfigure(buttonFrame, 1, weight=0)
+    tkgrid.columnconfigure(buttonFrame, 2, weight=0)
+    tkgrid.columnconfigure(buttonFrame, 3, weight=1)
+
+    # Analysis action buttons
+    runAnalysisButton <- tkbutton(buttonFrame, text='Run Initial Analysis', command=function() {
+      filePath <- tclvalue(filePathVar)
+      if (nchar(filePath) == 0) {
+        tkmessageBox(message='Please select a file first')
+        return()
+      }
+      if (nchar(tclvalue(columnVar)) == 0) {
+        tkmessageBox(message='Please select a column')
+        return()
+      }
+      ext <- tools::file_ext(filePath)
+      if (tolower(ext) == 'csv') {
+        uploaded_data <<- read.csv(filePath)
+      } else {
+        uploaded_data <<- readxl::read_excel(filePath)
+      }
+      response_data <<- uploaded_data[[tclvalue(columnVar)]]
+      ds <- as.numeric(tclvalue(dsVar))
+      if (ds > 1) {
+        response_data <<- response_data[seq(1, length(response_data), by=ds)]
+      }
+      # tkrreplot(plotWidget, fun=drawPlot1)
+
+      if (is.null(plotWidget)) {
+        plotWidget <<- tkrplot(mainFrame, fun=drawPlot1)
+        tkgrid(     plotWidget, row=0, column=0, sticky='nsew')
+      } else {
+        tkrreplot(plotWidget, fun=drawPlot1)
+      }
+
+    })
+      
+    runMainAnalysisButton <- tkbutton(buttonFrame, text='Run Main Analysis', command=function() {
+      fast.constraint        <- as.logical(as.numeric(tclvalue(repeatConstraintVar)))
+      ds                     <- as.numeric(tclvalue(dsVar))
+      dt                     <- as.numeric(tclvalue(dtVar)) * ds
+      stimulation_time       <- as.numeric(tclvalue(stimTimeVar))
+      baseline               <- as.numeric(tclvalue(baselineVar))
+      smooth                 <- as.numeric(tclvalue(smoothVar))
+      n                      <- as.numeric(tclvalue(nVar))
+      N                      <- as.numeric(tclvalue(NVar))
+      IEI                    <- as.numeric(tclvalue(IEIVar))
+      func                   <- get(tclvalue(funcVar))
+      method                 <- tclvalue(methodVar)
+      weight_method          <- tclvalue(weightMethodVar)
+      sequential.fit         <- as.logical(as.numeric(tclvalue(sequentialFitVar)))
+      fit.limits             <- as.numeric(tclvalue(userTmaxVar))
+      rel.decay.fit.limit    <- as.numeric(tclvalue(yAblineVar))
+      lwd                    <- as.numeric(tclvalue(lwdVar))
+      fc                     <- as.numeric(tclvalue(fcVar))
+      interval               <- c(as.numeric(tclvalue(intervalMinVar)), as.numeric(tclvalue(intervalMaxVar)))
+      lower                  <- if (nchar(tclvalue(lowerVar)) > 0) as.numeric(unlist(strsplit(tclvalue(lowerVar), ','))) else NULL
+      upper                  <- if (nchar(tclvalue(upperVar)) > 0) as.numeric(unlist(strsplit(tclvalue(upperVar), ','))) else NULL
+      iter                   <- as.numeric(tclvalue(iterVar))
+      metropolis.scale       <- as.numeric(tclvalue(metropolisScaleVar))
+      fit.attempts           <- as.numeric(tclvalue(fitAttemptsVar))
+      RWm                    <- as.logical(as.numeric(tclvalue(RWmVar)))
+      fast.decay.limit       <- if (nchar(tclvalue(fastDecayLimitVar)) > 0) as.numeric(unlist(strsplit(tclvalue(fastDecayLimitVar), ','))) else NULL
+      fast.constraint.method <- tclvalue(fastConstraintMethodVar)
+      first.delay.constraint <- as.logical(as.numeric(tclvalue(firstDelayConstraintVar)))
+      dp                     <- as.numeric(tclvalue(dpVar))
+      seed                   <- as.numeric(tclvalue(seedVar))
+      filter                 <- as.logical(as.numeric(tclvalue(filterVar)))
+      
+      y <- response_data
+      if (all(is.na(y[(which(!is.na(y))[length(which(!is.na(y)))] + 1):length(y)]))) {
+        y <- y[!is.na(y)]
+      }
+      x <- seq(0, (length(y) - 1) * dt, by=dt)
+      
+      if (!sequential.fit) {
+        tmax <- fit.limits
+        x_limit <- determine_tmax2(y=y, N=N, stimulation_time=stimulation_time, baseline=baseline, lwd=lwd, 
+                                  smooth=smooth, tmax=tmax, y_abline=rel.decay.fit.limit, xbar=as.numeric(tclvalue(xbarVar)),
+                                  ybar=as.numeric(tclvalue(ybarVar)), xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+        adjusted_response <- y[x < x_limit]
+        
+        out <- nFIT(response=adjusted_response, n=n, N=N, IEI=IEI, dt=dt, func=func, method=method,
+                    weight_method=weight_method, MLEsettings=list(iter=iter, metropolis.scale=metropolis.scale, 
+                    fit.attempts=fit.attempts, RWm=RWm), stimulation_time=stimulation_time, baseline=baseline,
+                    filter=filter, fc=fc, interval=interval, fast.decay.limit=fast.decay.limit, 
+                    fast.constraint=fast.constraint, fast.constraint.method=fast.constraint.method, 
+                    first.delay.constraint=first.delay.constraint, lower=lower, upper=upper,
+                    latency.limit=if (nchar(tclvalue(latencyLimitVar)) > 0) as.numeric(unlist(strsplit(tclvalue(latencyLimitVar), ','))) else NULL,
+                    return.output=TRUE, show.plot=FALSE, half_width_fit_limit=as.numeric(tclvalue(halfWidthFitLimitVar)),
+                    dp=dp, height=5, width=5,seed=seed)
+        
+        out$traces <- traces_fun2(y=y, fits=out$fits, dt=dt, N=N, IEI=IEI, stimulation_time=stimulation_time,
+                                  baseline=baseline, func=func, filter=filter, fc=fc)
+        xlim_input <- tclvalue(xlimVar)
+        if (nchar(xlim_input) > 0) {
+          xlim_vals <- as.numeric(unlist(strsplit(xlim_input, ',')))
+          if (length(xlim_vals) == 2) {
+            out$traces <- out$traces[out$traces$x >= xlim_vals[1] & out$traces$x <= xlim_vals[2], ]
+          }
+        }
+
+        tkrreplot(plotWidget, fun=function() {
+          drawPlot2(traces=out$traces, func=func, lwd=lwd, cex=0.6, filter=filter,
+                    xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+                    xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+        })
+
+      } else {
+        out <- nFIT_sequential(response=y, n=n, dt=dt, func=func, method=method, weight_method=weight_method,
+                    stimulation_time=stimulation_time, baseline=baseline, fit.limits=fit.limits, fast.decay.limit=fast.decay.limit,
+                    fast.constraint=as.logical(as.numeric(tclvalue(fastConstraintVar))), fast.constraint.method=fast.constraint.method,
+                    first.delay.constraint=first.delay.constraint, latency.limit=if (nchar(tclvalue(latencyLimitVar)) > 0) as.numeric(unlist(strsplit(tclvalue(latencyLimitVar), ','))) else NULL,
+                    lower=lower, upper=upper, filter=filter, fc=fc, interval=interval,
+                    MLEsettings=list(iter=iter, metropolis.scale=metropolis.scale, fit.attempts=fit.attempts, RWm=RWm),
+                    MLE.method=method, half_width_fit_limit=as.numeric(tclvalue(halfWidthFitLimitVar)),
+                    dp=dp, lwd=lwd, xlab='', ylab='', width=5, height=5, return.output=TRUE, show.output=TRUE,
+                    show.plot=TRUE, seed=seed)
+                }
+      
+      analysis_output <<- out
+      df_out <- out$output
+      if(sum(grepl('^A\\d+$', names(df_out))) == 1) names(df_out)[which(grepl('^A\\d+$', names(df_out)))] <- 'A'
+      if(sum(grepl('^area\\d+$', names(df_out)))==1) names(df_out)[which(grepl('^area\\d+$', names(df_out)))] <- 'area'
+      names(df_out) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(df_out))
+      names(df_out) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(df_out))
+      names(df_out)[names(df_out) == 'half_width'] <- 'half width'
+      # tkdelete(consoleText, '1.0', 'end')
+      # tkinsert(consoleText, 'end', 'Analysis complete.')
+      tkdelete(fitOutputText, '1.0', 'end')
+      tkinsert(fitOutputText, 'end', paste(capture.output(print(df_out)), collapse='\n'))
+    })
+    
+    downloadOutputButton <- tkbutton(buttonFrame, text='Download RData', 
+      command=function() {
+        if (!exists('analysis_output') || is.null(analysis_output)) {
+          tkmessageBox(message='No analysis output available!')
+          return()
+        }
+        saveFile <- tclvalue(tkgetSaveFile(filetypes='{{Rdata Files} {.Rdata}} {{All Files} *}'))
+        if (nchar(saveFile) > 0) {
+          # Build metadata list using the tk variable values.
+          metadata <- list(
+            dt=as.numeric(tclvalue(dtVar)),
+            stimTime=as.numeric(tclvalue(stimTimeVar)),
+            baseline=as.numeric(tclvalue(baselineVar)),
+            n=as.numeric(tclvalue(nVar)),
+            y_abline=as.numeric(tclvalue(yAblineVar)),
+            func=tclvalue(funcVar),
+            ds=as.numeric(tclvalue(dsVar)),
+            N=as.numeric(tclvalue(NVar)),
+            IEI=as.numeric(tclvalue(IEIVar)),
+            smooth=as.numeric(tclvalue(smoothVar)),
+            method=tclvalue(methodVar),
+            weight_method=tclvalue(weightMethodVar),
+            sequential_fit=as.logical(as.numeric(tclvalue(sequentialFitVar))),
+            interval=c(as.numeric(tclvalue(intervalMinVar)), as.numeric(tclvalue(intervalMaxVar))),
+            lower=if (nchar(tclvalue(lowerVar)) > 0)
+                      as.numeric(unlist(strsplit(tclvalue(lowerVar), ",")))
+                    else NULL,
+            upper=if (nchar(tclvalue(upperVar)) > 0)
+                      as.numeric(unlist(strsplit(tclvalue(upperVar), ",")))
+                    else NULL,
+            latency_limit=if (nchar(tclvalue(latencyLimitVar)) > 0)
+                              as.numeric(unlist(strsplit(tclvalue(latencyLimitVar), ",")))
+                            else NULL,
+            iter=as.numeric(tclvalue(iterVar)),
+            metropolis_scale=as.numeric(tclvalue(metropolisScaleVar)),
+            fit_attempts=as.numeric(tclvalue(fitAttemptsVar)),
+            RWm=as.logical(as.numeric(tclvalue(RWmVar))),
+            fast_decay_limit=if (nchar(tclvalue(fastDecayLimitVar)) > 0)
+                                 as.numeric(unlist(strsplit(tclvalue(fastDecayLimitVar), ",")))
+                               else NULL,
+            fast_constraint=as.logical(as.numeric(tclvalue(fastConstraintVar))),
+            fast_constraint_method=tclvalue(fastConstraintMethodVar),
+            first_delay_constraint=as.logical(as.numeric(tclvalue(firstDelayConstraintVar))),
+            dp=as.numeric(tclvalue(dpVar)),
+            seed=as.numeric(tclvalue(seedVar)),
+            filter=as.logical(as.numeric(tclvalue(filterVar))),
+            fc=as.numeric(tclvalue(fcVar)),
+            userTmax=as.numeric(tclvalue(userTmaxVar)),
+            data_col=tclvalue(columnVar)
+          )
+          # Combine analysis output and metadata into one list.
+          results <- list(
+            analysis=analysis_output,
+            metadata=metadata
+          )
+          save(results, file=saveFile)
+          tkmessageBox(message='Output saved successfully.')
+        }
+      }
+    )
+    
+      downloadResultsButton <- tkbutton(buttonFrame, text='Download Output (csv/xlsx)', command=function() {
+        if (!exists('analysis_output') || is.null(analysis_output)) {
+          tkmessageBox(message='No analysis output available!')
+          return()
+        }
+        filePath <- tclvalue(tkgetSaveFile(filetypes='{{Excel File} {.xlsx}} {{CSV File} {.csv}}'))
+        if (nchar(filePath) == 0) return()
+        ext <- tolower(tools::file_ext(filePath))
+
+        data_list <- list(
+          output          = analysis_output$output,
+          traces          = analysis_output$traces,
+          `fit criterion` = data.frame(AIC = analysis_output$AIC, BIC = analysis_output$BIC),
+          `model message` = data.frame(message = analysis_output$model.message)
+        )
+
+        metadata_labels <- c(
+          'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
+          'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
+          'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
+          'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
+          'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
+          'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
+          'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
+        )
+
+        metadata_values <- c(
+          tclvalue(columnVar),tclvalue(dtVar),tclvalue(stimTimeVar),tclvalue(baselineVar),
+          tclvalue(nVar),tclvalue(yAblineVar),tclvalue(funcVar),tclvalue(dsVar),
+          tclvalue(userTmaxVar),as.character(as.logical(as.numeric(tclvalue(repeatConstraintVar)))),
+          tclvalue(NVar),tclvalue(IEIVar),tclvalue(smoothVar),tclvalue(methodVar),
+          tclvalue(weightMethodVar),as.character(as.logical(as.numeric(tclvalue(sequentialFitVar)))),
+          tclvalue(intervalMinVar),tclvalue(intervalMaxVar),tclvalue(lowerVar),tclvalue(upperVar),
+          tclvalue(latencyLimitVar),tclvalue(iterVar),tclvalue(metropolisScaleVar),
+          tclvalue(fitAttemptsVar),as.character(as.logical(as.numeric(tclvalue(RWmVar)))),
+          as.character(as.logical(as.numeric(tclvalue(filterVar)))),tclvalue(fcVar),
+          tclvalue(halfWidthFitLimitVar),tclvalue(seedVar),tclvalue(dpVar),
+          tclvalue(fastConstraintMethodVar),tclvalue(fastDecayLimitVar),
+          as.character(as.logical(as.numeric(tclvalue(firstDelayConstraintVar))))
+        )
+
+        coerce_val <- function(v) {
+          if (nzchar(v)) {
+            n <- suppressWarnings(as.numeric(v))
+            if (!is.na(n)) return(n)
+          }
+          v
+        }
+
+        if (ext == 'csv') {
+          for (nm in names(data_list)) {
+            write.csv(data_list[[nm]], file = sub("\\.csv$", paste0("_", nm, ".csv"), filePath), row.names = FALSE)
+          }
+          meta_df <- data.frame(name = metadata_labels, value = sapply(metadata_values, coerce_val), stringsAsFactors = FALSE)
+          write.csv(meta_df, file = sub("\\.csv$", "_metadata.csv", filePath), row.names = FALSE)
+
+        } else if (ext == 'xlsx') {
+          wb <- createWorkbook()
+          for (nm in names(data_list)) {
+            addWorksheet(wb, nm)
+            writeData(wb, nm, data_list[[nm]])
+          }
+          addWorksheet(wb, "metadata")
+          writeData(wb, "metadata", c("parameter", "value"), startRow = 1, startCol = 1, colNames = FALSE)
+          for (i in seq_along(metadata_labels)) {
+            writeData(wb, "metadata", metadata_labels[i], startRow = i + 1, startCol = 1, colNames = FALSE)
+            writeData(wb, "metadata", coerce_val(metadata_values[i]), startRow = i + 1, startCol = 2, colNames = FALSE)
+          }
+          saveWorkbook(wb, filePath, overwrite = TRUE)
+
+        } else {
+          tkmessageBox(message = "Unsupported file type. Use .csv or .xlsx")
+        }
+      })
+
+    exportSVGButton <- tkbutton(buttonFrame, text='Export Plot to SVG', command=function() {
+      if (!exists('analysis_output') || is.null(analysis_output)) {
+        tkmessageBox(message='No analysis available to export!')
+        return()
+      }
+      saveFile <- tclvalue(tkgetSaveFile(filetypes='{{SVG Files} {.svg}}'))
+      if (nchar(saveFile) > 0) {
+        # Parse and apply xlim if provided
+        traces <- analysis_output$traces
+        xlim_input <- tclvalue(xlimVar)
+        if (nchar(xlim_input) > 0) {
+          xlim_vals <- as.numeric(unlist(strsplit(xlim_input, ',')))
+          if (length(xlim_vals) == 2) {
+            traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+          }
+        }
+        
+        svg(filename=saveFile, width=7, height=5)
+        drawPlot2(traces=traces, func=get(tclvalue(funcVar)), lwd=as.numeric(tclvalue(lwdVar)), cex=0.6,
+                  filter=as.logical(as.numeric(tclvalue(filterVar))),
+                  xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+                  xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+        dev.off()
+        tkmessageBox(message='SVG plot saved successfully.')
+      }
+    })
+
+    
+    clearOutputButton <- tkbutton(buttonFrame, text='Clear Output', command=function() {
+      analysis_output <<- NULL
+      # tkdelete(consoleText, '1.0', 'end')
+      tkdelete(fitOutputText, '1.0', 'end')
+      # tkrreplot(plotWidget, fun=drawPlot1)
+      # plotWidget <<- tkrplot(mainFrame, fun=drawPlot1)
+      # tkgrid(    plotWidget,    row=0, column=0, sticky='nsew')
+      if (!is.null(plotWidget)) {
+        tkrreplot(plotWidget, fun=drawPlot1)
+      }
+
+    })
+    
+    tkgrid(runAnalysisButton,      row=0, column=0, padx=5, pady=2)
+    tkgrid(runMainAnalysisButton,  row=0, column=1, padx=5, pady=2)
+    tkgrid(downloadResultsButton,  row=1, column=1, padx=5, pady=2)
+    tkgrid(downloadOutputButton,   row=1, column=0, padx=5, pady=2)
+    tkgrid(exportSVGButton,        row=2, column=0, padx=5, pady=2)
+    tkgrid(clearOutputButton,      row=2, column=1, padx=5, pady=2)
+
+    # Main Panel plot
+    drawPlot1 <- function() {
+      
+      ds <- as.numeric(tclvalue(dsVar))
+      dt <- as.numeric(tclvalue(dtVar)) * ds
+      lwd <- as.numeric(tclvalue(lwdVar))
+      stimTime <- as.numeric(tclvalue(stimTimeVar))
+      baseline <- as.numeric(tclvalue(baselineVar))
+      smooth <- as.numeric(tclvalue(smoothVar))
+      y_abline <- as.numeric(tclvalue(yAblineVar))
+      y_val <- if (exists('response_data') && !is.null(response_data)) response_data else rnorm(10000, 0.1)
+      
+      determine_tmax2(y=y_val, N=1, dt=dt, stimulation_time=stimTime, baseline=baseline, smooth=smooth, lwd=lwd,
+        tmax=NULL, y_abline=y_abline, xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+        xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+    }
+    
+    drawPlotXlim <- function() {
+      xlim_input <- tclvalue(xlimVar)
+      traces <- if (exists("analysis_output") && !is.null(analysis_output)) analysis_output$traces else NULL
+      if (is.null(traces)) return()
+
+      if (nchar(xlim_input) > 0) {
+        xlim_vals <- as.numeric(unlist(strsplit(xlim_input, ",")))
+        if (length(xlim_vals) == 2) {
+          traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+        }
+      }
+
+      drawPlot2(traces=traces, func=get(tclvalue(funcVar)), lwd=as.numeric(tclvalue(lwdVar)), cex=0.6,
+                filter=as.logical(as.numeric(tclvalue(filterVar))),
+                xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
+                xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+    }
+    # plotWidget <- tkrplot(tt, fun=drawPlot1)
+    # tkgrid(plotWidget, row=0, column=1, sticky='nsew')
+    
+    # consoleText <- tktext(mainFrame, width=80, height=4)
+    # tkgrid(consoleText, row=1, column=1, sticky='nsew')
+    
+    fitOutputLabel <- tklabel(sidebarFrame, text='Fit Output:')
+    tkgrid(fitOutputLabel, row=11, column=0, columnspan=3, sticky='w', pady=c(10,2), padx=20)
+    
+    fitOutputText <- tktext(sidebarFrame, width=90, height=5)
+    tkgrid(fitOutputText, row=12, column=0, columnspan=3, sticky='w', padx=20)
+    
+    tkfocus(tt)
+  }
+
+  PSC_analysis_tk()
+
+}
+
+analysePSCshiny <- function() {
+
+  ui <- fluidPage(
+    titlePanel('PSC Analysis'),
+    sidebarLayout(
+      sidebarPanel(
+        fileInput('file', 'Upload csv or xlsx', accept=c('.csv', '.xlsx')),
+        uiOutput('column_selector'),
+        
+        tabsetPanel(
+          tabPanel('Main Options',
+                   numericInput('dt', 'dt (ms):', 0.1),
+                   numericInput('stimulation_time', 'Stimulation Time:', 100),
+                   numericInput('baseline', 'Baseline:', 50),
+                   numericInput('n', 'n:', 30),
+                   numericInput('y_abline', 'Fit Cutoff:', 0.1),
+                   selectInput('func', 'Function:', choices=c('product1N', 'product2N', 'product3N')),
+                   checkboxInput('fast_constraint', 'Fast Constraint', FALSE),
+                   numericInput('ds', 'Downsample Factor:', 1, min=1)
+          ),
+          tabPanel('Fit Options',
+                   numericInput('N', 'N:', 1),
+                   numericInput('IEI', 'IEI:', 50),
+                   numericInput('smooth', 'Smooth:', 5),
+                   selectInput('method', 'Method:', choices=c('BF.LM', 'LM', 'GN', 'port', 'robust', 'MLE')),
+                   selectInput('weight_method', 'Weighting:', choices=c('none', '~y_sqrt', '~y')),
+                   checkboxInput('sequential_fit', 'Sequential Fit', FALSE),
+                   numericInput('interval_min', 'Min Interval:', 0.1),
+                   numericInput('interval_max', 'Max Interval:', 0.9),
+                   textInput('lower', 'Lower Bounds (comma-separated):', ''),
+                   textInput('upper', 'Upper Bounds (comma-separated):', ''),
+                   textInput('latency_limit', 'Latency Limit:', '')
+          ),
+          tabPanel('MLE Settings',
+                   numericInput('iter', 'MLE Iterations:', 1000),
+                   numericInput('metropolis_scale', 'Metropolis Scale:', 1.5),
+                   numericInput('fit_attempts', 'Fit Attempts:', 10),
+                   checkboxInput('RWm', 'Random Walk Metropolis', FALSE)
+          ),
+          tabPanel('Advanced',
+                   checkboxInput('filter', 'Filter', FALSE),
+                   numericInput('fc', 'Filter Cutoff (Hz):', 1000),
+                   numericInput('half_width_fit_limit', 'Half-width Fit Limit:', 500),
+                   numericInput('seed', 'Seed:', 42),
+                   numericInput('dp', 'Decimal Points:', 3),
+                   checkboxInput('fast_constraint', 'Fast Constraint', FALSE),
+                   selectInput('fast_constraint_method', 'Fast Constraint Method:', choices=c('rise', 'peak')),
+                   textInput('fast_decay_limit', 'Fast Decay Limit(s) (comma-separated):', ''),
+                   checkboxInput('first_delay_constraint', 'First Delay Constraint', FALSE)
+          ),
+          tabPanel('Plot Settings',
+                   numericInput('lwd', 'Line Width:', 1.2),
+                   numericInput('xbar', 'x-bar Length:', 50),
+                   numericInput('ybar', 'y-bar Length:', 50),
+                   textInput('xbar_lab', 'x-axis Units:', 'ms'),
+                   textInput('ybar_lab', 'y-axis Units:', 'pA'),
+                   textInput('xlim', 'x limits (e.g., 0,400):', '')
+          )
+        ),
+        
+        numericInput('userTmax', 'User Maximum Time for Fit:', NA),
+        actionButton('run_initial', 'Run Initial Analysis'),
+        actionButton('run_main', 'Run Main Analysis'),
+        downloadButton('download_xlsx',  'Download Output (*.xlsx)'),
+        downloadButton('download_output', 'Download RData'),
+        downloadButton('download_svg', 'Download SVG Plot'),
+        actionButton('clear_output', 'Clear Output')
+      ),
+      mainPanel(
+        plotOutput('plot', height='500px'),
+        verbatimTextOutput('console')
+      )
+    )
+  )
+
+  server <- function(input, output, session) {
+    
+    # Reactive values to store data and analysis results.
+    state <- reactiveValues(
+      response=NULL,
+      analysis=NULL
+    )
+    
+    # upload file
+    uploaded_data <- reactive({
+      req(input$file)
+      ext <- tools::file_ext(input$file$name)
+      if (tolower(ext) == 'csv') {
+        read.csv(input$file$datapath)
+      } else {
+        readxl::read_excel(input$file$datapath)
+      }
+    })
+    
+    # update the column selector
+    output$column_selector <- renderUI({
+      req(uploaded_data())
+      selectInput('data_col', 'Select Column to Analyse', choices=names(uploaded_data()))
+    })
+    
+    # run initial analysis
+    observeEvent(input$run_initial, {
+      req(uploaded_data(), input$data_col)
+      # Clear any previous response and analysis.
+      state$response <- NULL
+      state$analysis <- NULL
+      # Extract the column from the uploaded data.
+      data_col <- uploaded_data()[[input$data_col]]
+      ds <- as.numeric(input$ds)
+      if (ds > 1) {
+        data_col <- data_col[seq(1, length(data_col), by=ds)]
+      }
+      state$response <- data_col
+    })
+    
+    # update when downsampled
+    observeEvent(input$ds, {
+      req(uploaded_data(), input$data_col)
+      # Only proceed if a response is already loaded.
+      if (!is.null(state$response)) {
+        data_col <- uploaded_data()[[input$data_col]]
+        ds <- as.numeric(input$ds)
+        if (ds > 1) {
+          data_col <- data_col[seq(1, length(data_col), by=ds)]
+        }
+        state$response <- data_col
+        # Also clear any analysis result to force re-running the main analysis.
+        state$analysis <- NULL
+        cat('Downsample factor changed: Updated response with length =', length(data_col), '\n')
+      }
+    }, ignoreInit=TRUE)
+    
+    # plot output
+    output$plot <- renderPlot({
+      req(state$response)
+      # Compute effective dt using the current ds.
+      dt <- as.numeric(input$dt) * as.numeric(input$ds)
+      lwd <- as.numeric(input$lwd)
+      stim_time <- as.numeric(input$stimulation_time)
+      baseline <- as.numeric(input$baseline)
+      smooth <- as.numeric(input$smooth)
+      y_abline <- as.numeric(input$y_abline)
+      xbar <- as.numeric(input$xbar)
+      ybar <- as.numeric(input$ybar)
+      xbar_lab <- input$xbar_lab
+      ybar_lab <- input$ybar_lab
+      
+      if (is.null(state$analysis)) {
+        determine_tmax2(y=state$response, N=as.numeric(input$N), dt=dt, stimulation_time=stim_time, baseline=baseline, smooth=smooth,
+                        lwd=lwd, cex=1, tmax=NULL, y_abline=y_abline, xbar=xbar, ybar=ybar, xbar_lab=xbar_lab, ybar_lab=ybar_lab)
+      } else {
+        req(state$analysis$traces)
+        func <- switch(input$func,
+                       'product1N'=product1N,
+                       'product2N'=product2N,
+                       'product3N'=product3N,
+                       product1N)
+
+        xlim_vals <- if (nchar(input$xlim) > 0) as.numeric(unlist(strsplit(input$xlim, ","))) else NULL
+        traces <- state$analysis$traces
+        if (!is.null(xlim_vals) && length(xlim_vals) == 2) {
+          traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+        }
+
+        drawPlot2(traces=traces, func=func, lwd=lwd,
+                  filter=input$filter, xbar=xbar, ybar=ybar,
+                  xbar_lab=xbar_lab, ybar_lab=ybar_lab)
+      }
+    })
+    
+    # run main analysis
+    observeEvent(input$run_main, {
+      req(state$response)
+      
+      dt <- as.numeric(input$dt) * as.numeric(input$ds)
+      stim_time <- as.numeric(input$stimulation_time)
+      baseline <- as.numeric(input$baseline)
+      smooth <- as.numeric(input$smooth)
+      n <- as.numeric(input$n)
+      N <- as.numeric(input$N)
+      IEI <- as.numeric(input$IEI)
+      method <- input$method
+      weight_method <- input$weight_method
+      sequential_fit <- input$sequential_fit
+      interval <- c(as.numeric(input$interval_min), as.numeric(input$interval_max))
+      lower <- if (nchar(input$lower) > 0) as.numeric(unlist(strsplit(input$lower, ','))) else NULL
+      upper <- if (nchar(input$upper) > 0) as.numeric(unlist(strsplit(input$upper, ','))) else NULL
+      latency_limit <- if (nchar(input$latency_limit) > 0) as.numeric(unlist(strsplit(input$latency_limit, ','))) else NULL
+      iter <- as.numeric(input$iter)
+      metropolis_scale <- as.numeric(input$metropolis_scale)
+      fit_attempts <- as.numeric(input$fit_attempts)
+      RWm <- input$RWm
+      fast_decay_limit <- if (nchar(input$fast_decay_limit) > 0) as.numeric(unlist(strsplit(input$fast_decay_limit, ','))) else NULL
+      fast_constraint <- input$fast_constraint
+      fast_constraint_method <- input$fast_constraint_method
+      first_delay_constraint <- input$first_delay_constraint
+      dp <- as.numeric(input$dp)
+      seed <- as.numeric(input$seed)
+      filter_flag <- input$filter
+      fc <- as.numeric(input$fc)
+      
+      y <- state$response
+      if (any(is.na(y))) y <- y[!is.na(y)]
+      x <- seq(0, (length(y) - 1) * dt, by=dt)
+      
+      tmax_value <- if (is.na(as.numeric(input$userTmax))) {
+        determine_tmax2(y=y, N=N, dt=dt, stimulation_time=stim_time, baseline=baseline,
+                        smooth=smooth, tmax=NULL, y_abline=as.numeric(input$y_abline),
+                        xbar=as.numeric(input$xbar), ybar=as.numeric(input$ybar),
+                        xbar_lab=input$xbar_lab, ybar_lab=input$ybar_lab)
+      } else {
+        as.numeric(input$userTmax)
+      }
+      x_limit <- tmax_value
+      
+      adjusted_response <- y[x < x_limit]
+
+          func <- switch(input$func,
+                     'product1N'=product1N,
+                     'product2N'=product2N,
+                     'product3N'=product3N,
+                     product1N)
+      
+      if (!sequential_fit) {
+        result <- nFIT(response=adjusted_response, n=n, N=N, IEI=IEI, dt=dt, func=func,
+                       method=method, weight_method=weight_method,
+                       MLEsettings=list(iter=iter, metropolis.scale=metropolis_scale, fit.attempts=fit_attempts, RWm=RWm),
+                       stimulation_time=stim_time, baseline=baseline, filter=filter_flag, fc=fc,
+                       interval=interval, fast.decay.limit=fast_decay_limit, fast.constraint=fast_constraint,
+                       fast.constraint.method=fast_constraint_method, first.delay.constraint=first_delay_constraint,
+                       lower=lower, upper=upper, latency.limit=latency_limit,
+                       return.output=TRUE, show.plot=FALSE, half_width_fit_limit=as.numeric(input$half_width_fit_limit),
+                       dp=dp, height=5, width=5, seed=seed)
+        result$traces <- traces_fun2(y=y, fits=result$fits, dt=dt, N=N, IEI=IEI,
+                                     stimulation_time=stim_time, baseline=baseline, func=func,
+                                     filter=filter_flag, fc=fc)
+      } else {
+        result <- nFIT_sequential(response=y, n=n, dt=dt, func=func, method=method, weight_method=weight_method,
+                                  stimulation_time=stim_time, baseline=baseline, fit.limits=as.numeric(input$userTmax),
+                                  fast.decay.limit=fast_decay_limit, fast.constraint=fast_constraint,
+                                  fast.constraint.method=fast_constraint_method, first.delay.constraint=first_delay_constraint,
+                                  latency.limit=latency_limit, lower=lower, upper=upper, filter=filter_flag, fc=fc, interval=interval,
+                                  MLEsettings=list(iter=iter, metropolis.scale=metropolis_scale, fit.attempts=fit_attempts, RWm=RWm),
+                                  MLE.method=method, half_width_fit_limit=as.numeric(input$half_width_fit_limit),
+                                  dp=dp, lwd=as.numeric(input$lwd), xlab='', ylab='', width=5, height=5,
+                                  return.output=TRUE, show.output=TRUE, show.plot=TRUE, seed=seed)
+      }
+      
+      state$analysis <- result
+    })
+    
+    # clear output
+    observeEvent(input$clear_output, {
+      state$analysis <- NULL
+    })
+    
+    # output to console
+    output$console <- renderPrint({
+      if (!is.null(state$analysis)) {
+
+        df_out <- state$analysis$output
+        if(sum(grepl('^A\\d+$', names(df_out))) == 1) names(df_out)[which(grepl('^A\\d+$', names(df_out)))] <- 'A'
+        if(sum(grepl('^area\\d+$', names(df_out)))==1) names(df_out)[which(grepl('^area\\d+$', names(df_out)))] <- 'area'
+        names(df_out) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(df_out))
+        names(df_out) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(df_out))
+        names(df_out)[names(df_out) == 'half_width'] <- 'half width'
+
+        print(df_out)
+      } else {
+        cat('No analysis output performed')
+      }
+    })
+    
+    # download output
+    output$download_output <- downloadHandler(
+      filename=function() {
+        req(input$file)
+        paste0(
+          tools::file_path_sans_ext(basename(input$file$name)),
+          "_", input$data_col,
+          "_PSC_analysis.RData"
+        )
+      },
+      content=function(file) {
+        # all settings
+        metadata <- list(
+          dt=as.numeric(input$dt),
+          ds=as.numeric(input$ds),
+          stimulation_time=as.numeric(input$stimulation_time),
+          baseline=as.numeric(input$baseline),
+          n=as.numeric(input$n),
+          y_abline=as.numeric(input$y_abline),
+          func=input$func,
+          N=as.numeric(input$N),
+          IEI=as.numeric(input$IEI),
+          smooth=as.numeric(input$smooth),
+          method=input$method,
+          weight_method=input$weight_method,
+          sequential_fit=input$sequential_fit,
+          interval=c(as.numeric(input$interval_min),
+                       as.numeric(input$interval_max)),
+          lower=if(nchar(input$lower) > 0)
+                    as.numeric(unlist(strsplit(input$lower, ",")))
+                  else NULL,
+          upper=if(nchar(input$upper) > 0)
+                    as.numeric(unlist(strsplit(input$upper, ",")))
+                  else NULL,
+          latency_limit=if(nchar(input$latency_limit) > 0)
+                            as.numeric(unlist(strsplit(input$latency_limit, ",")))
+                          else NULL,
+          iter=as.numeric(input$iter),
+          metropolis_scale=as.numeric(input$metropolis_scale),
+          fit_attempts=as.numeric(input$fit_attempts),
+          RWm=input$RWm,
+          fast_decay_limit=if(nchar(input$fast_decay_limit) > 0) as.numeric(unlist(strsplit(input$fast_decay_limit, ","))) else NULL,
+          fast_constraint=input$fast_constraint,
+          fast_constraint_method=input$fast_constraint_method,
+          first_delay_constraint=input$first_delay_constraint,
+          dp=as.numeric(input$dp),
+          seed=as.numeric(input$seed),
+          filter=input$filter,
+          fc=as.numeric(input$fc),
+          userTmax=as.numeric(input$userTmax),
+          data_col=input$data_col
+        )
+        
+        # save analysis and metadata
+        results <- list(
+          analysis=state$analysis,
+          metadata=metadata
+        )
+        
+        save(results, file=file)
+      }
+    )
+
+    output$download_svg <- downloadHandler(
+      filename = function() {
+        paste0('PSC_plot_', Sys.Date(), '.svg')
+      },
+      content = function(file) {
+        req(state$analysis)
+        func <- switch(input$func,
+                       'product1N' = product1N,
+                       'product2N' = product2N,
+                       'product3N' = product3N,
+                       product1N)
+
+        traces <- state$analysis$traces
+        xlim_vals <- if (nchar(input$xlim) > 0) as.numeric(unlist(strsplit(input$xlim, ","))) else NULL
+        if (!is.null(xlim_vals) && length(xlim_vals) == 2) {
+          traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+        }
+
+        svg(filename = file, width = 7, height = 5)
+        drawPlot2(
+          traces = traces,
+          func = func,
+          lwd = as.numeric(input$lwd),
+          filter = input$filter,
+          xbar = as.numeric(input$xbar),
+          ybar = as.numeric(input$ybar),
+          xbar_lab = input$xbar_lab,
+          ybar_lab = input$ybar_lab
+        )
+        dev.off()
+      }
+    )
+
+    output$download_xlsx <- downloadHandler(
+      filename = function() {
+        paste0(
+          tools::file_path_sans_ext(basename(input$file$name)),
+          "_", input$data_col,
+          "_PSC_analysis.xlsx"
+        )
+      },
+      content = function(file) {
+        req(state$analysis)
+
+        wb <- openxlsx::createWorkbook()
+
+        # result sheets
+        data_list <- list(
+          output          = state$analysis$output,
+          traces          = state$analysis$traces,
+          `fit criterion` = data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC),
+          `model message` = data.frame(message = state$analysis$model.message)
+        )
+        for (nm in names(data_list)) {
+          openxlsx::addWorksheet(wb, nm)
+          openxlsx::writeData(wb, nm, data_list[[nm]])
+        }
+
+        # metadata sheet
+        metadata_labels <- c(
+          'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
+          'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
+          'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
+          'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
+          'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
+          'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
+          'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
+        )
+        metadata_values <- list(
+          input$data_col,
+          input$dt,
+          input$stimulation_time,
+          input$baseline,
+          input$n,
+          input$y_abline,
+          input$func,
+          input$ds,
+          input$userTmax,
+          input$fast_constraint,
+          input$N,
+          input$IEI,
+          input$smooth,
+          input$method,
+          input$weight_method,
+          input$sequential_fit,
+          input$interval_min,
+          input$interval_max,
+          input$lower,
+          input$upper,
+          input$latency_limit,
+          input$iter,
+          input$metropolis_scale,
+          input$fit_attempts,
+          input$RWm,
+          input$filter,
+          input$fc,
+          input$half_width_fit_limit,
+          input$seed,
+          input$dp,
+          input$fast_constraint_method,
+          input$fast_decay_limit,
+          input$first_delay_constraint
+        )
+
+        numeric_labels <- c(
+          'dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:',
+          'Downsample Factor:','User maximum time for fit:','N:','IEI:','Smooth:',
+          'Min interval:','Max interval:','Latency limit:','MLE Iterations:',
+          'Metropolis Scale:','Fit Attempts:','Filter cutoff (Hz):',
+          'Half-width fit limit:','Seed:','Decimal points:'
+        )
+        logical_labels <- c(
+          'Add fast constraint:','Sequential Fit:','Random Walk Metropolis:','Filter:',
+          'First delay constraint:'
+        )
+
+        openxlsx::addWorksheet(wb, "metadata")
+        openxlsx::writeData(wb, "metadata", c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
+        for (i in seq_along(metadata_labels)) {
+          lbl <- metadata_labels[i]
+          val <- metadata_values[[i]]
+          openxlsx::writeData(wb, "metadata", lbl,       startRow = i+1, startCol = 1, colNames = FALSE)
+          if (lbl %in% numeric_labels) {
+            openxlsx::writeData(wb, "metadata", as.numeric(val), startRow = i+1, startCol = 2, colNames = FALSE)
+          } else if (lbl %in% logical_labels) {
+            openxlsx::writeData(wb, "metadata", as.logical(val), startRow = i+1, startCol = 2, colNames = FALSE)
+          } else {
+            openxlsx::writeData(wb, "metadata", val,      startRow = i+1, startCol = 2, colNames = FALSE)
+          }
+        }
+
+        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+      }
+    )
+    
+  }
+
+  shinyApp(ui=ui, server=server)
+}
