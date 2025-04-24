@@ -402,32 +402,43 @@ These responses with only differ by added gaussian noise.
     analysePSCtk()
     ```
 
-    b. **Upload 'csv' or 'xlsx'**  
-    In the `ui`, click the **`Browse...`** button and select your file (e.g. `examples/data.csv`).
+    The `UI` should open:
 
-    c. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
+    ![analyseABFtk_0](./images/analysePSCtk_0.png)
    
-    - **`dt`** data was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
+    b. **Upload `csv` or `xlsx`**  
+
+    In the `UI`, click the **`Browse`** button and select your file (e.g. `examples/data.csv`).
+
+    c. **Select column**  
+
+    In the `UI`, use the dropdown menu **`Select column`** to select the trace to analyse (in this example choose V1).
+
+    d. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
+   
+    - **`dt`** The trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
     - **`Stimulation time`** Stimulation time was 150 ms
-    - **`Baseline`** set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline <= stimulation time 
+    - **`Baseline`** Set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
     - **`n`** Number of attempts (30 is default) 
     - **`Fit cutoff`** default setting 0.1 
-    - **`Function`** (e.g. select `product2N`)  default is set to 'product1N' to fit one response. For this example chose 'product2N'
-    - **`Downsample Factor`** downsamples data; value must be greater than or equal to 1 where 1 indicates no downsampling.
+    - **`Function`** (e.g. select `product2N`)  default is set to `product1N` to fit one response. For this example choose `product2N`.
+    - **`Downsample Factor`** Allows user to downsample the data; value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly       related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed.
 
-    d. **Run Initial Analysis**  
-    In the `ui`, click the **`Run Initial Analysis`** button.
+     However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid        transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the            response are preserved.
+
+    e. **Run Initial Analysis**  
+    In the `UI`, click the **`Run Initial Analysis`** button.
 
     A plot will appear with horizontal and vertical lines showing the time at which the response falls to the `Fit cutoff` level (e.g. ~508.4 ms).
 
-    Enter `510` in the **`Use maximum time for fit`** input box in the `ui`.
+    Enter `510` in the **`Use maximum time for fit`** input box in the `UI`. This defines the end point of the time window over which the fitting will be performed for       the displayed trace.
 
-    The generated output looks like this:  
+    The `UI` output now looks like this:  
 
     ![analyseABFtk_1](./images/analysePSCtk_1.png)
 
-    e. **Run Main Analysis**  
-    In the `ui`, click the **`Run Main Analysis`** button.
+    f. **Run Main Analysis**  
+    In the `UI`, click the **`Run Main Analysis`** button.
 
     After a few seconds, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
 
@@ -435,14 +446,14 @@ These responses with only differ by added gaussian noise.
    
     ![analyseABFtk_2](./images/analysePSCtk_2.png)
 
-    f. **Download RData**  
+    g. **Download RData**  
     In the `ui`, click the **`Download RData`** button to save all fit results in a `.RData` file.
 
     This allows the user to download the entire results of the fitting process into a format that can be read by R (*.Rdata).
 
     This includes all the fits (in this case 30 as denoted by n above) and the resultant best fit with the lowest gof  (since all fits are to the same number of points to be fitted (same response) and are fitted with the same equations)
 
-    g. **Download output (csv/xlsx)**  
+    h. **Download output (csv/xlsx)**  
     In the `ui`, click the **`Download output (csv/xlsx)`** button.  
     The `xlsx` file includes 4 sheets:  
     - output table  
@@ -450,21 +461,21 @@ These responses with only differ by added gaussian noise.
     - AIC/BIC criteria values 
     - metadata (all dropdown values)
   
-      In the scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+    In the scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
 
-      This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
+    This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
-    h. **Export Plot to SVG**  
+    i. **Export Plot to SVG**  
     In the `ui`, click the **`Export Plot to SVG`** button.
 
     The exported plot looks like this:
      
     ![analyseABFtk_3](./images/analysePSCtk_3.svg)
 
-    i. **Clear Output** _(optional)_  
+    j. **Clear Output** _(optional)_  
     In the `ui`, click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
-   To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps d-i
+   To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
 
 9. **Analysing an entire data set**  
 
