@@ -391,19 +391,19 @@ These responses with only differ by added gaussian noise.
     load_required_packages(required.packages)
 
     # insert your username and repository path
-    username <- 'euo9382'
+    UserName <- 'YourUserName' # substitute your UserName here
     path_repository <- '/Documents/Repositories/Rfits'
-    file_path1 <- paste0('/Users/', username, path_repository)
-    source(paste0(file_path1, '/nNLS functions.R'))
+    file_path <- paste0('/Users/', UserName, path_repository)
+    source(paste0(file_path, '/nNLS functions.R'))
     ```
 
-    a. **Launch the GUI**  
+    a. **Launch the User Interface**  
     ```r
     analysePSCtk()
     ```
 
     b. **Upload 'csv' or 'xlsx'**  
-    In the `Rgui`, click the **`Browse...`** button and select your file (e.g. `examples/data.csv`).
+    In the `ui`, click the **`Browse...`** button and select your file (e.g. `examples/data.csv`).
 
     c. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
    
