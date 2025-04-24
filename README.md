@@ -402,58 +402,58 @@ These responses with only differ by added gaussian noise.
     analysePSCtk()
     ```
 
-    b. **Upload CSV or XLSX**  
+    b. **Upload 'csv' or 'xlsx'**  
     In the `Rgui`, click the **`Browse...`** button and select your file (e.g. `examples/data.csv`).
 
-    c. **Set options in `Main Options` dropdown menu** (all selections in the `Rgui`)  
-    - **`dt`**  
-    - **`Stimulation time`**  
-    - **`Baseline`**  
-    - **`n`**  
-    - **`Fit cutoff`**  
-    - **`Function`** (e.g. select `product2N`)  
-    - **`Downsample Factor`**
+    c. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)  
+    - **`dt`** data was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
+    - **`Stimulation time`** Stimulation time was 150 ms
+    - **`Baseline`** set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline <= stimulation time 
+    - **`n`** Number of attempts (30 is default) 
+    - **`Fit cutoff`** default setting 0.1 
+    - **`Function`** (e.g. select `product2N`)  default is set to 'product1N' to fit one response. For this example chose 'product2N'
+    - **`Downsample Factor`** downsamples data; value must be greater than or equal to 1 where 1 indicates no downsampling.
 
     d. **Run Initial Analysis**  
-    In the `Rgui`, click the **`Run Initial Analysis`** button.
+    In the `ui`, click the **`Run Initial Analysis`** button.
 
     A plot will appear with horizontal and vertical lines showing the time at which the response falls to the `Fit cutoff` level (e.g. ~508.4 ms).
 
-    Enter `510` in the **`Use maximum time for fit`** input box in the `Rgui`.
+    Enter `510` in the **`Use maximum time for fit`** input box in the `ui`.
 
     The generated output looks like this:  
-    ![analyseABFtk_1](./examples/analyseABFtk_1.png)
+    ![analyseABFtk_1](./images/analyseABFtk_1.png)
 
     e. **Run Main Analysis**  
-    In the `Rgui`, click the **`Run Main Analysis`** button.
+    In the `ui`, click the **`Run Main Analysis`** button.
 
     After a few seconds, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
 
     The updated output looks like this:  
-    ![analyseABFtk_2](./examples/analyseABFtk_2.png)
+    ![analyseABFtk_2](./images/analyseABFtk_2.png)
 
     f. **Download RData**  
-    In the `Rgui`, click the **`Download RData`** button to save all fit results in a `.RData` file.
+    In the `ui`, click the **`Download RData`** button to save all fit results in a `.RData` file.
 
     g. **Download output (CSV/XLSX)**  
-    In the `Rgui`, click the **`Download output (csv/xlsx)`** button.  
-    The XLSX file includes 4 sheets:  
+    In the `ui`, click the **`Download output (csv/xlsx)`** button.  
+    The 'xlsx' file includes 4 sheets:  
     - output table  
     - raw + fitted traces  
     - AIC/BIC criteria  
     - metadata (all dropdown values)
 
     h. **Export Plot to SVG**  
-    In the `Rgui`, click the **`Export Plot to SVG`** button.
+    In the `ui`, click the **`Export Plot to SVG`** button.
 
     The exported plot looks like this:  
-    ![analyseABFtk_3](./examples/analyseABFtk_3.svg)
+    ![analyseABFtk_3](./images/analyseABFtk_3.svg)
 
     i. **Clear Output** _(optional)_  
-    In the `Rgui`, click the **`Clear Output`** button to reset the plots and outputs.
+    In the `ui`, click the **`Clear Output`** button to reset the plots and outputs.
 
 
-7. **Analysing an entire data set**  
+8. **Analysing an entire data set**  
 
    ```R
    # Remove all objects from the environment
