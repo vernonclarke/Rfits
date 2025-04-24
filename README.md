@@ -422,15 +422,17 @@ These responses with only differ by added gaussian noise.
     Enter `510` in the **`Use maximum time for fit`** input box in the `ui`.
 
     The generated output looks like this:  
-    ![analyseABFtk_1](./images/analyseABFtk_1.png)
+
+    ![analyseABFtk_1](./images/analysePSCtk_1.png)
 
     e. **Run Main Analysis**  
     In the `ui`, click the **`Run Main Analysis`** button.
 
     After a few seconds, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
 
-    The updated output looks like this:  
-    ![analyseABFtk_2](./images/analyseABFtk_2.png)
+    The updated output looks like this:
+   
+    ![analyseABFtk_2](./images/analysePSCtk_2.png)
 
     f. **Download RData**  
     In the `ui`, click the **`Download RData`** button to save all fit results in a `.RData` file.
@@ -446,14 +448,15 @@ These responses with only differ by added gaussian noise.
     h. **Export Plot to SVG**  
     In the `ui`, click the **`Export Plot to SVG`** button.
 
-    The exported plot looks like this:  
-    ![analyseABFtk_3](./images/analyseABFtk_3.svg)
+    The exported plot looks like this:
+     
+    ![analyseABFtk_3](./images/analysePSCtk_3.svg)
 
     i. **Clear Output** _(optional)_  
     In the `ui`, click the **`Clear Output`** button to reset the plots and outputs.
 
 
-8. **Analysing an entire data set**  
+9. **Analysing an entire data set**  
 
    ```R
    # Remove all objects from the environment
