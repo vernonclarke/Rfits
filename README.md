@@ -499,7 +499,7 @@ These responses with only differ by added gaussian noise.
 
    ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
 
-   ![analyseABFshiny_3](./images/analysePSCshiny_3.svg)
+   ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
 9. **Analysing an entire data set**  
