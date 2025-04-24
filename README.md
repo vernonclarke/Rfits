@@ -405,7 +405,8 @@ These responses with only differ by added gaussian noise.
     b. **Upload 'csv' or 'xlsx'**  
     In the `Rgui`, click the **`Browse...`** button and select your file (e.g. `examples/data.csv`).
 
-    c. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)  
+    c. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
+   
     - **`dt`** data was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
     - **`Stimulation time`** Stimulation time was 150 ms
     - **`Baseline`** set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline <= stimulation time 
@@ -437,13 +438,21 @@ These responses with only differ by added gaussian noise.
     f. **Download RData**  
     In the `ui`, click the **`Download RData`** button to save all fit results in a `.RData` file.
 
-    g. **Download output (CSV/XLSX)**  
+    This allows the user to download the entire results of the fitting process into a format that can be read by R (*.Rdata).
+
+    This includes all the fits (in this case 30 as denoted by n above) and the resultant best fit with the lowest gof  (since all fits are to the same number of points to be fitted (same response) and are fitted with the same equations)
+
+    g. **Download output (csv/xlsx)**  
     In the `ui`, click the **`Download output (csv/xlsx)`** button.  
-    The 'xlsx' file includes 4 sheets:  
+    The `xlsx` file includes 4 sheets:  
     - output table  
     - raw + fitted traces  
-    - AIC/BIC criteria  
+    - AIC/BIC criteria values 
     - metadata (all dropdown values)
+  
+      In the scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+
+      This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
     h. **Export Plot to SVG**  
     In the `ui`, click the **`Export Plot to SVG`** button.
@@ -453,8 +462,9 @@ These responses with only differ by added gaussian noise.
     ![analyseABFtk_3](./images/analysePSCtk_3.svg)
 
     i. **Clear Output** _(optional)_  
-    In the `ui`, click the **`Clear Output`** button to reset the plots and outputs.
+    In the `ui`, click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
+   To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps d-i
 
 9. **Analysing an entire data set**  
 
