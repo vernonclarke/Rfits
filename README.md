@@ -369,9 +369,15 @@ These responses with only differ by added gaussian noise.
    ```
 
 
-7. **Using UI `analysePSCtk()`**
+7. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
 
-    ```r
+   The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
+
+   In addition to the tk interface launched using `analysePSCtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analysePSCshiny()`.
+
+   The steps, options, and workflow are the same for both interfaces.
+
+    ```R
     # open R from terminal
     open -n -a R
 
@@ -404,7 +410,7 @@ These responses with only differ by added gaussian noise.
 
     The `UI` should open:
 
-    ![analyseABFtk_0](./images/analysePSCtk_0.png)
+    ![analysePSCtk_0](./images/analysePSCtk_0.png)
    
     b. **Upload `csv` or `xlsx`**  
 
@@ -416,13 +422,20 @@ These responses with only differ by added gaussian noise.
 
     d. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
    
-    - **`dt`** The trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
-    - **`Stimulation time`** Stimulation time was 150 ms
-    - **`Baseline`** Set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
-    - **`n`** Number of attempts (30 is default) 
-    - **`Fit cutoff`** default setting 0.1 
-    - **`Function`** (e.g. select `product2N`)  default is set to `product1N` to fit one response. For this example choose `product2N`.
-    - **`Downsample Factor`** Allows user to downsample the data; value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly       related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed.
+    - **`dt`**
+      The trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
+    - **`Stimulation time`**
+      Stimulation time was 150 ms
+    - **`Baseline`**
+      Set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
+    - **`n`**
+      Number of attempts (30 is default) 
+    - **`Fit cutoff`**
+      Default setting 0.1 
+    - **`Function`**
+      Default is set to `product1N` to fit one response. For this example choose `product2N`.
+    - **`Downsample Factor`**
+      Allows user to downsample the data; value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed.
 
      However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid        transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the            response are preserved.
 
@@ -431,37 +444,38 @@ These responses with only differ by added gaussian noise.
 
     A plot will appear with horizontal and vertical lines showing the time at which the response falls to the `Fit cutoff` level (e.g. ~508.4 ms).
 
-    Enter `510` in the **`Use maximum time for fit`** input box in the `UI`. This defines the end point of the time window over which the fitting will be performed for       the displayed trace.
+    Enter `510` in the **`User maximum time for fit`** input box in the `UI`. This defines the end point of the time window over which the fitting will be performed for       the displayed trace.
 
     The `UI` output now looks like this:  
 
-    ![analyseABFtk_1](./images/analysePSCtk_1.png)
+    ![analysePSCtk_1](./images/analysePSCtk_1.png)
 
     f. **Run Main Analysis**  
-    In the `UI`, click the **`Run Main Analysis`** button.
+    Click the **`Run Main Analysis`** button to start the fitting procedure.
 
     After a few seconds, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
 
     The updated output looks like this:
    
-    ![analyseABFtk_2](./images/analysePSCtk_2.png)
+    ![analysePSCtk_2](./images/analysePSCtk_2.png)
 
     g. **Download RData**  
-    In the `ui`, click the **`Download RData`** button to save all fit results in a `.RData` file.
+    Click the **`Download RData`** button to save all fit results in a `.RData` file.
 
     This allows the user to download the entire results of the fitting process into a format that can be read by R (*.Rdata).
 
     This includes all the fits (in this case 30 as denoted by n above) and the resultant best fit with the lowest gof  (since all fits are to the same number of points to be fitted (same response) and are fitted with the same equations)
 
     h. **Download output (csv/xlsx)**  
-    In the `ui`, click the **`Download output (csv/xlsx)`** button.  
-    The `xlsx` file includes 4 sheets:  
+    Click the **`Download output (csv/xlsx)`** button to open the download box, enter a `File name` and hit `save`.  
+
+   The `xlsx` file includes 4 sheets:  
     - output table  
     - raw + fitted traces  
     - AIC/BIC criteria values 
     - metadata (all dropdown values)
   
-    In the scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+    In this scenari,o a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
 
     This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
@@ -470,12 +484,23 @@ These responses with only differ by added gaussian noise.
 
     The exported plot looks like this:
      
-    ![analyseABFtk_3](./images/analysePSCtk_3.svg)
+    ![analysePSCtk_3](./images/analysePSCtk_3.svg)
 
     j. **Clear Output** _(optional)_  
-    In the `ui`, click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
+    Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
    To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
+
+    As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
+
+   ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
+
+   ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
+
+   ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
+
+   ![analyseABFshiny_3](./images/analysePSCshiny_3.svg)
+   
 
 9. **Analysing an entire data set**  
 
