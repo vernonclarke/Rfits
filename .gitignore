@@ -3,6 +3,7 @@ Leila analysis/**
 Linqing analysis/**
 Marziyeh analysis/**
 Tamara analysis/**
+Qiaoling analysis/**
 
 # Ignore specific file types
 **/*.RData
