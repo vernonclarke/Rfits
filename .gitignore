@@ -17,6 +17,7 @@ Tamara analysis/**
 
 # Don't ignore .svg files in the images/svg/ folder
 !images/**/*.svg
+!images/**/*.png
 
 # Ignore everything in the root directory 'Rfits'
 /Rfits/
