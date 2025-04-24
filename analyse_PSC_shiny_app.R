@@ -63,6 +63,7 @@ load_required_packages <- function(packages) {
 
 required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase', 
   'shiny', 'signal', 'readABF', 'readxl','tcltk', 'tkrplot', 'openxlsx')
+
 load_required_packages(required.packages)
 
 # insert your username and repository path
