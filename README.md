@@ -439,7 +439,7 @@ These responses with only differ by added gaussian noise.
 
    The default is unchecked. If unchecked, only traces within a given ABF can be averaged together (when each ABF represents an independent condition). In this case, the **# traces** displays the number of traces in each ABF file (here 5).  
 
-   If this box is checked and **Load Data** is pressed, the traces from all selected ABF files are placed into one 'master' ABF file. The **# traces** will be updated to 15 (3 ABF files each containing 5 traces). This mode is intended when averaging across ABF files is desired.  
+   If this box is checked and **Load Data** is pressed, the traces from all selected ABF files are placed into one 'master' ABF file. The **# traces** will be updated to 15 (3 'ABF' files each containing 5 traces). This mode is intended when averaging across 'ABF' files is desired.  
    
    d. **Review Recordings**  
 
@@ -470,15 +470,17 @@ These responses with only differ by added gaussian noise.
 
    ![analyseABFtk_7](./images/analyseABFtk_7.png)  
 
-   The chosen stimulation time is marked with an `*`. In this example, the stimulation time must be corrected in the right-hand setting: choose a suitable value (here 230 ms) and press **Average Approved Recordings** again. The `*` should appear just before the rising time of the response. Ensure the baseline is chosen relative to the stimulation.
+   The chosen stimulation time is marked with an asterisk, `*`. In this example, the stimulation time must be corrected in the right-hand setting: choose a suitable value (here 230 ms) and press **Average Approved Recordings** again. The `*` should appear just before the rising time of the response. Ensure the baseline is chosen relative to the stimulation.
    
-   Now choose a suitable baseline (e.g. 200 ms) and click **Average Approved Recordings** for a final time. The displayed average should now have a 200 ms baseline and an asterisk at the stimulation time. Cycle through all averages using **Next**.  
+   Now choose a suitable baseline (e.g. 200 ms) and click **Average Approved Recordings** for a final time. The displayed average should now have a 200 ms baseline and an `*` at the stimulation time.
+
+   Cycle through all averages using **Next**.  
 
    ![analyseABFtk_9](./images/analyseABFtk_9.png)
    
    f. **Download Data**  
 
-   When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a CSV spreadsheet. A dialog box appears allowing you to choose the name and location of the CSV file.
+   When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a 'csv' spreadsheet. A dialog box appears allowing you to choose the name and location of the 'csv' file.
     
 8. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
 
@@ -614,7 +616,7 @@ These responses with only differ by added gaussian noise.
    ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-9. **Analysing an entire data set**
+10. **Analysing an entire data set**
 
    ```R
    # Remove all objects from the environment
