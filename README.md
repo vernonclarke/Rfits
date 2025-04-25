@@ -368,8 +368,100 @@ These responses with only differ by added gaussian noise.
       lwd=1.2, height=5, width=5, save=FALSE)
    ```
 
+7. **Using UI `analyseABFtk()` or `analyseABFshiny()` to average and create 'csv' output**
+   
+   The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
 
-7. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
+   In addition to the tk interface launched using `analyseABFtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analyseABFshiny()`.
+
+   The steps, options, and workflow are the same for both interfaces.
+
+   The 'UI' is designed to normalise selected traces to a baseline period then average and export output to a 'csv' file.
+   
+   ```r
+   # open R from terminal
+   open -n -a R
+   
+   rm(list = ls(all = TRUE))
+   graphics.off()
+   
+   # load and install necessary packages
+   load_required_packages <- function(packages) {
+     new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+     if (length(new.packages)) install.packages(new.packages)
+     invisible(lapply(packages, library, character.only = TRUE))
+   }
+   
+   required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
+     'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+   load_required_packages(required.packages)
+   
+   # insert your username and repository path
+   UserName <- 'euo9382'
+   path_repository <- '/Documents/Repositories/Rfits'
+   file_path <- paste0('/Users/', UserName, path_repository)
+   source(paste0(file_path, '/nNLS functions.R'))
+   ```
+   
+   a. **Launch UI**  
+      ```r
+      analyseABFtk()
+      ```
+      ![analyseABFtk_0](./images/analyseABFtk_0.png)  
+      Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
+   
+   b. **Upload ABF files**  
+      In the UI, select the ABF folder by pressing **Browse**. At this point, the values for **Units**, **Data Column**, **dt (ms)**, and **# traces** will appear.  
+      ![analyseABFtk_1](./images/analyseABFtk_1.png)  
+      Any files present in the chosen directory will appear in the **ABF Files** window. On macOS, use the Option key to highlight the required files to upload. Press **Load**.  
+      A new panel will open. At the top, some basic metadata from the first loaded ABF file will appear. Below this, the first 10 rows of the first recorded trace are shown to allow you to determine which column contains the response (in this case column 1).  
+      In addition, the window below the main menu on the left panel gives a message:
+   
+      ```
+      Data loaded. Processed 3 file(s).
+      Data is consistent
+      ```
+   
+      The UI checks that all files have the same metadata settings (sample rate, recording mode). Only files that are consistent can be analysed in the same session.  
+      > **Note:** Ensure that all files analysed in batches are recorded with the same amplifier sample rates. The UI grabs these settings from the header of the first uploaded ABF file and assumes they are the same for all subsequent ABFs (data is consistent). An error will result if this condition is not met.
+   
+   c. **Concatenate**  
+      Default is unchecked. If unchecked, only traces within a given ABF can be averaged together (intended when each ABF represents an independent condition). In this case, the **# traces** displays the number of traces in each ABF file (here 5).  
+      If this box is checked and **Load Data** is pressed, the traces from all selected ABF files are placed into one “master” ABF file. The **# traces** updates to 15 (3 ABF files each containing 5 traces). This mode is intended when averaging across ABF files is desired.  
+      ![analyseABFtk_3](./images/analyseABFtk_3.png)
+   
+   d. **Review Recordings**  
+      Click the **Review Recordings** button. If **Concatenate** is not checked:  
+      ![analyseABFtk_4](./images/analyseABFtk_4.png)  
+      The right-hand panel shows the first trace from the first selected ABF file. Traces can be accepted or rejected. If accepted, they are stored for subsequent averaging. When all traces for that ABF file are reviewed, the left-hand window displays:
+   
+      ```
+      24502007.abf complete
+      ```
+      ![analyseABFtk_5](./images/analyseABFtk_5.png)  
+      The UI then moves on to the first trace of the next ABF file. When all ABF files have been processed, the status window displays:
+   
+      ```
+      Data loaded. Processed 3 file(s).
+      Data is consistent
+      24502007.abf complete
+      24522018.abf complete
+      24624006.abf complete
+      ```
+   
+   e. **Average Approved Recordings**  
+      Click the **Average Approved Recordings** button. The first average appears; use the **Next** button to cycle through subsequent averages.  
+      ![analyseABFtk_7](./images/analyseABFtk_7.png)  
+      The chosen stimulation time is marked with an `*`. In this example, the stimulation time must be corrected in the right-hand setting: choose a suitable value (here 230 ms) and press **Average Approved Recordings** again. The `*` should appear just before the rising time of the response. Ensure the baseline is chosen relative to the stimulation.
+   
+      Now choose a suitable baseline (e.g. 200 ms) and click **Average Approved Recordings** for a final time. The displayed average should now have a 200 ms baseline and an asterisk at the stimulation time. Cycle through all averages using **Next**.  
+      ![analyseABFtk_9](./images/analyseABFtk_9.png)
+   
+   f. **Download Data**  
+      When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a CSV spreadsheet. A dialog box appears allowing you to choose the name and location of the CSV file.
+
+    
+9. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
 
    The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
 
@@ -502,7 +594,7 @@ These responses with only differ by added gaussian noise.
    ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-9. **Analysing an entire data set**  
+10. **Analysing an entire data set**  
 
    ```R
    # Remove all objects from the environment
