@@ -20,6 +20,9 @@ Qiaoling analysis/**
 !images/**/*.svg
 !images/**/*.png
 
+# Don't ignore .abf files in the examples folder
+!examples/**/*.abf
+
 # Ignore everything in the root directory 'Rfits'
 /Rfits/
 
