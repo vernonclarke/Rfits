@@ -7515,9 +7515,9 @@ analyseABFtk <- function() {
   }
 
   download_data <- function() {
-    # check for averaged data
     if (is.null(averaged_data) || length(averaged_data) == 0) {
-      tkmessageBox(message = "No averaged data available.")
+      tkinsert(consoleText, 'end', 'No averaged data available.\n')
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
 
@@ -7526,14 +7526,25 @@ analyseABFtk <- function() {
 
     download_folder <- tclvalue(folderPathVar)
     if (nchar(download_folder) == 0) {
-      tkmessageBox(message = "No folder selected for download.")
+      tkinsert(consoleText, 'end', 'No folder selected for download.\n')
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
-    file_path <- file.path(download_folder, 'averaged_data.csv')
 
-    # write CSV (no time column, just the numbered averages)
+    file_path <- tclvalue(tkgetSaveFile(
+      initialdir = download_folder,
+      defaultextension = ".csv",
+      initialfile = "average.csv"
+    ))
+
+    if (nchar(file_path) == 0) {
+      return()
+    }
+
+    # only reached if file_path is valid
     write.csv(df, file = file_path, row.names = FALSE)
-    tkmessageBox(message = paste('Averaged data saved to', file_path))
+    tkinsert(consoleText, 'end', paste0('Saved to: ', file_path, '\n'))
+    tkyview.moveto(consoleText, 1.0)
   }
 
   abf_averages <- function(datasets, baseline = 100, stimulation_time = 350, traces2average = NULL, dataCol = 1, ylim = NULL, xlim = NULL, 
@@ -7638,7 +7649,8 @@ analyseABFtk <- function() {
   # for concatenated
   review_master_recordings <- function() {
     if (is.null(master_abf)) {
-      tkmessageBox(message = "No master ABF data available. Please load data first.")
+      tkinsert(consoleText, 'end', "No master ABF data available. Please load data first.\n")
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
     total_traces <<- length(master_abf$data)
@@ -7694,7 +7706,8 @@ analyseABFtk <- function() {
         tkconfigure(infoLabel, text = paste('Trace', current_trace, 'of', total_traces))
         tkrreplot(reviewPlot)
       } else {
-        tkmessageBox(message = "Review complete for all traces.")
+        tkinsert(consoleText, 'end', "Review complete for all traces.\n")
+        tkyview.moveto(consoleText, 1.0)
       }
     }
 
@@ -7730,6 +7743,7 @@ analyseABFtk <- function() {
       command = function() {
         if (length(current_group_selected) == 0) {
           tkinsert(consoleText, 'end', 'No traces selected in current group.\n')
+          tkyview.moveto(consoleText, 1.0)
         } else {
           groups_list[[length(groups_list) + 1]] <<- current_group_selected
           msg <- paste(
@@ -7737,6 +7751,7 @@ analyseABFtk <- function() {
             'selected with traces:', paste(current_group_selected, collapse = ', ')
           )
           tkinsert(consoleText, 'end', paste0(msg, '\n'))
+          tkyview.moveto(consoleText, 1.0)
           current_group_selected <<- integer(0)
         }
       }
@@ -7747,6 +7762,7 @@ analyseABFtk <- function() {
       reviewFrame, text = 'Selection Complete',
       command = function() {
         tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
+        tkyview.moveto(consoleText, 1.0)
       }
     )
     tkgrid(selectionCompleteButton, row = 4, column = 0, columnspan = 3)
@@ -7758,7 +7774,8 @@ analyseABFtk <- function() {
     if (length(children)>0) sapply(children, function(ch) tcl("destroy", ch))
 
     if (!exists('abf_analysis_result', envir=.GlobalEnv)) {
-      tkmessageBox(message="No analysis result available for review.")
+      tkinsert(consoleText, 'end', "No analysis result available for review.\n")
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
     result <- get('abf_analysis_result', envir=.GlobalEnv)
@@ -7806,11 +7823,13 @@ analyseABFtk <- function() {
         current_trace <<- current_trace + 1L
       } else {
         tkinsert(consoleText,'end',paste0(fname,' complete\n'))
+        tkyview.moveto(consoleText, 1.0)
         if (current_dataset<length(datasets)) {
           current_dataset <<- current_dataset+1L
           current_trace   <<- 1L
         } else {
           tkinsert(consoleText,'end','Review complete: Approved recordings stored.\n')
+          tkyview.moveto(consoleText, 1.0)
           return()
         }
       }
@@ -7834,7 +7853,8 @@ analyseABFtk <- function() {
   # function to average selected groups for concatenated mode.
   average_selected_groups <- function() {
     if (length(groups_list) == 0) {
-      tkmessageBox(message = "No groups available for averaging. Please select groups first.")
+      tkinsert(consoleText, 'end', "No groups available for averaging. Please select groups first.\n")
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
 
@@ -7929,24 +7949,28 @@ analyseABFtk <- function() {
 
     tkdelete(consoleText, '1.0', 'end')
     tkinsert(consoleText, 'end', 'Averaging complete. Check the updated plot.')
+    tkyview.moveto(consoleText, 1.0)
   }
 
   # for separate mode (non-concatenated):
   averageApprovedTraces_sep <- function() {
     if(length(traces2average) == 0 || all(sapply(traces2average, length) == 0)){
-      tkmessageBox(message = "No approved traces available. Please review recordings first.")
+      tkinsert(consoleText, 'end', "No approved traces available. Please review recordings first.\n")
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
     folderPath <- tclvalue(folderPathVar)
     if(nchar(folderPath) == 0){
-      tkmessageBox(message = "Please select an ABF folder first.")
+      tkinsert(consoleText, 'end', "Please select an ABF folder first.\n")
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
     selIndices <- as.integer(tkcurselection(abfListBox))
     allFiles <- as.character(tkget(abfListBox, 0, 'end'))
     abf_files <- if(length(selIndices)==0) allFiles else allFiles[selIndices+1]
     if(length(abf_files)==0){
-      tkmessageBox(message = "No ABF files selected.")
+      tkinsert(consoleText, 'end', "No ABF files selected.\n")
+      tkyview.moveto(consoleText, 1.0)
       return()
     }
     baseline <- as.numeric(tclvalue(baselineVar))
@@ -7969,13 +7993,15 @@ analyseABFtk <- function() {
       )
       abf_out
     }, error = function(e){
-      tkmessageBox(message = paste('Error during averaging of approved traces:', e$message))
+      tkinsert(consoleText, 'end', paste0('Error during averaging of approved traces: ', e$message, '\n'))
+      tkyview.moveto(consoleText, 1.0)
       NULL
     })
     if(!is.null(result)){
       tkdelete(consoleText, '1.0', 'end')
       msg <- sprintf("Averaging on approved traces complete.\nProcessed %d file(s).", length(abf_files))
       tkinsert(consoleText, 'end', paste0(msg, '\n'))
+      tkyview.moveto(consoleText, 1.0)
       abf_analysis_result <<- result
       
       averaged_data <<- result$baseline_corrected_mean_data
@@ -8062,7 +8088,8 @@ analyseABFtk <- function() {
         tclvalue(folderPathVar) <<- folderPath
         abf_list <- list.files(path = folderPath, pattern = '\\.abf$', ignore.case = TRUE)
         if(length(abf_list) == 0){
-          tkmessageBox(message = "No ABF files found in the selected folder.")
+          tkinsert(consoleText, 'end', 'No ABF files found in the selected folder.\n')
+          tkyview.moveto(consoleText, 1.0)
         } else {
           tkdelete(abfListBox, 0, 'end')
           for(f in abf_list){ tkinsert(abfListBox, 'end', f) }
@@ -8181,34 +8208,38 @@ analyseABFtk <- function() {
           sapply(children, function(ch) tcl("destroy", ch))
         }
 
-        # ... now your existing load_abf_data logic follows ...
         folderPath <- tclvalue(folderPathVar)
         if (nchar(folderPath) == 0) {
-          tkmessageBox(message = "Please select an ABF folder first.")
+          tkinsert(consoleText, 'end', 'Please select an ABF folder first.\n')
+          tkyview.moveto(consoleText, 1.0)
           return()
         }
 
       folderPath <- tclvalue(folderPathVar)
       if (nchar(folderPath) == 0) {
-        tkmessageBox(message = "Please select an ABF folder first.")
+        tkinsert(consoleText, 'end', 'Please select an ABF folder first.\n')
+        tkyview.moveto(consoleText, 1.0)
         return()
       }
       selIndices <- as.integer(tkcurselection(abfListBox))
       allFiles    <- as.character(tkget(abfListBox, 0, 'end'))
       abf_files   <- if (length(selIndices) == 0) allFiles else allFiles[selIndices + 1]
       if (length(abf_files) == 0) {
-        tkmessageBox(message = "No ABF files selected.")
+        tkinsert(consoleText, 'end', 'No ABF files selected.\n')
+        tkyview.moveto(consoleText, 1.0)
         return()
       }
       result <- tryCatch({
         load_abf_data(abf_files = abf_files, abf_path = folderPath)
       }, error = function(e) {
-        tkmessageBox(message = paste('Error during data loading:', e$message))
+        tkinsert(consoleText, 'end', paste0('Error during data loading: ', e$message, '\n'))
+        tkyview.moveto(consoleText, 1.0)
         NULL
       })
       if (!is.null(result)) {
         tkdelete(consoleText, '1.0', 'end')
         tkinsert(consoleText, 'end', paste0('Data loaded. Processed ', length(abf_files), ' file(s).\n'))
+        tkyview.moveto(consoleText, 1.0)
         assign('abf_analysis_result', result, envir = .GlobalEnv)
         updateAdditionalParams(result)
 
@@ -8248,8 +8279,10 @@ analyseABFtk <- function() {
         cons_msg <- check_consistency(result$metadata)
         if (cons_msg == 'Data is consistent') {
           tkinsert(consoleText, 'end', paste0(cons_msg, '\n'))
+          tkyview.moveto(consoleText, 1.0)
         } else {
           tkinsert(consoleText, 'end', paste0('ERROR: ', cons_msg, '\n'))
+          tkyview.moveto(consoleText, 1.0)
         }
 
         if (as.character(tclvalue(concatMode)) == '1') {
@@ -8990,11 +9023,13 @@ analysePSCtk <- function() {
     runAnalysisButton <- tkbutton(buttonFrame, text='Run Initial Analysis', command=function() {
       filePath <- tclvalue(filePathVar)
       if (nchar(filePath) == 0) {
-        tkmessageBox(message='Please select a file first')
+        tkinsert(consoleText, 'end', 'Please select a file first\n')
+        tkyview.moveto(consoleText, 1.0)
         return()
       }
       if (nchar(tclvalue(columnVar)) == 0) {
-        tkmessageBox(message='Please select a column')
+        tkinsert(consoleText, 'end', 'Please select a column\n')
+        tkyview.moveto(consoleText, 1.0)
         return()
       }
       ext <- tools::file_ext(filePath)
@@ -9118,7 +9153,8 @@ analysePSCtk <- function() {
     downloadOutputButton <- tkbutton(buttonFrame, text='Download RData', 
       command=function() {
         if (!exists('analysis_output') || is.null(analysis_output)) {
-          tkmessageBox(message='No analysis output available!')
+          tkinsert(consoleText, 'end', 'No analysis output available!\n')
+          tkyview.moveto(consoleText, 1.0)
           return()
         }
         saveFile <- tclvalue(tkgetSaveFile(filetypes='{{Rdata Files} {.Rdata}} {{All Files} *}'))
@@ -9171,14 +9207,16 @@ analysePSCtk <- function() {
             metadata=metadata
           )
           save(results, file=saveFile)
-          tkmessageBox(message='Output saved successfully.')
+          tkinsert(consoleText, 'end', 'Output saved successfully.\n')
+          tkyview.moveto(consoleText, 1.0)
         }
       }
     )
     
       downloadResultsButton <- tkbutton(buttonFrame, text='Download Output (csv/xlsx)', command=function() {
         if (!exists('analysis_output') || is.null(analysis_output)) {
-          tkmessageBox(message='No analysis output available!')
+          tkinsert(consoleText, 'end', 'No analysis output available!\n')
+          tkyview.moveto(consoleText, 1.0)
           return()
         }
         filePath <- tclvalue(tkgetSaveFile(filetypes='{{Excel File} {.xlsx}} {{CSV File} {.csv}}'))
@@ -9247,13 +9285,15 @@ analysePSCtk <- function() {
           saveWorkbook(wb, filePath, overwrite = TRUE)
 
         } else {
-          tkmessageBox(message = "Unsupported file type. Use .csv or .xlsx")
+          tkinsert(consoleText, 'end', 'Unsupported file type. Use .csv or .xlsx\n')
+          tkyview.moveto(consoleText, 1.0)
         }
       })
 
     exportSVGButton <- tkbutton(buttonFrame, text='Export Plot to SVG', command=function() {
       if (!exists('analysis_output') || is.null(analysis_output)) {
-        tkmessageBox(message='No analysis available to export!')
+        tkinsert(consoleText, 'end', 'No analysis available to export!\n')
+        tkyview.moveto(consoleText, 1.0)
         return()
       }
       saveFile <- tclvalue(tkgetSaveFile(filetypes='{{SVG Files} {.svg}}'))
@@ -9274,7 +9314,8 @@ analysePSCtk <- function() {
                   xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
                   xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
         dev.off()
-        tkmessageBox(message='SVG plot saved successfully.')
+        tkinsert(consoleText, 'end', 'SVG plot saved successfully.\n')
+        tkyview.moveto(consoleText, 1.0)
       }
     })
 
