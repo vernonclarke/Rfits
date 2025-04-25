@@ -481,8 +481,17 @@ These responses with only differ by added gaussian noise.
    f. **Download Data**  
 
    When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a 'csv' spreadsheet. A dialog box appears allowing you to choose the name and location of the 'csv' file.
+
+   As stated the steps, options, and workflow are the same for both interfaces. Some equivalent images obtained from the shiny `UI` launched by `analyseABFshiny()` are:
+
+   ![analyseABFshiny_0](./images/analyseABFshiny_0.png)
+
+   ![analyseABFshiny_1](./images/analyseABFshiny_1.png)
+
+   ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
+
     
-8. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
+9. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
 
    The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
 
@@ -605,7 +614,7 @@ These responses with only differ by added gaussian noise.
 
    To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
 
-    As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
+   As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
 
    ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
 
