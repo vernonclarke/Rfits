@@ -5,19 +5,19 @@
   - [Setting up](#setting-up)
 - [Initial Guide](#initial-guide)
 - [Step-by-Step Guide](#step-by-step-guide)
-  - [1. Set up environment](#1-set-up-environment)
-  - [2. Create data to analyse](#2-create-data-to-analyse)
-  - [3. View and save data](#3-view-and-save-data)
-  - [4. Load data using load_data or load_data2](#4-load-data-using-load_data-or-load_data2)
+  - [1. Setting the environment](#1-setting-the-environment)
+  - [2. Simulated example](#2-simulated-example)
+  - [3. View data](#3-view-data)
+  - [4. Load data](#4-load-data)
   - [5. View imported data](#5-view-imported-data)
-  - [6. Analyse a given column of data](#6-analyse-a-given-column-of-data)
-  - [7. Using UI analyseABFtk() or analyseABFshiny()](#7-using-ui-analyseabftk-or-analyseabfshiny)
-  - [8. Using UI analysePSCtk() or analysePSCshiny()](#8-using-ui-analysepsctk-or-analysepscshiny)
+  - [6. Analyse in RGui using analyse_PSC](#6-analyse-in-rgui-using-analyse_psc)
+  - [7. Average and save ABF data using the UI interface](#7-average-and-save-abf-data-using-the-ui-interface)
+  - [8. Fitting data using the UI interface](#8-fitting-data-using-the-ui-interface)
   - [9. Analysing an entire data set](#9-analysing-an-entire-data-set)
-  - [10. Retrieving analysed data from example.RData](#10-retrieving-analysed-data-from-examplerdata)
-  - [11. Examining analysed data stored in out_list](#11-examining-analysed-data-stored-in-out_list)
-  - [12. Useful functions for analysis](#12-useful-functions-for-analysis)
-  - [13. Output file structure explained](#13-output-file-structure-explained)
+  - [10. Retrieving analysed data](#10-retrieving-analysed-data)
+  - [11. Examining analysed data](#11-examining-analysed-data)
+  - [12. Useful functions](#12-useful-functions)
+  - [13. Output file structure](#13-output-file-structure)
 - [Definitions and Formulae](#definitions-and-formulae)
 
 
@@ -174,7 +174,9 @@ The simulation with create a dataset of 10 responses with modelled parameters.
 
 These responses with only differ by added gaussian noise.
 
-1. **Run this code to setup the environment correctly**
+1. #### Setting the environment
+
+   Run this code to setup the environment correctly:
 
    ```R
    # Remove all objects from the environment
@@ -198,8 +200,8 @@ These responses with only differ by added gaussian noise.
    Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis and will load all necessary custom-written functions
   
 
-2. **Create data to analyse**
-   
+2. #### Simulated example
+
    This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
    
    This step is provided to generate some dummy data for the subsequent analysis and should be skipped if analysing raw data(!). 
@@ -243,7 +245,10 @@ These responses with only differ by added gaussian noise.
    write_xlsx(as.data.frame(data), xlsx_file_path)
    ```
 
-3. **View and save data to analyse**
+3. #### View data
+
+   The following code allows the user to view the created simulated data: 
+   
    ```R
    # view data
    data[1:10, ]
@@ -263,7 +268,9 @@ These responses with only differ by added gaussian noise.
    [10,] -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
    ```
 
-4. **Load data using function `load_data` or `load_data2`**
+4. #### Load data
+
+   The following code allows the user to load simulated data using the functions `load_data` or `load_data2`:
    
    If your data is in the form of a `*.csv` or `*.xlsx` you can use the provided functions `load_data` and `load_data2`, respectively to load it into a session of R (provided step 1 above is executed)
 
@@ -286,7 +293,10 @@ These responses with only differ by added gaussian noise.
    
    This can be accessed as `data2$'Sheet 1` etc.
 
-5. **View imported data**
+5. #### View imported data
+
+   The following code allows the user to view the imported simulated data: 
+   
    ```R
    # view first 10 rows of data imported from CSV file
    data1[1:10, ]
@@ -312,9 +322,12 @@ These responses with only differ by added gaussian noise.
    ```
    The output is identical to the originally created data (step 3). The only difference is the columns have been named V1, V2...
 
-6. **Analyse a given column of data using the function `analyse_PSC`**  
+6. #### Analyse in RGui using `analyse_PSC`
+
+   The user can analyse a given column of data using the function `analyse_PSC`. 
 
    Each column of data represents a single PSC sampled at 10 KHz (sample interval was 0.1 ms).
+   
    ```R
    # any response can be accessed data1[,1] or data1[,'V1'] where V1 is the appropriate column name 
 
@@ -380,7 +393,9 @@ These responses with only differ by added gaussian noise.
       lwd=1.2, height=5, width=5, save=FALSE)
    ```
 
-7. **Using UI `analyseABFtk()` or `analyseABFshiny()` to average and create 'csv' output**
+7. #### Average and save ABF data using the UI interface
+
+   The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
    
    The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
 
@@ -503,7 +518,7 @@ These responses with only differ by added gaussian noise.
    ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
 
     
-8. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
+8. #### Fitting data using the UI interface
 
    The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
 
@@ -634,7 +649,7 @@ These responses with only differ by added gaussian noise.
     ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-9. **Analysing an entire data set**
+9. #### Analysing an entire data set**
 
    ```R
    # Remove all objects from the environment
@@ -686,7 +701,9 @@ These responses with only differ by added gaussian noise.
    save.image(file = 'example.RData')  
    ```
 
-10. **Retrieving analysed data previously stored in `example.RData`**  
+10. #### Retrieving analysed data
+   
+   Fitting data previously stored in `example.RData`  can be retrieved by the following code:
 
    ```R
    # Remove all objects from the environment
@@ -717,7 +734,11 @@ These responses with only differ by added gaussian noise.
    load_required_packages(required.packages)   
    ```
 
-11. **Examining analysed data stored in the list `out_list`**  
+11. #### Examining analysed data
+   
+   Data was stored in a list named  `out_list`. 
+
+   The following code will loop through the saved  data to create a simple matrix-like output of the fitted parameters for each simulation.
 
    ```R
 
@@ -762,7 +783,9 @@ These responses with only differ by added gaussian noise.
 
    ```
 
-12. **Useful functions for analysis**  
+12. #### Useful functions
+
+   Some simple functions for baisc analysis are provided.  
 
    - **`wilcox.test`**
 
@@ -927,7 +950,9 @@ These responses with only differ by added gaussian noise.
       The right-hand plot shows the same plot but on as a semilog plot that starts at the stimulation. The vertical and horizontal bars now represent an e-fold change in y and 100ms.
 
 
-13. **Output file structure explained** 
+13. ### Output file structure
+   
+   Here is a brief explanation of the file output structure.  
 
    out_list is a list that contains relevant output for each of the (n=10) traces analysed in step 7
    each list can be accessed by out_list[[ii]] where ii takes the value from 1 to 10 for each fitted trace
