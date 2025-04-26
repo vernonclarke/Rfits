@@ -1,11 +1,24 @@
-# R code to perform non-linear squares fitting of functions used to describe signal waveforms 
+# <center>R code to perform non-linear squares fitting of functions used to describe signal waveforms 
 
 ## Table of Contents
-- [Initial Set Up](#Initial-Set-Up)
-   - [Setting up](#Setting-up)
-- [Initial Guide](#Initial-Guide)
-- [Step-by-Step Guide](#Step-by-Step-Guide)
-- [Definitions and Formulae](#Definitions-and-Formulae)
+- [Initial Set Up](#initial-set-up)
+  - [Setting up](#setting-up)
+- [Initial Guide](#initial-guide)
+- [Step-by-Step Guide](#step-by-step-guide)
+  - [1. Set up environment](#1-set-up-environment)
+  - [2. Create data to analyse](#2-create-data-to-analyse)
+  - [3. View and save data](#3-view-and-save-data)
+  - [4. Load data using load_data or load_data2](#4-load-data-using-load_data-or-load_data2)
+  - [5. View imported data](#5-view-imported-data)
+  - [6. Analyse a given column of data](#6-analyse-a-given-column-of-data)
+  - [7. Using UI analyseABFtk() or analyseABFshiny()](#7-using-ui-analyseabftk-or-analyseabfshiny)
+  - [8. Using UI analysePSCtk() or analysePSCshiny()](#8-using-ui-analysepsctk-or-analysepscshiny)
+  - [9. Analysing an entire data set](#9-analysing-an-entire-data-set)
+  - [10. Retrieving analysed data from example.RData](#10-retrieving-analysed-data-from-examplerdata)
+  - [11. Examining analysed data stored in out_list](#11-examining-analysed-data-stored-in-out_list)
+  - [12. Useful functions for analysis](#12-useful-functions-for-analysis)
+  - [13. Output file structure explained](#13-output-file-structure-explained)
+- [Definitions and Formulae](#definitions-and-formulae)
 
 
 ## Initial Set Up
@@ -150,7 +163,6 @@ Any code preceded by # is `commented out` and is provided in `*.R` files for ins
 
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
-
 
 ## Step-by-Step Guide
 
@@ -622,7 +634,7 @@ These responses with only differ by added gaussian noise.
     ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-10. **Analysing an entire data set**
+9. **Analysing an entire data set**
 
    ```R
    # Remove all objects from the environment
@@ -674,7 +686,7 @@ These responses with only differ by added gaussian noise.
    save.image(file = 'example.RData')  
    ```
 
-8. **Retrieving analysed data previously stored in `example.RData`**  
+10. **Retrieving analysed data previously stored in `example.RData`**  
 
    ```R
    # Remove all objects from the environment
@@ -705,7 +717,7 @@ These responses with only differ by added gaussian noise.
    load_required_packages(required.packages)   
    ```
 
-9. **Examining analysed data stored in the list `out_list`**  
+11. **Examining analysed data stored in the list `out_list`**  
 
    ```R
 
@@ -750,7 +762,7 @@ These responses with only differ by added gaussian noise.
 
    ```
 
-10. **Useful functions for analysis**  
+12. **Useful functions for analysis**  
 
    - **`wilcox.test`**
 
@@ -915,7 +927,7 @@ These responses with only differ by added gaussian noise.
       The right-hand plot shows the same plot but on as a semilog plot that starts at the stimulation. The vertical and horizontal bars now represent an e-fold change in y and 100ms.
 
 
-11. **Output file structure explained** 
+13. **Output file structure explained** 
 
    out_list is a list that contains relevant output for each of the (n=10) traces analysed in step 7
    each list can be accessed by out_list[[ii]] where ii takes the value from 1 to 10 for each fitted trace
