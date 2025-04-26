@@ -174,7 +174,7 @@ The simulation with create a dataset of 10 responses with modelled parameters.
 
 These responses with only differ by added gaussian noise.
 
-   #### Setting the environment
+   ###1. Setting the environment
 
    Run this code to setup the environment correctly:
 
@@ -200,7 +200,7 @@ These responses with only differ by added gaussian noise.
    Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis and will load all necessary custom-written functions
   
 
-   #### Simulated example
+   ### Simulated example
 
    This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
    
