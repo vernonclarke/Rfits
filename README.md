@@ -1,11 +1,24 @@
-# R code to perform non-linear squares fitting of functions used to describe signal waveforms 
+# <center>R code to perform non-linear squares fitting of functions used to describe signal waveforms 
 
 ## Table of Contents
-- [Initial Set Up](#Initial-Set-Up)
-   - [Setting up](#Setting-up)
-- [Initial Guide](#Initial-Guide)
-- [Step-by-Step Guide](#Step-by-Step-Guide)
-- [Definitions and Formulae](#Definitions-and-Formulae)
+- [Initial Set Up](#initial-set-up)
+  - [Setting up](#setting-up)
+- [Initial Guide](#initial-guide)
+- [Step-by-Step Guide](#step-by-step-guide)
+  - [Setting the environment](#setting-the-environment)
+  - [Simulated example](#simulated-example)
+  - [View data](#view-data)
+  - [Load data](#load-data)
+  - [View imported data](#view-imported-data)
+  - [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
+  - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
+  - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
+  - [Analysing an entire data set](#analysing-an-entire-data-set)
+  - [Retrieving analysed data](#retrieving-analysed-data)
+  - [Examining analysed data](#examining-analysed-data)
+  - [Useful functions](#useful-functions)
+  - [Output file structure](#output-file-structure)
+- [Definitions and Formulae](#definitions-and-formulae)
 
 
 ## Initial Set Up
@@ -151,7 +164,6 @@ Any code preceded by # is `commented out` and is provided in `*.R` files for ins
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
 
-
 ## Step-by-Step Guide
 
 The following code will simulate a set of data that is generated as the sum of underlying responses.
@@ -162,7 +174,9 @@ The simulation with create a dataset of 10 responses with modelled parameters.
 
 These responses with only differ by added gaussian noise.
 
-1. **Run this code to setup the environment correctly**
+   ### Setting the environment
+
+   Run this code to setup the environment correctly:
 
    ```R
    # Remove all objects from the environment
@@ -183,11 +197,12 @@ These responses with only differ by added gaussian noise.
    path <- file.path(root_dir, 'nNLS functions.R')
    source(path)
    ```
+   
    Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis and will load all necessary custom-written functions
   
 
-2. **Create data to analyse**
-   
+   ### Simulated example
+
    This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
    
    This step is provided to generate some dummy data for the subsequent analysis and should be skipped if analysing raw data(!). 
@@ -231,7 +246,10 @@ These responses with only differ by added gaussian noise.
    write_xlsx(as.data.frame(data), xlsx_file_path)
    ```
 
-3. **View and save data to analyse**
+  ### View data
+
+   The following code allows the user to view the created simulated data: 
+   
    ```R
    # view data
    data[1:10, ]
@@ -251,7 +269,9 @@ These responses with only differ by added gaussian noise.
    [10,] -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
    ```
 
-4. **Load data using function `load_data` or `load_data2`**
+   ### Load data
+
+   The following code allows the user to load simulated data using the functions `load_data` or `load_data2`:
    
    If your data is in the form of a `*.csv` or `*.xlsx` you can use the provided functions `load_data` and `load_data2`, respectively to load it into a session of R (provided step 1 above is executed)
 
@@ -274,7 +294,10 @@ These responses with only differ by added gaussian noise.
    
    This can be accessed as `data2$'Sheet 1` etc.
 
-5. **View imported data**
+   ### View imported data
+
+   The following code allows the user to view the imported simulated data: 
+   
    ```R
    # view first 10 rows of data imported from CSV file
    data1[1:10, ]
@@ -300,9 +323,12 @@ These responses with only differ by added gaussian noise.
    ```
    The output is identical to the originally created data (step 3). The only difference is the columns have been named V1, V2...
 
-6. **Analyse a given column of data using the function `analyse_PSC`**  
+   ### Analyse in RGui using `analyse_PSC`
+
+   The user can analyse a given column of data using the function `analyse_PSC`. 
 
    Each column of data represents a single PSC sampled at 10 KHz (sample interval was 0.1 ms).
+   
    ```R
    # any response can be accessed data1[,1] or data1[,'V1'] where V1 is the appropriate column name 
 
@@ -368,7 +394,9 @@ These responses with only differ by added gaussian noise.
       lwd=1.2, height=5, width=5, save=FALSE)
    ```
 
-7. **Using UI `analyseABFtk()` or `analyseABFshiny()` to average and create 'csv' output**
+   ### Average and save ABF data using the UI interface
+
+   The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
    
    The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
 
@@ -376,7 +404,7 @@ These responses with only differ by added gaussian noise.
 
    The steps, options, and workflow are the same for both interfaces.
 
-   The 'UI' is designed to normalise selected traces to a baseline period then average and export output to a 'csv' file.
+   The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
    
    ```r
    # open R from terminal
@@ -395,12 +423,12 @@ These responses with only differ by added gaussian noise.
    required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
      'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
    load_required_packages(required.packages)
-   
-   # insert your username and repository path
-   UserName <- 'euo9382'
-   path_repository <- '/Documents/Repositories/Rfits'
-   file_path <- paste0('/Users/', UserName, path_repository)
-   source(paste0(file_path, '/nNLS functions.R'))
+
+    # insert your username and repository path
+    UserName <- 'YourUserName' # substitute your UserName here
+    path_repository <- '/Documents/Repositories/Rfits'
+    file_path <- paste0('/Users/', UserName, path_repository)
+    source(paste0(file_path, '/nNLS functions.R'))
    ```
    
    a. **Launch UI**  
@@ -408,7 +436,7 @@ These responses with only differ by added gaussian noise.
       analyseABFtk()
       ```
 
-   <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="60%" height="60%"/> 
+   <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
 
    Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
    
@@ -416,7 +444,7 @@ These responses with only differ by added gaussian noise.
 
    In the UI, select the ABF folder by pressing **Browse**. At this point, the values for **Units**, **Data Column**, **dt (ms)**, and **# traces** will appear.  
 
-   <img src="./images/analyseABFtk_1.png" alt="analyseABFtk_1" width="60%" height="60%"/> 
+   <img src="./images/analyseABFtk_1.png" alt="analyseABFtk_1" width="57.5%" height="57.5%"/> 
 
    Any files present in the chosen directory will appear in the **ABF Files** window. On macOS, use the Option key to highlight the required files to upload by pressing the **Load data** button. 
 
@@ -491,7 +519,7 @@ These responses with only differ by added gaussian noise.
    ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
 
     
-8. **Using UI `analysePSCtk()` or `analysePSCshiny()`**
+   ### Fitting data using the UI interface
 
    The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
 
@@ -526,13 +554,14 @@ These responses with only differ by added gaussian noise.
     ```
 
     a. **Launch the User Interface**  
+
     ```r
     analysePSCtk()
     ```
 
     The `UI` should open:
 
-    ![analysePSCtk_0](./images/analysePSCtk_0.png)
+    <img src="./images/analysePSCtk_0.png" alt="analysePSCtk_0" width="57.5%" height="57.5%"/> 
    
     b. **Upload `csv` or `xlsx`**  
 
@@ -544,25 +573,16 @@ These responses with only differ by added gaussian noise.
 
     d. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
    
-    - **`dt`**
-      The trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
-    - **`Stimulation time`**
-      Stimulation time was 150 ms
-    - **`Baseline`**
-      Set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
-    - **`n`**
-      Number of attempts (30 is default) 
-    - **`Fit cutoff`**
-      Default setting 0.1 
-    - **`Function`**
-      Default is set to `product1N` to fit one response. For this example choose `product2N`.
-    - **`Downsample Factor`**
-
-      Allows user to downsample the data; value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed.
-
-     However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the response are preserved.
+    - **`dt`**: the trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
+    - **`Stimulation time`**: stimulation time was 150 ms
+    - **`Baseline`**: set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
+    - **`n`**: number of fit attempts (30 is default) 
+    - **`Fit cutoff`**: default setting 0.1 of the peak response 
+    - **`Function`**: default is set to `product1N` to fit one response. For this example choose `product2N`
+    - **`Downsample Factor`**: allows the user to downsample the data. This value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed. However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the response are preserved.
 
     e. **Run Initial Analysis**  
+
     In the `UI`, click the **`Run Initial Analysis`** button.
 
     A plot will appear with horizontal and vertical lines showing the time at which the response falls to the `Fit cutoff` level (e.g. ~508.4 ms).
@@ -574,6 +594,7 @@ These responses with only differ by added gaussian noise.
     ![analysePSCtk_1](./images/analysePSCtk_1.png)
 
     f. **Run Main Analysis**  
+
     Click the **`Run Main Analysis`** button to start the fitting procedure.
 
     After a few seconds, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
@@ -583,6 +604,7 @@ These responses with only differ by added gaussian noise.
     ![analysePSCtk_2](./images/analysePSCtk_2.png)
 
     g. **Download RData**  
+
     Click the **`Download RData`** button to save all fit results in a `.RData` file.
 
     This allows the user to download the entire results of the fitting process into a format that can be read by R (*.Rdata).
@@ -590,6 +612,7 @@ These responses with only differ by added gaussian noise.
     This includes all the fits (in this case 30 as denoted by n above) and the resultant best fit with the lowest gof  (since all fits are to the same number of points to be fitted (same response) and are fitted with the same equations)
 
     h. **Download output (csv/xlsx)**  
+
     Click the **`Download output (csv/xlsx)`** button to open the download box, enter a `File name` and hit `save`.  
 
    The `xlsx` file includes 4 sheets:  
@@ -603,29 +626,31 @@ These responses with only differ by added gaussian noise.
     This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
     i. **Export Plot to SVG**  
-    In the `ui`, click the **`Export Plot to SVG`** button.
+
+    In the `UI`, click the **`Export Plot to SVG`** button.
 
     The exported plot looks like this:
      
     ![analysePSCtk_3](./images/analysePSCtk_3.svg)
 
     j. **Clear Output** _(optional)_  
+
     Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
-   To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
+    To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
 
-   As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
+    As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
 
-   ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
+    ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
 
-   ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
+    ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
 
-   ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
+    ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
 
-   ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
+    ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-9. **Analysing an entire data set**
+   ### Analysing an entire data set
 
    ```R
    # Remove all objects from the environment
@@ -677,7 +702,9 @@ These responses with only differ by added gaussian noise.
    save.image(file = 'example.RData')  
    ```
 
-8. **Retrieving analysed data previously stored in `example.RData`**  
+   ### Retrieving analysed data
+   
+   Fitting data previously stored in `example.RData`  can be retrieved by the following code:
 
    ```R
    # Remove all objects from the environment
@@ -708,7 +735,11 @@ These responses with only differ by added gaussian noise.
    load_required_packages(required.packages)   
    ```
 
-9. **Examining analysed data stored in the list `out_list`**  
+   ### Examining analysed data
+   
+   Data was stored in a list named  `out_list`. 
+
+   The following code will loop through the saved  data to create a simple matrix-like output of the fitted parameters for each simulation.
 
    ```R
 
@@ -753,7 +784,9 @@ These responses with only differ by added gaussian noise.
 
    ```
 
-10. **Useful functions for analysis**  
+   ### Useful functions
+
+   Some simple functions for baisc analysis are provided.  
 
    - **`wilcox.test`**
 
@@ -918,7 +951,9 @@ These responses with only differ by added gaussian noise.
       The right-hand plot shows the same plot but on as a semilog plot that starts at the stimulation. The vertical and horizontal bars now represent an e-fold change in y and 100ms.
 
 
-11. **Output file structure explained** 
+13. ### Output file structure
+   
+   Here is a brief explanation of the file output structure.  
 
    out_list is a list that contains relevant output for each of the (n=10) traces analysed in step 7
    each list can be accessed by out_list[[ii]] where ii takes the value from 1 to 10 for each fitted trace
