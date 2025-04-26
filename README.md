@@ -174,7 +174,7 @@ The simulation with create a dataset of 10 responses with modelled parameters.
 
 These responses with only differ by added gaussian noise.
 
-1. #### Setting the environment
+   #### Setting the environment
 
    Run this code to setup the environment correctly:
 
@@ -200,7 +200,7 @@ These responses with only differ by added gaussian noise.
    Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis and will load all necessary custom-written functions
   
 
-2. #### Simulated example
+   #### Simulated example
 
    This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
    
@@ -245,7 +245,7 @@ These responses with only differ by added gaussian noise.
    write_xlsx(as.data.frame(data), xlsx_file_path)
    ```
 
-3. #### View data
+  #### View data
 
    The following code allows the user to view the created simulated data: 
    
@@ -268,7 +268,7 @@ These responses with only differ by added gaussian noise.
    [10,] -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
    ```
 
-4. #### Load data
+   #### Load data
 
    The following code allows the user to load simulated data using the functions `load_data` or `load_data2`:
    
@@ -293,7 +293,7 @@ These responses with only differ by added gaussian noise.
    
    This can be accessed as `data2$'Sheet 1` etc.
 
-5. #### View imported data
+   #### View imported data
 
    The following code allows the user to view the imported simulated data: 
    
@@ -322,7 +322,7 @@ These responses with only differ by added gaussian noise.
    ```
    The output is identical to the originally created data (step 3). The only difference is the columns have been named V1, V2...
 
-6. #### Analyse in RGui using `analyse_PSC`
+   #### Analyse in RGui using `analyse_PSC`
 
    The user can analyse a given column of data using the function `analyse_PSC`. 
 
@@ -393,7 +393,7 @@ These responses with only differ by added gaussian noise.
       lwd=1.2, height=5, width=5, save=FALSE)
    ```
 
-7. #### Average and save ABF data using the UI interface
+   #### Average and save ABF data using the UI interface
 
    The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
    
@@ -518,7 +518,7 @@ These responses with only differ by added gaussian noise.
    ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
 
     
-8. #### Fitting data using the UI interface
+   #### Fitting data using the UI interface
 
    The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
 
@@ -649,7 +649,7 @@ These responses with only differ by added gaussian noise.
     ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-9. #### Analysing an entire data set**
+   #### Analysing an entire data set**
 
    ```R
    # Remove all objects from the environment
@@ -701,7 +701,7 @@ These responses with only differ by added gaussian noise.
    save.image(file = 'example.RData')  
    ```
 
-10. #### Retrieving analysed data
+   #### Retrieving analysed data
    
    Fitting data previously stored in `example.RData`  can be retrieved by the following code:
 
@@ -734,7 +734,7 @@ These responses with only differ by added gaussian noise.
    load_required_packages(required.packages)   
    ```
 
-11. #### Examining analysed data
+   #### Examining analysed data
    
    Data was stored in a list named  `out_list`. 
 
@@ -783,7 +783,7 @@ These responses with only differ by added gaussian noise.
 
    ```
 
-12. #### Useful functions
+   #### Useful functions
 
    Some simple functions for baisc analysis are provided.  
 
