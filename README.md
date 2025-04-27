@@ -2,22 +2,22 @@
 
 ## Table of Contents
 - [Initial Set Up](#initial-set-up)
-  - [Setting up](#setting-up)
+- [Setting up](#setting-up)
 - [Initial Guide](#initial-guide)
 - [Step-by-Step Guide](#step-by-step-guide)
-  - [Setting the environment](#setting-the-environment)
-  - [Simulated example](#simulated-example)
-  - [View data](#view-data)
-  - [Load data](#load-data)
-  - [View imported data](#view-imported-data)
-  - [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
-  - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
-  - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
-  - [Analysing an entire data set](#analysing-an-entire-data-set)
-  - [Retrieving analysed data](#retrieving-analysed-data)
-  - [Examining analysed data](#examining-analysed-data)
-  - [Useful functions](#useful-functions)
-  - [Output file structure](#output-file-structure)
+- [Setting the environment](#setting-the-environment)
+- [Simulated example](#simulated-example)
+- [View data](#view-data)
+- [Load data](#load-data)
+- [View imported data](#view-imported-data)
+- [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
+- [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
+- [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
+- [Analysing an entire data set](#analysing-an-entire-data-set)
+- [Retrieving analysed data](#retrieving-analysed-data)
+- [Examining analysed data](#examining-analysed-data)
+- [Useful functions](#useful-functions)
+- [Output file structure](#output-file-structure)
 - [Definitions and Formulae](#definitions-and-formulae)
 
 
@@ -25,18 +25,18 @@
 
 All analysis was performed using the R graphical user interface (GUI) and tested on R version 4.4.1 "Race for Your Life".
 
-  - [`R` Statistical Software](https://www.R-project.org/)
-  - [`XQuartz`](https://www.xquartz.org/) required for graphical output on MacOS
-  - [`Sublime text`](https://www.sublimetext.com/) or, if you prefer, simply use the the default R text editor
+- [`R` Statistical Software](https://www.R-project.org/)
+- [`XQuartz`](https://www.xquartz.org/) required for graphical output on MacOS
+- [`Sublime text`](https://www.sublimetext.com/) or, if you prefer, simply use the the default R text editor
 
-  At the least, both `R` and `XQuartz` are essential to install for this code to work.
+At the least, both `R` and `XQuartz` are essential to install for this code to work.
 
 ### Setting up
-  
+
 Only the R console was used for analysis. 
-  
+
 If you prefer to work with [`RStudio`](https://posit.co/products/open-source/rstudio/), why? 
-  
+
 The provided code should work in `RStudio` although this has not explicitly been tested. 
 
 Download the code in this directory using the green <span style="background-color:#00FF00; color:white; padding:4px 8px; border-radius:6px; font-family:monospace; display: inline-flex; align-items: center;"> &lt;&gt; Code <span style="margin-left: 4px;">&#9660;</span> </span>
@@ -45,7 +45,7 @@ dropdown menu followed by `Download Zip`
 Unpack and create directory e.g. `/Users/UserName/Documents/Rfits` replacing `UserName` with your actual `UserName` (!). 
 
 In order for the provided R code to work, it is necessary to load various packages within the R environment.
-  
+
 The following code should be executed in R prior to running any of the analysis functions. 
 It checks if the required packages are present and, if they are not, it will install them.
 
@@ -55,111 +55,111 @@ Any code preceded by # is `commented out` and is provided in `*.R` files for ins
 -----------------------------------------------------------------------------------------------
 
 ## Initial Guide  
-   
-  1. **Open R gui**
-  2. **Run this code once**
-   ```R
-   # Remove all objects from the environment
-   rm(list = ls(all = TRUE))
-  
-   # Load and install necessary packages
-   load_required_packages <- function(packages) {
-      new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-      if (length(new.packages)) install.packages(new.packages)
-      invisible(lapply(packages, library, character.only = TRUE))
-   }
-  
-   required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal', 'writexl')
-   load_required_packages(required.packages)
-   ```
-   Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis
-  
-  3. **load all necessary custom-written functions**
+ 
+1. **Open R gui**
+2. **Run this code once**
+ ```R
+ # Remove all objects from the environment
+ rm(list = ls(all = TRUE))
 
-     **These functions are included in an `R` file named `nNLS functions.R`**
-  
+ # Load and install necessary packages
+ load_required_packages <- function(packages) {
+    new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+    if (length(new.packages)) install.packages(new.packages)
+    invisible(lapply(packages, library, character.only = TRUE))
+ }
 
-   ```R
-   UserName <- 'YourUserName' # substitute your UserName here
-   root_dir <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits')
-   path <- file.path(root_dir, 'nNLS functions.R')   
-   source(path)
-   ```
+ required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal', 'writexl')
+ load_required_packages(required.packages)
+ ```
+ Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis
 
-  4. **Fitting example**
+3. **load all necessary custom-written functions**
 
-   The following code generates a noisy signal that comprises a single train of responses.
+   **These functions are included in an `R` file named `nNLS functions.R`**
 
-   The inter-event interval (or IEI) is 50 ms and the train comprises 3 responses (N).
-  
-   ```R
-   dx <- 0.1
-   stimulation_time <- 150
-   baseline <- 150
-   xmax <- 1000
-   x <- seq(dx,xmax ,dx)
-   N <- 3
-   IEI <- 50
 
-   # parameters to generate the fit A1, A2, A3, τ1, τ2 and a delay
-   params1 <- c(-150, -250, -300, 1, 30, 4) 
-   params1_ <- params1
-   params1_[N+3] <- params1_[N+3] + stimulation_time
+ ```R
+ UserName <- 'YourUserName' # substitute your UserName here
+ root_dir <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits')
+ path <- file.path(root_dir, 'nNLS functions.R')   
+ source(path)
+ ```
 
-   std.dev <- 10
+4. **Fitting example**
 
-   ysignal <- product1N(params=params1_, x=x, N=N, IEI=IEI)
-   y <- ysignal + rnorm(length(x),sd=std.dev)
+ The following code generates a noisy signal that comprises a single train of responses.
 
-   # quick plot if necessary
-   # plot(x, y, type='l')
+ The inter-event interval (or IEI) is 50 ms and the train comprises 3 responses (N).
 
-   # to analyse
-   analyse_PSC(response=y, dt=0.1, n=30, N=3, IEI=50, stimulation_time=150, 
-      baseline=150, func=product1N, return.output=FALSE) 
-   ```
-   
-   When executing the code, graph will appear and a user prompt in `Rgui`:
+ ```R
+ dx <- 0.1
+ stimulation_time <- 150
+ baseline <- 150
+ xmax <- 1000
+ x <- seq(dx,xmax ,dx)
+ N <- 3
+ IEI <- 50
 
-   'Enter the upper limit for time to use in nFIT (e.g., 400 ms):'
+ # parameters to generate the fit A1, A2, A3, τ1, τ2 and a delay
+ params1 <- c(-150, -250, -300, 1, 30, 4) 
+ params1_ <- params1
+ params1_[N+3] <- params1_[N+3] + stimulation_time
 
-   This represents the cut-off timepoint in the illustrated graph that curve fitting is performed.
+ std.dev <- 10
 
-   On entering a suitable variable (for example 600 ms), the initial graph will disappear and, after a short period of time, a new graph will appear with the best fit superimposed on the original signal. The output should look something like this:
+ ysignal <- product1N(params=params1_, x=x, N=N, IEI=IEI)
+ y <- ysignal + rnorm(length(x),sd=std.dev)
 
-   ```
-   Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
-   330
-           A1       A2       A3 τrise τdecay tpeak r10_90 d90_10 delay half_width    area1    area2    area3
-   1 -150.324 -251.108 -301.651 0.923 29.975 3.314  1.576 65.874 4.019     24.473 5032.721 8406.901 10099.04
-   
-   Do you want to repeat with "fast constraint" turned on? 
-   This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
-   n
-   ```
-   The output gives: 
+ # quick plot if necessary
+ # plot(x, y, type='l')
 
-   -  $A_1$, $A_2$, $A_3$ the amplitudes of the (N=) 3 responses. 
+ # to analyse
+ analyse_PSC(response=y, dt=0.1, n=30, N=3, IEI=50, stimulation_time=150, 
+    baseline=150, func=product1N, return.output=FALSE) 
+ ```
+ 
+ When executing the code, graph will appear and a user prompt in `Rgui`:
 
-      The amplitude of subsequent responses in a train are given relative to the previous ones i.e. $A_2$ is the difference between the peak of $A_2$ and decay of $A_1$ etc at the corresponding time point.  
+ 'Enter the upper limit for time to use in nFIT (e.g., 400 ms):'
 
-   -  $τ_{rise}$ and $τ_{decay}$ of each underlying response. 
+ This represents the cut-off timepoint in the illustrated graph that curve fitting is performed.
 
-      The code assumed that the kinetics of the response is fixed and not affected by multiple trains of events.
+ On entering a suitable variable (for example 600 ms), the initial graph will disappear and, after a short period of time, a new graph will appear with the best fit superimposed on the original signal. The output should look something like this:
 
-   -  $t_{peak}$ represents the time to peak of the first response relative to the delay period.
+ ```
+ Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
+ 330
+         A1       A2       A3 τrise τdecay tpeak r10_90 d90_10 delay half_width    area1    area2    area3
+ 1 -150.324 -251.108 -301.651 0.923 29.975 3.314  1.576 65.874 4.019     24.473 5032.721 8406.901 10099.04
+ 
+ Do you want to repeat with "fast constraint" turned on? 
+ This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
+ n
+ ```
+ The output gives: 
 
-   -  delay represents the time from the stimulation to the initial rise of the 1st fitted response.
+ -  $A_1$, $A_2$, $A_3$ the amplitudes of the (N=) 3 responses. 
 
-   -  $r_{10-90}$ and $d_{90-10}$ are the 10-90% rise and 90-10% decays of the underlying response.
+    The amplitude of subsequent responses in a train are given relative to the previous ones i.e. $A_2$ is the difference between the peak of $A_2$ and decay of $A_1$ etc at the corresponding time point.  
 
-   -  $area_1$, $area_2$, $area_3$ represent the areas of the (N=) 3 responses. 
+ -  $τ_{rise}$ and $τ_{decay}$ of each underlying response. 
 
-   Clearly, the total area of the fit is given by the sum of the areas i.e. $area_1$ + $area_2$ + $area_3$.
+    The code assumed that the kinetics of the response is fixed and not affected by multiple trains of events.
 
-   The final graphical output should be:
+ -  $t_{peak}$ represents the time to peak of the first response relative to the delay period.
 
-   ![trace1](./images/trace.svg)
+ -  delay represents the time from the stimulation to the initial rise of the 1st fitted response.
+
+ -  $r_{10-90}$ and $d_{90-10}$ are the 10-90% rise and 90-10% decays of the underlying response.
+
+ -  $area_1$, $area_2$, $area_3$ represent the areas of the (N=) 3 responses. 
+
+ Clearly, the total area of the fit is given by the sum of the areas i.e. $area_1$ + $area_2$ + $area_3$.
+
+ The final graphical output should be:
+
+ ![trace1](./images/trace.svg)
 
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
@@ -174,412 +174,412 @@ The simulation with create a dataset of 10 responses with modelled parameters.
 
 These responses with only differ by added gaussian noise.
 
-   ### Setting the environment
+ ### Setting the environment
 
-   Run this code to setup the environment correctly:
+ Run this code to setup the environment correctly:
 
-   ```R
-   # Remove all objects from the environment
-   rm(list = ls(all = TRUE))
+ ```R
+ # Remove all objects from the environment
+ rm(list = ls(all = TRUE))
 
-   # Load and install necessary packages
-   load_required_packages <- function(packages) {
+ # Load and install necessary packages
+ load_required_packages <- function(packages) {
+  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+  if (length(new.packages)) install.packages(new.packages)
+  invisible(lapply(packages, library, character.only = TRUE))
+ }
+
+ required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal', 'writexl')
+ load_required_packages(required.packages)
+
+ UserName <- 'YourUserName' # substitute your UserName here
+ root_dir <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits')
+ path <- file.path(root_dir, 'nNLS functions.R')
+ source(path)
+ ```
+ 
+ Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis and will load all necessary custom-written functions
+
+
+ ### Simulated example
+
+ This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
+ 
+ This step is provided to generate some dummy data for the subsequent analysis and should be skipped if analysing raw data(!). 
+
+ ```R
+ # parameters for modelled response
+ dx <- 0.1
+ stim_time <- 150
+ baseline <- 150
+
+ xmax <- 1000
+ x <- seq(dx,1000 ,dx)
+
+ a1 <- 50; a2 = 100
+ tau1.1<- 3; tau1.2 <- 30
+ tau2.1 <- 10; tau2.2 <- 200
+ d1 <- 2; d2 <- 5; 
+ std.dev <- 5
+ params = c(a=a1,b=tau1.1,c=tau1.2,d=d1+stim_time,e=a2,f=tau2.1,g=tau2.2,h=d2+stim_time)
+
+ # create data
+ set.seed(7)
+ data <- sapply(1:10, function(ii){
+ ysignal <- product2N(params,x)
+ y <- ysignal + rnorm(length(x),sd=std.dev)
+ y <- -y
+ return(y)
+ })
+
+ # save as spreadsheeta
+
+ # first create the examples directory in the toot directory (root_dir) if it doesn't exist
+ dir.create(file.path(root_dir, 'examples'), showWarnings = FALSE)
+
+ # save the data to a CSV file in the examples directory
+ csv_file_path <- file.path(root_dir, 'examples', 'data.csv')
+ write.csv(data, csv_file_path, row.names = FALSE)
+
+ # save the data to an XLSX file
+ xlsx_file_path <- file.path(root_dir, 'examples', 'data.xlsx')
+ write_xlsx(as.data.frame(data), xlsx_file_path)
+ ```
+
+### View data
+
+ The following code allows the user to view the created simulated data: 
+ 
+ ```R
+ # view data
+ data[1:10, ]
+ ```
+ This should return the first 10 rows of each response of a data set (each response is represented by a column of data):
+
+ ```
+  [1,] -11.4362358  9.02156400  1.2879531   5.639612  4.6935805  4.9638106 -7.377987679 -5.3563476 -8.33502075 -4.4487588
+  [2,]   5.9838584  5.41278827 -1.1184131  -1.700312 -4.3234950 -1.1168718 -4.359361312 -0.7504259 -0.47499372  2.5899406
+  [3,]   3.4714626  1.60206229 -5.2290040  -8.368961  1.8007432 -4.4949810 -7.993212019 -1.2612013  1.18757220  0.9400377
+  [4,]   2.0614648 -6.14163811 -5.1005224  -2.981428 -5.6017939  0.3309054  8.161036450 -5.6314810  5.84468869  0.1957501
+  [5,]   4.8533667  4.36702941  0.5030759 -11.596560 -1.0816668  3.6825770  5.741051105 11.8945648  1.41371073  4.7739120
+  [6,]   4.7363997  1.58622938  9.4749848  -2.455668 -4.9955200  1.8744517  0.051002636 -1.2766821  1.40202404 -0.7031591
+  [7,]  -3.7406967 -9.07911146 -2.3372169   2.366092  2.4043474  7.0938247  0.002977297  7.6373625 -0.70608889  4.5962251
+  [8,]   0.5847761  0.05113925  5.8944714   7.523724 -6.5179967 -3.0086500  2.125299548 -0.0365649 -0.01747515 -1.1345733
+  [9,]  -0.7632881  2.82379599 -8.1796819   2.237984  0.9503212  7.2291688  6.313624658  1.7652820  4.99864101  1.2374311
+ [10,] -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
+ ```
+
+ ### Load data
+
+ The following code allows the user to load simulated data using the functions `load_data` or `load_data2`:
+ 
+ If your data is in the form of a `*.csv` or `*.xlsx` you can use the provided functions `load_data` and `load_data2`, respectively to load it into a session of R (provided step 1 above is executed)
+
+ ```R
+ UserName <- 'YourUserName' # substitute your UserName here
+
+ # create path to the working directory
+ wd <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits/examples') 
+
+ # to load previously saved CSV file
+ data1 <- load_data(wd=wd, name='data')
+
+ # to load previously saved XLSX file:
+ data2 <- load_data2(wd=wd, name='data')
+ ```
+
+ Note that function load_data2 imports all sheets in the excel file. `data2` is a list of these sheets which are labelled 'Sheet 1', 'Sheet 2' etc.
+ 
+ In this example, the imported data XLSX only contains one sheet. 
+ 
+ This can be accessed as `data2$'Sheet 1` etc.
+
+ ### View imported data
+
+ The following code allows the user to view the imported simulated data: 
+ 
+ ```R
+ # view first 10 rows of data imported from CSV file
+ data1[1:10, ]
+
+ # view first 10 rows of data imported from XLSX file
+ data2$'Sheet1'[1:10,]
+ ```
+ 
+ Both return the first 10 rows of each response of a data set (each response is represented by a column of data):
+ 
+ ```
+             V1          V2         V3         V4         V5         V6           V7         V8          V9        V10
+ 1  -11.4362358  9.02156400  1.2879531   5.639612  4.6935805  4.9638106 -7.377987679 -5.3563476 -8.33502075 -4.4487588
+ 2    5.9838584  5.41278827 -1.1184131  -1.700312 -4.3234950 -1.1168718 -4.359361312 -0.7504259 -0.47499372  2.5899406
+ 3    3.4714626  1.60206229 -5.2290040  -8.368961  1.8007432 -4.4949810 -7.993212019 -1.2612013  1.18757220  0.9400377
+ 4    2.0614648 -6.14163811 -5.1005224  -2.981428 -5.6017939  0.3309054  8.161036450 -5.6314810  5.84468869  0.1957501
+ 5    4.8533667  4.36702941  0.5030759 -11.596560 -1.0816668  3.6825770  5.741051105 11.8945648  1.41371073  4.7739120
+ 6    4.7363997  1.58622938  9.4749848  -2.455668 -4.9955200  1.8744517  0.051002636 -1.2766821  1.40202404 -0.7031591
+ 7   -3.7406967 -9.07911146 -2.3372169   2.366092  2.4043474  7.0938247  0.002977297  7.6373625 -0.70608889  4.5962251
+ 8    0.5847761  0.05113925  5.8944714   7.523724 -6.5179967 -3.0086500  2.125299548 -0.0365649 -0.01747515 -1.1345733
+ 9   -0.7632881  2.82379599 -8.1796819   2.237984  0.9503212  7.2291688  6.313624658  1.7652820  4.99864101  1.2374311
+ 10 -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
+ ```
+ The output is identical to the originally created data (step 3). The only difference is the columns have been named V1, V2...
+
+ ### Analyse in RGui using `analyse_PSC`
+
+ The user can analyse a given column of data using the function `analyse_PSC`. 
+
+ Each column of data represents a single PSC sampled at 10 KHz (sample interval was 0.1 ms).
+ 
+ ```R
+ # any response can be accessed data1[,1] or data1[,'V1'] where V1 is the appropriate column name 
+
+ out1 <- analyse_PSC(response=data1[,1], dt=0.1, 
+    func=product2N, stimulation_time=150, baseline=50) 
+ ```
+ Assuming the fit.limits input of analyse_PSC is not specified, a graph of the response will appear with a ablines to indicate the time point where the peak of the response has dropped 10% (default). 
+
+ Use the indicated time as a reference for setting the time point at which fitting of the response will cease. 
+
+ For example, entering '510' returns a graphical output of the fits and a table with values for amplitude, τrise, τdecay, tpeak, $r_{10–90}$, $d_{90–10}$, delay and area for the fast and slow (decay components).
+
+ The user is then asked whether the fit should be repeated with a 'fast constraint' applied. 
+
+ When 'y' is entered, the fit is repeated to ensure that responses with the fastest decay also have the faster rise time. 
+
+ In this (and most cases), it is not necessary to repeat the fit since this requirement is already fulfilled. 
+
+ The option to repeat is included for PSC fitting as most dual component PSCs will often fulfil this criterion and any arising fits that do not can simply be rejected if the user considers this a necessary constraint. 
+ 
+ ```
+ Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
+ 510
+           A1  τrise  τdecay  tpeak r10_90  d90_10 delay half_width     area1
+ fast -55.305  3.341  26.967  7.964  4.254  60.027 2.064     28.593  2003.821
+ slow -98.845 10.550 199.568 32.749 16.397 439.136 5.331    175.964 23244.202
+ 
+ Do you want to repeat with "fast constraint" turned on? 
+ This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
+ n
+ ```
+ The generated output looks like this:
+
+ ![trace1](./images/trace1.svg)
+
+
+ By setting fit.limits to 510, the output is generated automatically without the need for any user input:
+
+ ```R
+ out1 <- analyse_PSC(response=data1[,1], dt=0.1, 
+    func=product2N, stimulation_time=150, baseline=50, fit.limits=510) 
+ ```
+ By specifying a results list, in this case named out1, results can be retrieved from the generated list.
+
+ For example, entering the command
+
+ ```R
+ out1$output
+ ```
+
+ returns the output table:
+
+ ```
+           A1  τrise  τdecay  tpeak r10_90  d90_10 delay     area1
+ fast -55.305  3.341  26.967  7.964  4.254  60.027 2.064  2003.821
+ slow -98.845 10.550 199.568 32.749 16.397 439.136 5.331 23244.202
+ ```
+
+ The fits can be redisplayed using function `fit_plot`:
+
+ ```R
+ fit_plot(traces=out1$traces, func=product2N, xlab='time (ms)', ylab='PSC (pA)', 
+    lwd=1.2, height=5, width=5, save=FALSE)
+ ```
+
+ ### Average and save ABF data using the UI interface
+
+ The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
+ 
+ The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
+
+ In addition to the tk interface launched using `analyseABFtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analyseABFshiny()`.
+
+ The steps, options, and workflow are the same for both interfaces.
+
+ The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
+   
+ ```R
+ # open R from terminal
+ open -n -a R
+ 
+ rm(list = ls(all = TRUE))
+ graphics.off()
+ 
+ # load and install necessary packages
+ load_required_packages <- function(packages) {
+   new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+   if (length(new.packages)) install.packages(new.packages)
+   invisible(lapply(packages, library, character.only = TRUE))
+ }
+ 
+ required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
+   'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+ load_required_packages(required.packages)
+
+  # insert your username and repository path
+  UserName <- 'YourUserName' # substitute your UserName here
+  path_repository <- '/Documents/Repositories/Rfits'
+  file_path <- paste0('/Users/', UserName, path_repository)
+  source(paste0(file_path, '/nNLS functions.R'))
+ ```
+ 
+ a. **Launch UI**  
+    ```r
+    analyseABFtk()
+    ```
+
+ <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
+
+ Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
+ 
+ b. **Upload ABF files**  
+
+ In the UI, select the ABF folder by pressing **Browse**. At this point, the values for **Units**, **Data Column**, **dt (ms)**, and **# traces** will appear.  
+
+ <img src="./images/analyseABFtk_1.png" alt="analyseABFtk_1" width="57.5%" height="57.5%"/> 
+
+ Any files present in the chosen directory will appear in the **ABF Files** window. On macOS, use the Option key to highlight the required files to upload by pressing the **Load data** button. 
+
+ A new panel will open. At the top, some basic metadata from the first loaded ABF file will appear. Below this, the first 10 rows of the first recorded trace are shown to allow you to determine which column contains the response (in this case column 1).
+
+ ![analyseABFtk_3](./images/analyseABFtk_3.png)
+
+ In addition, the window below the main menu on the left panel gives a message:
+ 
+ ```
+ Data loaded. Processed 3 file(s).
+ Data is consistent
+ ```
+ 
+ The UI checks that all files have the same metadata settings (sample rate, recording mode). Only files that are consistent can be analysed in the same session.  
+
+ > **Note:** Ensure that all files analysed in batches are recorded with the same amplifier sample rates. The UI grabs these settings from the header of the first uploaded ABF file and assumes they are the same for all subsequent ABFs (data is consistent). An error will result if this condition is not met.
+ 
+ c. **Concatenate imported ABFs**  
+
+ The default is unchecked. If unchecked, only traces within a given ABF can be averaged together (when each ABF represents an independent condition). In this case, the **# traces** displays the number of traces in each ABF file (here 5).  
+
+ If this box is checked and **Load Data** is pressed, the traces from all selected ABF files are placed into one 'master' ABF file. The **# traces** will be updated to 15 (3 'ABF' files each containing 5 traces). This mode is intended when averaging across 'ABF' files is desired.  
+ 
+ d. **Review Recordings**  
+
+ Click the **Review Recordings** button. If **Concatenate imported ABFs** is not checked:
+ 
+ ![analyseABFtk_4](./images/analyseABFtk_4.png)
+ 
+ The right-hand panel shows the first trace from the first selected ABF file. Traces can be accepted or rejected. If accepted, they are stored for subsequent averaging. When all traces for that ABF file are reviewed, the left-hand window displays:
+ 
+ ```
+ 24502007.abf complete
+ ```
+    
+ ![analyseABFtk_5](./images/analyseABFtk_5.png)  
+ The UI then moves on to the first trace of the next ABF file. When all ABF files have been processed, the status window displays:
+ 
+ ```
+ Data loaded. Processed 3 file(s).
+ Data is consistent
+ 24502007.abf complete
+ 24522018.abf complete
+ 24624006.abf complete
+ ```
+ 
+ e. **Average Approved Recordings**  
+
+ Click the **Average Approved Recordings** button. The first average appears; use the **Next** button to cycle through subsequent averages.  
+
+ ![analyseABFtk_7](./images/analyseABFtk_7.png)  
+
+ The chosen stimulation time is marked with an asterisk, `*`. In this example, the stimulation time must be corrected in the right-hand setting: choose a suitable value (here 230 ms) and press **Average Approved Recordings** again. The `*` should appear just before the rising time of the response. Ensure the baseline is chosen relative to the stimulation.
+ 
+ Now choose a suitable baseline (e.g. 200 ms) and click **Average Approved Recordings** for a final time. The displayed average should now have a 200 ms baseline and an `*` at the stimulation time.
+
+ Cycle through all averages using **Next**.  
+
+ ![analyseABFtk_9](./images/analyseABFtk_9.png)
+ 
+ f. **Download Data**  
+
+ When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a `csv` spreadsheet. A dialog box appears allowing you to choose the name and location of the `csv` file.
+
+ As stated the steps, options, and workflow are the same for both interfaces. Some equivalent images obtained from the shiny `UI` launched by `analyseABFshiny()` are:
+
+ ![analyseABFshiny_0](./images/analyseABFshiny_0.png)
+
+ ![analyseABFshiny_1](./images/analyseABFshiny_1.png)
+
+ ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
+
+  
+ ### Fitting data using the UI interface
+
+ The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
+
+ In addition to the tk interface launched using `analysePSCtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analysePSCshiny()`.
+
+ The steps, options, and workflow are the same for both interfaces.
+
+  ```R
+  # open R from terminal
+  # open -n -a R
+
+  # clear R session
+  rm(list = ls(all = TRUE))
+  graphics.off()
+
+  # load and install necessary packages
+  load_required_packages <- function(packages) {
     new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
     if (length(new.packages)) install.packages(new.packages)
     invisible(lapply(packages, library, character.only = TRUE))
-   }
+  }
 
-   required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal', 'writexl')
-   load_required_packages(required.packages)
+  required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
+    'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+  load_required_packages(required.packages)
 
-   UserName <- 'YourUserName' # substitute your UserName here
-   root_dir <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits')
-   path <- file.path(root_dir, 'nNLS functions.R')
-   source(path)
-   ```
-   
-   Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis and will load all necessary custom-written functions
-  
+  # insert your username and repository path
+  UserName <- 'YourUserName' # substitute your UserName here
+  path_repository <- '/Documents/Repositories/Rfits'
+  file_path <- paste0('/Users/', UserName, path_repository)
+  source(paste0(file_path, '/nNLS functions.R'))
+  ```
 
-   ### Simulated example
+  a. **Launch the User Interface**  
 
-   This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
-   
-   This step is provided to generate some dummy data for the subsequent analysis and should be skipped if analysing raw data(!). 
+  ```R
+  analysePSCtk()
+  ```
 
-   ```R
-   # parameters for modelled response
-   dx <- 0.1
-   stim_time <- 150
-   baseline <- 150
+  The `UI` should open:
 
-   xmax <- 1000
-   x <- seq(dx,1000 ,dx)
+  <img src="./images/analysePSCtk_0.png" alt="analysePSCtk_0" width="57.5%" height="57.5%"/> 
+ 
+  b. **Upload `csv` or `xlsx`**  
 
-   a1 <- 50; a2 = 100
-   tau1.1<- 3; tau1.2 <- 30
-   tau2.1 <- 10; tau2.2 <- 200
-   d1 <- 2; d2 <- 5; 
-   std.dev <- 5
-   params = c(a=a1,b=tau1.1,c=tau1.2,d=d1+stim_time,e=a2,f=tau2.1,g=tau2.2,h=d2+stim_time)
+  In the `UI`, click the **`Browse`** button and select your file (e.g. `examples/data.csv`).
 
-   # create data
-   set.seed(7)
-   data <- sapply(1:10, function(ii){
-   ysignal <- product2N(params,x)
-   y <- ysignal + rnorm(length(x),sd=std.dev)
-   y <- -y
-   return(y)
-   })
+  c. **Select column**  
 
-   # save as spreadsheeta
+  In the `UI`, use the dropdown menu **`Select column`** to select the trace to analyse (in this example choose V1).
 
-   # first create the examples directory in the toot directory (root_dir) if it doesn't exist
-   dir.create(file.path(root_dir, 'examples'), showWarnings = FALSE)
-
-   # save the data to a CSV file in the examples directory
-   csv_file_path <- file.path(root_dir, 'examples', 'data.csv')
-   write.csv(data, csv_file_path, row.names = FALSE)
-
-   # save the data to an XLSX file
-   xlsx_file_path <- file.path(root_dir, 'examples', 'data.xlsx')
-   write_xlsx(as.data.frame(data), xlsx_file_path)
-   ```
-
-  ### View data
-
-   The following code allows the user to view the created simulated data: 
-   
-   ```R
-   # view data
-   data[1:10, ]
-   ```
-   This should return the first 10 rows of each response of a data set (each response is represented by a column of data):
-
-   ```
-    [1,] -11.4362358  9.02156400  1.2879531   5.639612  4.6935805  4.9638106 -7.377987679 -5.3563476 -8.33502075 -4.4487588
-    [2,]   5.9838584  5.41278827 -1.1184131  -1.700312 -4.3234950 -1.1168718 -4.359361312 -0.7504259 -0.47499372  2.5899406
-    [3,]   3.4714626  1.60206229 -5.2290040  -8.368961  1.8007432 -4.4949810 -7.993212019 -1.2612013  1.18757220  0.9400377
-    [4,]   2.0614648 -6.14163811 -5.1005224  -2.981428 -5.6017939  0.3309054  8.161036450 -5.6314810  5.84468869  0.1957501
-    [5,]   4.8533667  4.36702941  0.5030759 -11.596560 -1.0816668  3.6825770  5.741051105 11.8945648  1.41371073  4.7739120
-    [6,]   4.7363997  1.58622938  9.4749848  -2.455668 -4.9955200  1.8744517  0.051002636 -1.2766821  1.40202404 -0.7031591
-    [7,]  -3.7406967 -9.07911146 -2.3372169   2.366092  2.4043474  7.0938247  0.002977297  7.6373625 -0.70608889  4.5962251
-    [8,]   0.5847761  0.05113925  5.8944714   7.523724 -6.5179967 -3.0086500  2.125299548 -0.0365649 -0.01747515 -1.1345733
-    [9,]  -0.7632881  2.82379599 -8.1796819   2.237984  0.9503212  7.2291688  6.313624658  1.7652820  4.99864101  1.2374311
-   [10,] -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
-   ```
-
-   ### Load data
-
-   The following code allows the user to load simulated data using the functions `load_data` or `load_data2`:
-   
-   If your data is in the form of a `*.csv` or `*.xlsx` you can use the provided functions `load_data` and `load_data2`, respectively to load it into a session of R (provided step 1 above is executed)
-
-   ```R
-   UserName <- 'YourUserName' # substitute your UserName here
-
-   # create path to the working directory
-   wd <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits/examples') 
-
-   # to load previously saved CSV file
-   data1 <- load_data(wd=wd, name='data')
-
-   # to load previously saved XLSX file:
-   data2 <- load_data2(wd=wd, name='data')
-   ```
-
-   Note that function load_data2 imports all sheets in the excel file. `data2` is a list of these sheets which are labelled 'Sheet 1', 'Sheet 2' etc.
-   
-   In this example, the imported data XLSX only contains one sheet. 
-   
-   This can be accessed as `data2$'Sheet 1` etc.
-
-   ### View imported data
-
-   The following code allows the user to view the imported simulated data: 
-   
-   ```R
-   # view first 10 rows of data imported from CSV file
-   data1[1:10, ]
-
-   # view first 10 rows of data imported from XLSX file
-   data2$'Sheet1'[1:10,]
-   ```
-   
-   Both return the first 10 rows of each response of a data set (each response is represented by a column of data):
-   
-   ```
-               V1          V2         V3         V4         V5         V6           V7         V8          V9        V10
-   1  -11.4362358  9.02156400  1.2879531   5.639612  4.6935805  4.9638106 -7.377987679 -5.3563476 -8.33502075 -4.4487588
-   2    5.9838584  5.41278827 -1.1184131  -1.700312 -4.3234950 -1.1168718 -4.359361312 -0.7504259 -0.47499372  2.5899406
-   3    3.4714626  1.60206229 -5.2290040  -8.368961  1.8007432 -4.4949810 -7.993212019 -1.2612013  1.18757220  0.9400377
-   4    2.0614648 -6.14163811 -5.1005224  -2.981428 -5.6017939  0.3309054  8.161036450 -5.6314810  5.84468869  0.1957501
-   5    4.8533667  4.36702941  0.5030759 -11.596560 -1.0816668  3.6825770  5.741051105 11.8945648  1.41371073  4.7739120
-   6    4.7363997  1.58622938  9.4749848  -2.455668 -4.9955200  1.8744517  0.051002636 -1.2766821  1.40202404 -0.7031591
-   7   -3.7406967 -9.07911146 -2.3372169   2.366092  2.4043474  7.0938247  0.002977297  7.6373625 -0.70608889  4.5962251
-   8    0.5847761  0.05113925  5.8944714   7.523724 -6.5179967 -3.0086500  2.125299548 -0.0365649 -0.01747515 -1.1345733
-   9   -0.7632881  2.82379599 -8.1796819   2.237984  0.9503212  7.2291688  6.313624658  1.7652820  4.99864101  1.2374311
-   10 -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
-   ```
-   The output is identical to the originally created data (step 3). The only difference is the columns have been named V1, V2...
-
-   ### Analyse in RGui using `analyse_PSC`
-
-   The user can analyse a given column of data using the function `analyse_PSC`. 
-
-   Each column of data represents a single PSC sampled at 10 KHz (sample interval was 0.1 ms).
-   
-   ```R
-   # any response can be accessed data1[,1] or data1[,'V1'] where V1 is the appropriate column name 
-
-   out1 <- analyse_PSC(response=data1[,1], dt=0.1, 
-      func=product2N, stimulation_time=150, baseline=50) 
-   ```
-   Assuming the fit.limits input of analyse_PSC is not specified, a graph of the response will appear with a ablines to indicate the time point where the peak of the response has dropped 10% (default). 
-
-   Use the indicated time as a reference for setting the time point at which fitting of the response will cease. 
-
-   For example, entering '510' returns a graphical output of the fits and a table with values for amplitude, τrise, τdecay, tpeak, $r_{10–90}$, $d_{90–10}$, delay and area for the fast and slow (decay components).
-
-   The user is then asked whether the fit should be repeated with a 'fast constraint' applied. 
-
-   When 'y' is entered, the fit is repeated to ensure that responses with the fastest decay also have the faster rise time. 
-
-   In this (and most cases), it is not necessary to repeat the fit since this requirement is already fulfilled. 
-
-   The option to repeat is included for PSC fitting as most dual component PSCs will often fulfil this criterion and any arising fits that do not can simply be rejected if the user considers this a necessary constraint. 
-   
-   ```
-   Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
-   510
-             A1  τrise  τdecay  tpeak r10_90  d90_10 delay half_width     area1
-   fast -55.305  3.341  26.967  7.964  4.254  60.027 2.064     28.593  2003.821
-   slow -98.845 10.550 199.568 32.749 16.397 439.136 5.331    175.964 23244.202
-   
-   Do you want to repeat with "fast constraint" turned on? 
-   This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
-   n
-   ```
-   The generated output looks like this:
-
-   ![trace1](./images/trace1.svg)
-
-
-   By setting fit.limits to 510, the output is generated automatically without the need for any user input:
-
-   ```R
-   out1 <- analyse_PSC(response=data1[,1], dt=0.1, 
-      func=product2N, stimulation_time=150, baseline=50, fit.limits=510) 
-   ```
-   By specifying a results list, in this case named out1, results can be retrieved from the generated list.
-
-   For example, entering the command
-
-   ```R
-   out1$output
-   ```
-
-   returns the output table:
-
-   ```
-             A1  τrise  τdecay  tpeak r10_90  d90_10 delay     area1
-   fast -55.305  3.341  26.967  7.964  4.254  60.027 2.064  2003.821
-   slow -98.845 10.550 199.568 32.749 16.397 439.136 5.331 23244.202
-   ```
-
-   The fits can be redisplayed using function `fit_plot`:
-
-   ```R
-   fit_plot(traces=out1$traces, func=product2N, xlab='time (ms)', ylab='PSC (pA)', 
-      lwd=1.2, height=5, width=5, save=FALSE)
-   ```
-
-   ### Average and save ABF data using the UI interface
-
-   The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
-   
-   The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
-
-   In addition to the tk interface launched using `analyseABFtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analyseABFshiny()`.
-
-   The steps, options, and workflow are the same for both interfaces.
-
-   The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
-   
-   ```r
-   # open R from terminal
-   open -n -a R
-   
-   rm(list = ls(all = TRUE))
-   graphics.off()
-   
-   # load and install necessary packages
-   load_required_packages <- function(packages) {
-     new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-     if (length(new.packages)) install.packages(new.packages)
-     invisible(lapply(packages, library, character.only = TRUE))
-   }
-   
-   required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-     'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
-   load_required_packages(required.packages)
-
-    # insert your username and repository path
-    UserName <- 'YourUserName' # substitute your UserName here
-    path_repository <- '/Documents/Repositories/Rfits'
-    file_path <- paste0('/Users/', UserName, path_repository)
-    source(paste0(file_path, '/nNLS functions.R'))
-   ```
-   
-   a. **Launch UI**  
-      ```r
-      analyseABFtk()
-      ```
-
-   <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
-
-   Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
-   
-   b. **Upload ABF files**  
-
-   In the UI, select the ABF folder by pressing **Browse**. At this point, the values for **Units**, **Data Column**, **dt (ms)**, and **# traces** will appear.  
-
-   <img src="./images/analyseABFtk_1.png" alt="analyseABFtk_1" width="57.5%" height="57.5%"/> 
-
-   Any files present in the chosen directory will appear in the **ABF Files** window. On macOS, use the Option key to highlight the required files to upload by pressing the **Load data** button. 
-
-   A new panel will open. At the top, some basic metadata from the first loaded ABF file will appear. Below this, the first 10 rows of the first recorded trace are shown to allow you to determine which column contains the response (in this case column 1).
-
-   ![analyseABFtk_3](./images/analyseABFtk_3.png)
-
-   In addition, the window below the main menu on the left panel gives a message:
-   
-   ```
-   Data loaded. Processed 3 file(s).
-   Data is consistent
-   ```
-   
-   The UI checks that all files have the same metadata settings (sample rate, recording mode). Only files that are consistent can be analysed in the same session.  
-
-   > **Note:** Ensure that all files analysed in batches are recorded with the same amplifier sample rates. The UI grabs these settings from the header of the first uploaded ABF file and assumes they are the same for all subsequent ABFs (data is consistent). An error will result if this condition is not met.
-   
-   c. **Concatenate imported ABFs**  
-
-   The default is unchecked. If unchecked, only traces within a given ABF can be averaged together (when each ABF represents an independent condition). In this case, the **# traces** displays the number of traces in each ABF file (here 5).  
-
-   If this box is checked and **Load Data** is pressed, the traces from all selected ABF files are placed into one 'master' ABF file. The **# traces** will be updated to 15 (3 'ABF' files each containing 5 traces). This mode is intended when averaging across 'ABF' files is desired.  
-   
-   d. **Review Recordings**  
-
-   Click the **Review Recordings** button. If **Concatenate imported ABFs** is not checked:
-   
-   ![analyseABFtk_4](./images/analyseABFtk_4.png)
-   
-   The right-hand panel shows the first trace from the first selected ABF file. Traces can be accepted or rejected. If accepted, they are stored for subsequent averaging. When all traces for that ABF file are reviewed, the left-hand window displays:
-   
-   ```
-   24502007.abf complete
-   ```
-      
-   ![analyseABFtk_5](./images/analyseABFtk_5.png)  
-   The UI then moves on to the first trace of the next ABF file. When all ABF files have been processed, the status window displays:
-   
-   ```
-   Data loaded. Processed 3 file(s).
-   Data is consistent
-   24502007.abf complete
-   24522018.abf complete
-   24624006.abf complete
-   ```
-   
-   e. **Average Approved Recordings**  
-
-   Click the **Average Approved Recordings** button. The first average appears; use the **Next** button to cycle through subsequent averages.  
-
-   ![analyseABFtk_7](./images/analyseABFtk_7.png)  
-
-   The chosen stimulation time is marked with an asterisk, `*`. In this example, the stimulation time must be corrected in the right-hand setting: choose a suitable value (here 230 ms) and press **Average Approved Recordings** again. The `*` should appear just before the rising time of the response. Ensure the baseline is chosen relative to the stimulation.
-   
-   Now choose a suitable baseline (e.g. 200 ms) and click **Average Approved Recordings** for a final time. The displayed average should now have a 200 ms baseline and an `*` at the stimulation time.
-
-   Cycle through all averages using **Next**.  
-
-   ![analyseABFtk_9](./images/analyseABFtk_9.png)
-   
-   f. **Download Data**  
-
-   When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a `csv` spreadsheet. A dialog box appears allowing you to choose the name and location of the `csv` file.
-
-   As stated the steps, options, and workflow are the same for both interfaces. Some equivalent images obtained from the shiny `UI` launched by `analyseABFshiny()` are:
-
-   ![analyseABFshiny_0](./images/analyseABFshiny_0.png)
-
-   ![analyseABFshiny_1](./images/analyseABFshiny_1.png)
-
-   ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
-
-    
-   ### Fitting data using the UI interface
-
-   The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
-
-   In addition to the tk interface launched using `analysePSCtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analysePSCshiny()`.
-
-   The steps, options, and workflow are the same for both interfaces.
-
-    ```R
-    # open R from terminal
-    open -n -a R
-
-    # clear R session
-    rm(list = ls(all = TRUE))
-    graphics.off()
-
-    # load and install necessary packages
-    load_required_packages <- function(packages) {
-      new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-      if (length(new.packages)) install.packages(new.packages)
-      invisible(lapply(packages, library, character.only = TRUE))
-    }
-
-    required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-      'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
-    load_required_packages(required.packages)
-
-    # insert your username and repository path
-    UserName <- 'YourUserName' # substitute your UserName here
-    path_repository <- '/Documents/Repositories/Rfits'
-    file_path <- paste0('/Users/', UserName, path_repository)
-    source(paste0(file_path, '/nNLS functions.R'))
-    ```
-
-    a. **Launch the User Interface**  
-
-    ```r
-    analysePSCtk()
-    ```
-
-    The `UI` should open:
-
-    <img src="./images/analysePSCtk_0.png" alt="analysePSCtk_0" width="57.5%" height="57.5%"/> 
-   
-    b. **Upload `csv` or `xlsx`**  
-
-    In the `UI`, click the **`Browse`** button and select your file (e.g. `examples/data.csv`).
-
-    c. **Select column**  
-
-    In the `UI`, use the dropdown menu **`Select column`** to select the trace to analyse (in this example choose V1).
-
-    d. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
-   
-    - **`dt`**: the trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
-    - **`Stimulation time`**: stimulation time was 150 ms
-    - **`Baseline`**: set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
-    - **`n`**: number of fit attempts (30 is default) 
-    - **`Fit cutoff`**: default setting 0.1 of the peak response 
-    - **`Function`**: default is set to `product1N` to fit one response. For this example choose `product2N`
-    - **`Downsample Factor`**: allows the user to downsample the data. This value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed. However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the response are preserved.
+  d. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
+ 
+  - **`dt`**: the trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
+  - **`Stimulation time`**: stimulation time was 150 ms
+  - **`Baseline`**: set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
+  - **`n`**: number of fit attempts (30 is default) 
+  - **`Fit cutoff`**: default setting 0.1 of the peak response 
+  - **`Function`**: default is set to `product1N` to fit one response. For this example choose `product2N`
+  - **`Downsample Factor`**: allows the user to downsample the data. This value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed. However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the response are preserved.
 
     e. **Run Initial Analysis**  
 
@@ -621,7 +621,7 @@ These responses with only differ by added gaussian noise.
     - AIC/BIC criteria values 
     - metadata (all dropdown values)
   
-    In this scenari,o a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+    In this scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
 
     This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
