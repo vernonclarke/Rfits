@@ -28,6 +28,20 @@ All analysis was performed using the R graphical user interface (GUI) and tested
 - [`R` Statistical Software](https://www.R-project.org/)
 - [`XQuartz`](https://www.xquartz.org/) required for graphical output on MacOS
 - [`Sublime text`](https://www.sublimetext.com/) or, if you prefer, simply use the the default R text editor
+- This code uses the package `Rcpp` to compile  C++ code.
+
+  On `MacOS`, `R` requires the Xcode Command Line Tools to compile C++ code. To install the tools, open the Terminal and run:
+  
+  ```bash
+  xcode-select --install
+  ```
+  On a `Windows` PC,  `R` requires `Rtools` instead. The latest version of [`Rtools`](https://cran.r-project.org/bin/windows/Rtools/). After installing Rtools, ensure that the installation path is added to your system's environment variables if `R` does not detect it automatically.
+
+  On Linux (Debian/Ubuntu), R requires development tools to compile packages from source:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install build-essential
+  ```
 
 At the least, both `R` and `XQuartz` are essential to install for this code to work.
 
