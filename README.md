@@ -5,19 +5,19 @@
 - [Setting up](#setting-up)
 - [Initial Guide](#initial-guide)
 - [Step-by-Step Guide](#step-by-step-guide)
-- [Setting the environment](#setting-the-environment)
-- [Simulated example](#simulated-example)
-- [View data](#view-data)
-- [Load data](#load-data)
-- [View imported data](#view-imported-data)
-- [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
-- [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
-- [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
-- [Analysing an entire data set](#analysing-an-entire-data-set)
-- [Retrieving analysed data](#retrieving-analysed-data)
-- [Examining analysed data](#examining-analysed-data)
-- [Useful functions](#useful-functions)
-- [Output file structure](#output-file-structure)
+  - [Setting the environment](#setting-the-environment)
+  - [Simulated example](#simulated-example)
+  - [View data](#view-data)
+  - [Load data](#load-data)
+  - [View imported data](#view-imported-data)
+  - [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
+  - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
+  - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
+  - [Analysing an entire data set](#analysing-an-entire-data-set)
+  - [Retrieving analysed data](#retrieving-analysed-data)
+  - [Examining analysed data](#examining-analysed-data)
+  - [Useful functions](#useful-functions)
+  - [Output file structure](#output-file-structure)
 - [Definitions and Formulae](#definitions-and-formulae)
 
 
@@ -28,6 +28,20 @@ All analysis was performed using the R graphical user interface (GUI) and tested
 - [`R` Statistical Software](https://www.R-project.org/)
 - [`XQuartz`](https://www.xquartz.org/) required for graphical output on MacOS
 - [`Sublime text`](https://www.sublimetext.com/) or, if you prefer, simply use the the default R text editor
+- This code uses the package `Rcpp` to compile  C++ code.
+
+  On `MacOS`, `R` requires the Xcode Command Line Tools to compile C++ code. To install the tools, open the Terminal and run:
+  
+  ```bash
+  xcode-select --install
+  ```
+  On a `Windows` PC,  `R` requires `Rtools` instead. The latest version of [`Rtools`](https://cran.r-project.org/bin/windows/Rtools/). After installing Rtools, ensure that the installation path is added to your system's environment variables if `R` does not detect it automatically.
+
+  On Linux (Debian/Ubuntu), R requires development tools to compile packages from source:
+  ```bash
+  sudo apt-get update
+  sudo apt-get install build-essential
+  ```
 
 At the least, both `R` and `XQuartz` are essential to install for this code to work.
 
@@ -331,7 +345,6 @@ These responses with only differ by added gaussian noise.
  
  ```R
  # any response can be accessed data1[,1] or data1[,'V1'] where V1 is the appropriate column name 
-
  out1 <- analyse_PSC(response=data1[,1], dt=0.1, 
     func=product2N, stimulation_time=150, baseline=50) 
  ```
@@ -406,9 +419,11 @@ These responses with only differ by added gaussian noise.
 
  The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
    
+ a. **Launch UI**  
+ 
  ```R
- # open R from terminal
- open -n -a R
+ # open R from terminal:
+ # open -n -a R
  
  rm(list = ls(all = TRUE))
  graphics.off()
@@ -429,14 +444,12 @@ These responses with only differ by added gaussian noise.
   path_repository <- '/Documents/Repositories/Rfits'
   file_path <- paste0('/Users/', UserName, path_repository)
   source(paste0(file_path, '/nNLS functions.R'))
- ```
- 
- a. **Launch UI**  
-    ```r
-    analyseABFtk()
-    ```
 
- <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
+  # launch UI
+  analyseABFtk()
+ ```
+
+<img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
 
  Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
  
