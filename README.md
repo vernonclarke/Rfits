@@ -17,7 +17,7 @@
   - [Retrieving analysed data](#retrieving-analysed-data)
   - [Examining analysed data](#examining-analysed-data)
   - [Useful functions](#useful-functions)
-- [Output file structure](#output-file-structure)
+  - [Output file structure](#output-file-structure)
 - [Definitions and Formulae](#definitions-and-formulae)
 
 
