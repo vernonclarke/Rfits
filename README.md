@@ -440,7 +440,7 @@ These responses with only differ by added gaussian noise.
  load_required_packages(required.packages)
 
   # insert your username and repository path
-  UserName <- 'YourUserName' # substitute your UserName here
+  UserName <- 'euo9382' # substitute your UserName here
   path_repository <- '/Documents/Repositories/Rfits'
   file_path <- paste0('/Users/', UserName, path_repository)
   source(paste0(file_path, '/nNLS functions.R'))
