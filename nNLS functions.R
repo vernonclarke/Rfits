@@ -8801,8 +8801,8 @@ analysePSCtk <- function() {
     tkwm.title(tt, 'PSC Analysis')
 
     if (.Platform$OS.type == "windows") {
-      hscale <- 2   
-      vscale <- 2 
+      hscale <- 2  
+      vscale <- 2
     } else {
       # keep your old 3″×3″ DPI math on non-Windows if you like:
       dpi    <- as.numeric(tclvalue(tcl('winfo','pixels', tt, '1i')))
@@ -8986,6 +8986,7 @@ analysePSCtk <- function() {
     ybarVar <- tclVar('50')
     xbarLabVar <- tclVar('ms')
     ybarLabVar <- tclVar('pA')
+
     tkgrid(tklabel(graphSettingsFrame, text='Line width:'), row=0, column=0, sticky='w')
     tkgrid(tkentry(graphSettingsFrame, textvariable=lwdVar, width=10), row=0, column=1)
     tkgrid(tklabel(graphSettingsFrame, text='x-bar length:'), row=1, column=0, sticky='w')
@@ -9005,6 +9006,22 @@ analysePSCtk <- function() {
     tkbind(xlimEntry, "<Return>", function() {
       if (!is.null(plotWidget)) tkrreplot(plotWidget, fun=drawPlotXlim)
     })
+
+    cexVar <- if (Sys.info()["sysname"] == "Darwin") tclVar('0.6') else tclVar('1.4')
+    tkgrid(
+      tklabel(graphSettingsFrame, text='Text scale (cex):'),
+      row=8, column=0, sticky='w'
+    )
+    cexEntry <- tkentry(graphSettingsFrame, textvariable=cexVar, width=20)
+    tkgrid(cexEntry, row=8, column=1)
+    tkbind(cexEntry, "<Return>", function() {
+      if (!is.null(plotWidget)) {
+        # replot initial view
+        tkrreplot(plotWidget, fun=drawPlot1)
+        # if you also want to refresh the Main Analysis version, re‐invoke that handler here
+      }
+    })
+
 
     # Additional sidebar controls
     userTmaxVar <- tclVar('')
@@ -9134,7 +9151,7 @@ analysePSCtk <- function() {
         }
 
         tkrreplot(plotWidget, fun=function() {
-          drawPlot2(traces=out$traces, func=func, lwd=lwd, cex=0.6, filter=filter,
+          drawPlot2(traces=out$traces, func=func, lwd=lwd, cex=as.numeric(tclvalue(cexVar)), filter=filter,
                     xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
                     xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
         })
@@ -9365,14 +9382,16 @@ analysePSCtk <- function() {
       smooth <- as.numeric(tclvalue(smoothVar))
       y_abline <- as.numeric(tclvalue(yAblineVar))
       y_val <- if (exists('response_data') && !is.null(response_data)) response_data else rnorm(10000, 0.1)
+      cex <- as.numeric(tclvalue(cexVar))
       
       determine_tmax2(y=y_val, N=1, dt=dt, stimulation_time=stimTime, baseline=baseline, smooth=smooth, lwd=lwd,
         tmax=NULL, y_abline=y_abline, xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
-        xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
+        xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar), cex=cex)
     }
     
     drawPlotXlim <- function() {
       xlim_input <- tclvalue(xlimVar)
+      cex <- as.numeric(tclvalue(cexVar))
       traces <- if (exists("analysis_output") && !is.null(analysis_output)) analysis_output$traces else NULL
       if (is.null(traces)) return()
 
@@ -9383,7 +9402,7 @@ analysePSCtk <- function() {
         }
       }
 
-      drawPlot2(traces=traces, func=get(tclvalue(funcVar)), lwd=as.numeric(tclvalue(lwdVar)), cex=0.6,
+      drawPlot2(traces=traces, func=get(tclvalue(funcVar)), lwd=as.numeric(tclvalue(lwdVar)), cex=cex,
                 filter=as.logical(as.numeric(tclvalue(filterVar))),
                 xbar=as.numeric(tclvalue(xbarVar)), ybar=as.numeric(tclvalue(ybarVar)),
                 xbar_lab=tclvalue(xbarLabVar), ybar_lab=tclvalue(ybarLabVar))
