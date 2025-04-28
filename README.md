@@ -419,9 +419,11 @@ These responses with only differ by added gaussian noise.
 
  The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
    
+ a. **Launch UI**  
+ 
  ```R
- # open R from terminal
- open -n -a R
+ # open R from terminal:
+ # open -n -a R
  
  rm(list = ls(all = TRUE))
  graphics.off()
@@ -442,14 +444,12 @@ These responses with only differ by added gaussian noise.
   path_repository <- '/Documents/Repositories/Rfits'
   file_path <- paste0('/Users/', UserName, path_repository)
   source(paste0(file_path, '/nNLS functions.R'))
- ```
- 
- a. **Launch UI**  
-   ```R
-   analyseABFtk()
-   ```
 
- <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
+  # launch UI
+  analyseABFtk()
+ ```
+
+<img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
 
  Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
  
