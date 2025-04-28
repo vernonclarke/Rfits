@@ -8806,7 +8806,7 @@ analysePSCtk <- function() {
     } else {
       # keep your old 3″×3″ DPI math on non-Windows if you like:
       dpi    <- as.numeric(tclvalue(tcl('winfo','pixels', tt, '1i')))
-      w_in   <- 3; h_in <- 3
+      w_in   <- 7; h_in <- 7
       hscale <- (w_in * dpi) / 480
       vscale <- (h_in * dpi) / 480
     }
