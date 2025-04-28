@@ -345,7 +345,6 @@ These responses with only differ by added gaussian noise.
  
  ```R
  # any response can be accessed data1[,1] or data1[,'V1'] where V1 is the appropriate column name 
-
  out1 <- analyse_PSC(response=data1[,1], dt=0.1, 
     func=product2N, stimulation_time=150, baseline=50) 
  ```
@@ -446,9 +445,9 @@ These responses with only differ by added gaussian noise.
  ```
  
  a. **Launch UI**  
-    ```r
-    analyseABFtk()
-    ```
+   ```R
+   analyseABFtk()
+   ```
 
  <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
 
