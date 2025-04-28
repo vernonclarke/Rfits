@@ -8794,13 +8794,22 @@ analyseABFshiny <- function() {
 
 }
 
-
-
 analysePSCtk <- function() {
 
   PSC_analysis_tk <- function() {
     tt <- tktoplevel()
     tkwm.title(tt, 'PSC Analysis')
+
+    if (.Platform$OS.type == "windows") {
+      hscale <- 2   
+      vscale <- 2 
+    } else {
+      # keep your old 3″×3″ DPI math on non-Windows if you like:
+      dpi    <- as.numeric(tclvalue(tcl('winfo','pixels', tt, '1i')))
+      w_in   <- 3; h_in <- 3
+      hscale <- (w_in * dpi) / 480
+      vscale <- (h_in * dpi) / 480
+    }
     
     # divide window into sidebar and main panels
     sidebarFrame <- tkframe(tt)
@@ -9046,8 +9055,13 @@ analysePSCtk <- function() {
       # tkrreplot(plotWidget, fun=drawPlot1)
 
       if (is.null(plotWidget)) {
-        plotWidget <<- tkrplot(mainFrame, fun=drawPlot1)
-        tkgrid(     plotWidget, row=0, column=0, sticky='nsew')
+        plotWidget <<- tkrplot(
+          mainFrame,
+          fun    = drawPlot1,
+          hscale = hscale,
+          vscale = vscale
+        )
+        tkgrid(plotWidget, row=0, column=0, sticky='nsew')
       } else {
         tkrreplot(plotWidget, fun=drawPlot1)
       }
