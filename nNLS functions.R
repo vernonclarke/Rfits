@@ -8233,7 +8233,7 @@ ABF_analysis_tk <- function() {
       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
     })
 
-    tkgrid(tklabel(sidebarFrame, text = 'Text Scale (cex):'), row = 8, column = 0, sticky = 'w')
+    tkgrid(tklabel(sidebarFrame, text = 'Text scale (cex):'), row = 8, column = 0, sticky = 'w')
     cexEntry <- tkentry(sidebarFrame, textvariable = cexVar, width = 10)
     tkgrid(cexEntry, row = 8, column = 1, sticky = 'w')
     tkbind(cexEntry, '<FocusOut>', function(...) {
