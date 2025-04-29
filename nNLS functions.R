@@ -7247,7 +7247,6 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     return(out)
   }
 
-  # --- single predictor (no Error) → unpaired adjacent tests ---
   if (is.null(subject_var) && length(predictors) == 1) {
     uvar <- predictors[1]
     levs <- if (is.factor(df[[uvar]])) levels(df[[uvar]]) else sort(unique(df[[uvar]]))
@@ -7283,7 +7282,6 @@ MCwilcox <- function(formula, df, alternative = 'two.sided',
     return(out)
   }
 
-  # --- two predictors (with or without Error) → mixed ---
   if (length(predictors) < 2) {
     stop('Formula must contain at least one predictor (single unpaired) or two (for paired+unpaired)')
   }
@@ -7426,9 +7424,16 @@ save_graph <- function(svg_path, filename='graph1.svg', width=6, height=4, bg="t
 }
 
 
-# wrappers for tk and shiny apps
-
+# 
 analyseABFtk <- function() {
+
+  cexVar <- if (Sys.info()["sysname"] == "Darwin") tclVar("0.6") else tclVar("1.0")
+
+  experimentVar  <- tclVar("voltage clamp")
+  unitVar        <- tclVar("")
+  dataColVar     <- tclVar("")
+  dtVar          <- tclVar("")
+  ntracesVar     <- tclVar("")
 
   extract_metadata <- function(abf_dataset) {
     list(
@@ -7548,7 +7553,7 @@ analyseABFtk <- function() {
   }
 
   abf_averages <- function(datasets, baseline = 100, stimulation_time = 350, traces2average = NULL, dataCol = 1, ylim = NULL, xlim = NULL, 
-    color = 'darkgray', xbar = 100, ybar = 50, width = 5.25, height = 2.75, save = FALSE, plotIt = TRUE) {
+    color = 'darkgray', xbar = 100, ybar = 50, width = 5.25, height = 2.75, cex=0.6, save = FALSE, plotIt = TRUE) {
     
     N <- length(datasets)
     sampling_intervals <- sapply(datasets, function(ds) ds$samplingIntervalInSec * 1000)
@@ -7590,10 +7595,8 @@ analyseABFtk <- function() {
       show_bar <- rep(FALSE, N)
       if (N > 0) show_bar[N] <- TRUE
       for(ii in seq_len(N)) {
-        for(ii in seq_len(N)) {
-          egs_plot(x = time[[ii]], y = responses0_mean[[ii]], color = 'darkgray',
-                   show_bar = FALSE, show_text = FALSE)
-        }
+        egs_plot(x = time[[ii]], y = responses0_mean[[ii]], color = 'darkgray',
+                   show_bar = FALSE, cex=cex, show_text = FALSE)
       }
     }
     return(list(raw_data = responses,
@@ -7646,208 +7649,446 @@ analyseABFtk <- function() {
   current_dataset <<- 1  
 
   # review functions
-  # for concatenated
-  review_master_recordings <- function() {
-    if (is.null(master_abf)) {
-      tkinsert(consoleText, 'end', "No master ABF data available. Please load data first.\n")
-      tkyview.moveto(consoleText, 1.0)
-      return()
-    }
-    total_traces <<- length(master_abf$data)
-    current_trace <<- 1L
-    current_group_selected <<- integer(0)
-    groups_list <<- list()
-
-    # clear out old widgets
-    children <- as.character(tkwinfo('children', plotPanel))
-    if (length(children) > 0) {
-      sapply(children, function(ch) tcl("destroy", ch))
-    }
-
-    reviewFrame <<- tkframe(plotPanel)
-    tkgrid(reviewFrame, row = 0, column = 0, sticky = 'nsew')
-
-    infoLabel <<- tklabel(
-      reviewFrame,
-      text = paste('Trace', current_trace, 'of', total_traces)
-    )
-    tkgrid(infoLabel, row = 0, column = 0, columnspan = 3)
-
-    reviewPlot <<- tkrplot(
-      reviewFrame,
-      fun = function() {
-        mat   <- master_abf$data[[current_trace]]
-        dt    <- master_abf$samplingIntervalInSec * 1000
-        time  <- seq(0, by = dt, length.out = nrow(mat))
-        dc    <- as.numeric(tclvalue(dataColVar))
-        if (is.na(dc) || dc < 1 || dc > ncol(mat)) dc <- 1
-        trace <- mat[, dc]
-        par(cex.lab = 0.6, cex.axis = 0.6, cex.main = 0.6)
-        plot(
-          time, trace, type = 'l', col = 'darkgray', xlab = 'time (ms)',
-          xlim = smart_axis_limits(time),
-          ylim = smart_axis_limits(trace),
-          ylab = tclvalue(unitVar),
-          axes = FALSE, bty = 'l',
-          main = paste('Trace', current_trace, 'of', total_traces)
-        )
-        axis(1); axis(2, las = 1)
-      },
-      hscale = 1, vscale = 1
-    )
-    tkgrid(reviewPlot, row = 1, column = 0, columnspan = 3)
-
-    # helper to advance and redraw
-    move_next_master <- function() {
-      tkconfigure(acceptButton, state = 'normal')
-      tkconfigure(rejectButton, state = 'normal')
-      if (current_trace < total_traces) {
-        current_trace <<- current_trace + 1L
-        tkconfigure(infoLabel, text = paste('Trace', current_trace, 'of', total_traces))
-        tkrreplot(reviewPlot)
-      } else {
-        tkinsert(consoleText, 'end', "Review complete for all traces.\n")
-        tkyview.moveto(consoleText, 1.0)
-      }
-    }
-
-    acceptButton <<- tkbutton(
-      reviewFrame, text = 'Accept',
-      command = function() {
-        current_group_selected <<- c(current_group_selected, current_trace)
-        tkconfigure(acceptButton, state = 'disabled')
-        tkconfigure(rejectButton, state = 'normal')
-        move_next_master()
-      }
-    )
-    tkgrid(acceptButton, row = 2, column = 0)
-
-    rejectButton <<- tkbutton(
-      reviewFrame, text = 'Reject',
-      command = function() {
-        tkconfigure(rejectButton, state = 'disabled')
-        tkconfigure(acceptButton, state = 'normal')
-        move_next_master()
-      }
-    )
-    tkgrid(rejectButton, row = 2, column = 1)
-
-    nextTraceButton <<- tkbutton(
-      reviewFrame, text = 'Next Trace',
-      command = move_next_master
-    )
-    tkgrid(nextTraceButton, row = 2, column = 2)
-
-    averageGroupButton <<- tkbutton(
-      reviewFrame, text = 'Add Selected Group',
-      command = function() {
-        if (length(current_group_selected) == 0) {
-          tkinsert(consoleText, 'end', 'No traces selected in current group.\n')
-          tkyview.moveto(consoleText, 1.0)
-        } else {
-          groups_list[[length(groups_list) + 1]] <<- current_group_selected
-          msg <- paste(
-            'Group', length(groups_list),
-            'selected with traces:', paste(current_group_selected, collapse = ', ')
-          )
-          tkinsert(consoleText, 'end', paste0(msg, '\n'))
-          tkyview.moveto(consoleText, 1.0)
-          current_group_selected <<- integer(0)
-        }
-      }
-    )
-    tkgrid(averageGroupButton, row = 3, column = 0, columnspan = 3)
-
-    selectionCompleteButton <<- tkbutton(
-      reviewFrame, text = 'Selection Complete',
-      command = function() {
-        tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
-        tkyview.moveto(consoleText, 1.0)
-      }
-    )
-    tkgrid(selectionCompleteButton, row = 4, column = 0, columnspan = 3)
+  # common plot settings
+  tk_par_settings <- function() {
+    par(mar = c(4, 5, 2, 1) + 0.1,
+        mgp = c(2.5, 0.5, 0),
+        tcl = -0.2)
   }
 
-  # for non-concatenated
-  review_recordings <- function() {
-    children <- as.character(tkwinfo('children', plotPanel))
-    if (length(children)>0) sapply(children, function(ch) tcl("destroy", ch))
+ # global plot size settings
+  graph_width  <<- 750
+  graph_height <<- 450
+  graph_hscale <<- 1.5
+  graph_vscale <<- 1.5
+#### review_master_recordings: shows each trace with Accept/Reject/Undo buttons below ####
+review_master_recordings <- function() {
+  if (is.null(master_abf)) {
+    tkinsert(consoleText, 'end', "No master ABF data available. Please load data first.\n")
+    tkyview.moveto(consoleText, 1.0)
+    return()
+  }
+  total_traces <<- length(master_abf$data)
+  current_trace <<- 1L
+  current_group_selected <<- integer(0)
+  groups_list <<- list()
 
-    if (!exists('abf_analysis_result', envir=.GlobalEnv)) {
-      tkinsert(consoleText, 'end', "No analysis result available for review.\n")
-      tkyview.moveto(consoleText, 1.0)
-      return()
+  # clear previous contents
+  children <- as.character(tkwinfo('children', plotPanel))
+  if (length(children)) sapply(children, function(ch) tcl("destroy", ch))
+
+  reviewFrame <<- tkframe(plotPanel)
+  tkgrid(reviewFrame, row = 0, column = 0, sticky = 'nsew')
+  tkgrid.columnconfigure(reviewFrame, 0, weight = 1)
+  tkgrid.columnconfigure(reviewFrame, 1, weight = 0)
+  tkgrid.columnconfigure(reviewFrame, 2, weight = 1)
+  tkgrid.rowconfigure(reviewFrame, 1, weight = 1)
+
+  infoLabel <<- tklabel(reviewFrame, text = paste('Trace', current_trace, 'of', total_traces))
+  tkgrid(infoLabel, row = 0, column = 1, pady = 5)
+
+  plotWrapper <- tkframe(reviewFrame, height = graph_height, width = graph_width)
+  tkgrid(plotWrapper, row = 1, column = 1, sticky = 'nsew')
+  tkgrid.propagate(plotWrapper, FALSE)
+  tkgrid.rowconfigure(plotWrapper, 0, weight = 1)
+  tkgrid.columnconfigure(plotWrapper, 0, weight = 1)
+
+  reviewPlot <<- tkrplot(plotWrapper, fun = function() {
+    tk_par_settings()
+    cex <- as.numeric(tclvalue(cexVar))
+    par(cex.lab = cex, cex.axis = cex, cex.main = cex)
+
+    mat  <- master_abf$data[[current_trace]]
+    dt   <- master_abf$samplingIntervalInSec * 1000
+    time <- seq(0, by = dt, length.out = nrow(mat))
+    dc   <- as.numeric(tclvalue(dataColVar))
+    if (is.na(dc) || dc < 1 || dc > ncol(mat)) dc <- 1
+    y    <- mat[, dc]
+
+    egs_plot(
+      x         = time,
+      y         = y,
+      color     = 'darkgray',
+      xlim      = smart_axis_limits(time),
+      ylim      = smart_axis_limits(y),
+      show_bar  = FALSE,
+      show_text = FALSE
+    )
+    axis(1); axis(2, las = 1)
+    mtext('time (ms)', side = 1, line = 2.5)
+    mtext(tclvalue(unitVar), side = 2, line = 2.5)
+  }, hscale = graph_hscale, vscale = graph_vscale)
+  tkgrid(reviewPlot, row = 0, column = 0, sticky = 'nsew')
+
+  # helper functions
+  redraw_console_master <- function() {
+    tkdelete(consoleText, '1.0', 'end')
+    if (length(current_group_selected) == 0) {
+      tkinsert(consoleText, 'end', 'No traces selected.\n')
+    } else {
+      tkinsert(consoleText, 'end',
+        paste0('Selected traces: ', paste(current_group_selected, collapse = ', '), '\n'))
     }
-    result <- get('abf_analysis_result', envir=.GlobalEnv)
-    datasets <- result$datasets
-    traces2average <<- vector('list', length(datasets))
-    for (i in seq_along(traces2average)) traces2average[[i]] <<- integer(0)
-    current_dataset <<- 1L
-    current_trace   <<- 1L
+    tkyview.moveto(consoleText, 1.0)
+  }
+  move_next_master <- function() {
+    if (current_trace < total_traces) {
+      current_trace <<- current_trace + 1L
+      tkconfigure(infoLabel, text = paste('Trace', current_trace, 'of', total_traces))
+      tkrreplot(reviewPlot)
+    } else {
+      tkdelete(consoleText, '1.0', 'end')
+      tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
+      tkyview.moveto(consoleText, 1.0)
+    }
+  }
 
-    reviewFrame <<- tkframe(plotPanel)
-    tkgrid(reviewFrame, row=0, column=0, sticky='nsew')
-
-    infoLabel <<- tklabel(reviewFrame, text = paste(names(datasets)[1],'trace 1'))
-    tkgrid(infoLabel, row=0, column=0, columnspan=2)
-
-    reviewPlot <<- tkrplot(reviewFrame, fun = function() {
-      ds    <- datasets[[current_dataset]]
-      fname <- names(datasets)[current_dataset]
-      tkconfigure(infoLabel, text=paste(fname,'trace',current_trace))
-      if (current_trace>length(ds$data)) {
-        plot.new(); text(0.5,0.5,paste('No more recordings in',fname))
-      } else {
-        mat <- ds$data[[current_trace]]
-        dc  <- as.numeric(tclvalue(dataColVar))
-        if (is.na(dc)||dc<1||dc>ncol(mat)) dc <- 1
-        dt  <- ds$samplingIntervalInSec*1000
-        time<- seq(0,by=dt,length.out=nrow(mat))
-        trace <- mat[,dc]
-        par(cex.lab=0.6, cex.axis=0.6, cex.main=0.6)
-        plot(time, trace, type='l', col='darkgray', xlab='time (ms)',
-             xlim=smart_axis_limits(time), ylim=smart_axis_limits(trace),
-             ylab=tclvalue(unitVar), axes=FALSE,
-             main=paste(fname,'trace',current_trace), bty='l')
-        axis(1); axis(2, las=1)
-      }
-    }, hscale=1, vscale=1)
-    tkgrid(reviewPlot, row=1, column=0, columnspan=2)
-
-    move_next <- function() {
-      tkconfigure(acceptButton, state='normal', relief='raised')
-      tkconfigure(rejectButton, state='normal', relief='raised')
-      ds    <- datasets[[current_dataset]]
-      fname <- names(datasets)[current_dataset]
-      if (current_trace<length(ds$data)) {
-        current_trace <<- current_trace + 1L
-      } else {
-        tkinsert(consoleText,'end',paste0(fname,' complete\n'))
-        tkyview.moveto(consoleText, 1.0)
-        if (current_dataset<length(datasets)) {
-          current_dataset <<- current_dataset+1L
-          current_trace   <<- 1L
-        } else {
-          tkinsert(consoleText,'end','Review complete: Approved recordings stored.\n')
-          tkyview.moveto(consoleText, 1.0)
-          return()
-        }
-      }
+  # Accept / Reject / Undo buttons
+  navBar <- tkframe(reviewFrame)
+  tkgrid(navBar, row = 2, column = 1, pady = 5)
+  acceptButton <<- tkbutton(navBar, text = 'Accept', command = function() {
+    current_group_selected <<- c(current_group_selected, current_trace)
+    redraw_console_master(); move_next_master()
+  })
+  rejectButton <<- tkbutton(navBar, text = 'Reject', command = move_next_master)
+  undoButton   <<- tkbutton(navBar, text = 'Undo',   command = function() {
+    if (length(current_group_selected) > 0)
+      current_group_selected <<- head(current_group_selected, -1)
+    if (current_trace > 1) {
+      current_trace <<- current_trace - 1L
+      tkconfigure(infoLabel, text = paste('Trace', current_trace, 'of', total_traces))
       tkrreplot(reviewPlot)
     }
+    redraw_console_master()
+  })
+  tkgrid(acceptButton, row = 0, column = 0, padx = 5)
+  tkgrid(rejectButton, row = 0, column = 1, padx = 5)
+  tkgrid(undoButton,   row = 0, column = 2, padx = 5)
 
-    acceptButton <- tkbutton(reviewFrame, text='Accept', command=function() {
-      traces2average[[current_dataset]] <<- c(traces2average[[current_dataset]], current_trace)
-      move_next()
-    })
-    tkgrid(acceptButton, row=2, column=0)
+  # Add Group / Complete buttons from original
+  groupBar <- tkframe(reviewFrame)
+  tkgrid(groupBar, row = 3, column = 1, pady = 5)
+  addGroupButton <<- tkbutton(groupBar, text = 'Add Group', command = function() {
+    if (length(current_group_selected) == 0) {
+      tkinsert(consoleText, 'end', 'No traces selected.\n'); tkyview.moveto(consoleText, 1.0)
+    } else {
+      groups_list[[length(groups_list) + 1]] <<- current_group_selected
+      tkdelete(consoleText, '1.0', 'end')
+      tkinsert(consoleText, 'end',
+        paste0('Group ', length(groups_list), ' selected: ',
+               paste(current_group_selected, collapse = ', '), '\n'))
+      current_group_selected <<- integer(0)
+      tkinsert(consoleText, 'end', 'No traces selected.\n'); tkyview.moveto(consoleText, 1.0)
+    }
+  })
+  completeButton <<- tkbutton(groupBar, text = 'Complete', command = function() {
+    tkdelete(consoleText, '1.0', 'end')
+    tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
+    tkyview.moveto(consoleText, 1.0)
+  })
+  tkgrid(addGroupButton, row = 0, column = 0, padx = 5)
+  tkgrid(completeButton, row = 0, column = 1, padx = 5)
+}
 
-    rejectButton <- tkbutton(reviewFrame, text='Reject', command=move_next)
-    tkgrid(rejectButton, row=2, column=1)
-
-    nextTraceButton <<- tkbutton(reviewFrame, text='Next Recording', command=move_next)
-    tkgrid(nextTraceButton, row=3, column=0, columnspan=2)
+#### review_recordings: shows each dataset’s traces with Accept/Reject/Undo buttons below ####
+#### review_master_recordings: concatenated mode ####
+#### review_master_recordings (concatenated mode) ####
+review_master_recordings <- function() {
+  if (is.null(master_abf)) {
+    tkinsert(consoleText, 'end', "No master ABF data available. Please load data first.\n")
+    tkyview.moveto(consoleText, 1.0)
+    return()
   }
+  total_traces <<- length(master_abf$data)
+  current_trace <<- 1L
+  current_group_selected <<- integer(0)
+  groups_list <<- list()
+
+  # clear previous contents
+  children <- as.character(tkwinfo('children', plotPanel))
+  if (length(children)) sapply(children, function(ch) tcl("destroy", ch))
+
+  reviewFrame <<- tkframe(plotPanel)
+  tkgrid(reviewFrame,       row=0, column=0, sticky='nsew')
+  tkgrid.columnconfigure(reviewFrame, 0, weight=1)
+  tkgrid.columnconfigure(reviewFrame, 1, weight=0)
+  tkgrid.columnconfigure(reviewFrame, 2, weight=1)
+  tkgrid.rowconfigure(reviewFrame,    1, weight=1)
+
+  infoLabel <<- tklabel(reviewFrame,
+    text=paste('Trace', current_trace, 'of', total_traces))
+  tkgrid(infoLabel, row=0, column=1, pady=5)
+
+  plotWrapper <- tkframe(reviewFrame,
+    height=graph_height, width=graph_width)
+  tkgrid(plotWrapper, row=1, column=1, sticky='nsew')
+  tkgrid.propagate(plotWrapper, FALSE)
+  tkgrid.rowconfigure   (plotWrapper, 0, weight=1)
+  tkgrid.columnconfigure(plotWrapper, 0, weight=1)
+
+  reviewPlot <<- tkrplot(plotWrapper, fun=function() {
+    tk_par_settings()
+    cex <- as.numeric(tclvalue(cexVar))
+    par(
+      cex      = cex,
+      cex.lab  = cex,
+      cex.axis = cex,
+      cex.main = cex
+    )
+
+    mat  <- master_abf$data[[current_trace]]
+    dt   <- master_abf$samplingIntervalInSec * 1000
+    time <- seq(0, by=dt, length.out=nrow(mat))
+    dc   <- as.numeric(tclvalue(dataColVar))
+    if (is.na(dc) || dc<1 || dc>ncol(mat)) dc <- 1
+    y    <- mat[,dc]
+
+    egs_plot(
+      x = time,
+      y = y,
+      color = 'darkgray',
+      xlim  = smart_axis_limits(time),
+      ylim  = smart_axis_limits(y),
+      show_bar  = FALSE,
+      show_text = FALSE
+    )
+
+    axis(1, cex.axis=cex)
+    axis(2, las=1, cex.axis=cex)
+    title(xlab='time (ms)', cex.lab=cex, line=2.5)
+    title(ylab=tclvalue(unitVar), cex.lab=cex, line=2.5)
+  }, hscale=graph_hscale, vscale=graph_vscale)
+
+  tkgrid(reviewPlot, row=0, column=0, sticky='nsew')
+
+  # helper closures
+  redraw_console_master <- function() {
+    tkdelete(consoleText, '1.0', 'end')
+    if (length(current_group_selected)==0) {
+      tkinsert(consoleText,'end','No traces selected.\n')
+    } else {
+      tkinsert(consoleText,'end',
+        paste0('Selected traces: ', paste(current_group_selected, collapse=', '), '\n'))
+    }
+    tkyview.moveto(consoleText,1.0)
+  }
+  move_next_master <- function() {
+    if (current_trace<total_traces) {
+      current_trace <<- current_trace + 1L
+      tkconfigure(infoLabel,
+        text=paste('Trace', current_trace, 'of', total_traces))
+      tkrreplot(reviewPlot)
+    } else {
+      tkdelete(consoleText,'1.0','end')
+      tkinsert(consoleText,'end','Review complete: Approved traces stored.\n')
+      tkyview.moveto(consoleText,1.0)
+    }
+  }
+
+  # Accept / Reject / Undo buttons
+  navBar <- tkframe(reviewFrame)
+  tkgrid(navBar, row=2, column=1, pady=5)
+  acceptButton <<- tkbutton(navBar, text='Accept', command=function() {
+    current_group_selected <<- c(current_group_selected, current_trace)
+    redraw_console_master(); move_next_master()
+  })
+  rejectButton <<- tkbutton(navBar, text='Reject', command=move_next_master)
+  undoButton   <<- tkbutton(navBar, text='Undo',   command=function() {
+    if (length(current_group_selected)>0)
+      current_group_selected <<- head(current_group_selected, -1)
+    if (current_trace>1) {
+      current_trace <<- current_trace - 1L
+      tkconfigure(infoLabel,
+        text=paste('Trace', current_trace, 'of', total_traces))
+      tkrreplot(reviewPlot)
+    }
+    redraw_console_master()
+  })
+  tkgrid(acceptButton, row=0, column=0, padx=5)
+  tkgrid(rejectButton, row=0, column=1, padx=5)
+  tkgrid(undoButton,   row=0, column=2, padx=5)
+
+  # Add Group / Complete from original
+  groupBar <- tkframe(reviewFrame)
+  tkgrid(groupBar, row=3, column=1, pady=5)
+  addGroupButton <<- tkbutton(groupBar, text='Add Group', command=function() {
+    if (length(current_group_selected)==0) {
+      tkinsert(consoleText,'end','No traces selected.\n')
+    } else {
+      groups_list[[length(groups_list)+1]] <<- current_group_selected
+      tkdelete(consoleText,'1.0','end')
+      tkinsert(consoleText,'end',
+        paste0('Group ', length(groups_list), ' selected: ',
+               paste(current_group_selected, collapse=', '), '\n'))
+      current_group_selected <<- integer(0)
+      tkinsert(consoleText,'end','No traces selected.\n')
+    }
+    tkyview.moveto(consoleText,1.0)
+  })
+  completeButton <<- tkbutton(groupBar, text='Complete', command=function() {
+    tkdelete(consoleText,'1.0','end')
+    tkinsert(consoleText,'end','Review complete: Approved traces stored.\n')
+    tkyview.moveto(consoleText,1.0)
+  })
+  tkgrid(addGroupButton, row=0, column=0, padx=5)
+  tkgrid(completeButton, row=0, column=1, padx=5)
+}
+
+
+#### review_recordings (separate mode) ####
+review_recordings <- function() {
+  # clear any existing plot/frame
+  children <- as.character(tkwinfo('children', plotPanel))
+  if (length(children)) sapply(children, function(ch) tcl("destroy", ch))
+  if (!exists('abf_analysis_result', envir = .GlobalEnv)) {
+    tkinsert(consoleText, 'end', "No analysis result available for review.\n")
+    tkyview.moveto(consoleText, 1.0)
+    return()
+  }
+
+  result    <- get('abf_analysis_result', envir = .GlobalEnv)
+  datasets  <- result$datasets
+  traces2average <<- lapply(datasets, function(x) integer(0))
+  current_dataset <<- 1L
+  current_trace   <<- 1L
+
+  reviewFrame <<- tkframe(plotPanel)
+  tkgrid(reviewFrame, row = 0, column = 0, sticky = 'nsew')
+  tkgrid.columnconfigure(reviewFrame, 0, weight = 1)
+  tkgrid.columnconfigure(reviewFrame, 1, weight = 0)
+  tkgrid.columnconfigure(reviewFrame, 2, weight = 1)
+  tkgrid.rowconfigure(reviewFrame,    1, weight = 1)
+
+  infoLabel <<- tklabel(reviewFrame,
+    text = paste(names(datasets)[1], 'trace', 1))
+  tkgrid(infoLabel, row = 0, column = 1, pady = 5)
+
+  plotWrapper <- tkframe(reviewFrame,
+    height = graph_height, width = graph_width)
+  tkgrid(plotWrapper, row = 1, column = 1, sticky = 'nsew')
+  tkgrid.propagate(plotWrapper, FALSE)
+  tkgrid.rowconfigure   (plotWrapper, 0, weight = 1)
+  tkgrid.columnconfigure(plotWrapper, 0, weight = 1)
+
+  reviewPlot <<- tkrplot(plotWrapper, fun = function() {
+    tk_par_settings()
+    cex <- as.numeric(tclvalue(cexVar))
+    par(cex = cex, cex.lab = cex, cex.axis = cex, cex.main = cex)
+
+    ds    <- datasets[[current_dataset]]
+    fname <- names(datasets)[current_dataset]
+    tkconfigure(infoLabel,
+      text = paste(fname, 'trace', current_trace))
+
+    if (current_trace > length(ds$data)) {
+      plot.new()
+      text(0.5, 0.5, paste('No more recordings in', fname))
+    } else {
+      mat  <- ds$data[[current_trace]]
+      dc   <- as.numeric(tclvalue(dataColVar))
+      if (is.na(dc) || dc < 1 || dc > ncol(mat)) dc <- 1
+      dt   <- ds$samplingIntervalInSec * 1000
+      time <- seq(0, by = dt, length.out = nrow(mat))
+      y    <- mat[, dc]
+
+      egs_plot(
+        x         = time, y = y,
+        color     = 'darkgray',
+        xlim      = smart_axis_limits(time),
+        ylim      = smart_axis_limits(y),
+        show_bar  = FALSE, show_text = FALSE
+      )
+
+      axis(1, cex.axis = cex)
+      axis(2, las = 1, cex.axis = cex)
+      title(xlab = 'time (ms)',   cex.lab = cex, line = 2.5)
+      title(ylab = tclvalue(unitVar), cex.lab = cex, line = 2.5)
+    }
+  }, hscale = graph_hscale, vscale = graph_vscale)
+  tkgrid(reviewPlot, row = 0, column = 0, sticky = 'nsew')
+
+  # helper closures
+  redraw_console_recordings <- function() {
+    tkdelete(consoleText, '1.0', 'end')
+    approved <- traces2average[[current_dataset]]
+    if (length(approved) == 0) {
+      tkinsert(consoleText, 'end',
+        paste0('No approved traces for ', names(datasets)[current_dataset], '\n'))
+    } else {
+      tkinsert(consoleText, 'end',
+        paste0('Approved traces for ', names(datasets)[current_dataset], ': ',
+               paste(approved, collapse = ', '), '\n'))
+    }
+    tkyview.moveto(consoleText, 1.0)
+  }
+
+  move_next_recordings <- function() {
+    ds <- datasets[[current_dataset]]
+
+    if (current_trace < length(ds$data)) {
+      # move to next trace in same dataset
+      current_trace <<- current_trace + 1L
+      tkconfigure(infoLabel,
+        text = paste(names(datasets)[current_dataset], 'trace', current_trace))
+      tkrreplot(reviewPlot)
+
+    } else {
+      # finished this dataset
+      if (current_dataset < length(datasets)) {
+        # advance to next file
+        current_dataset <<- current_dataset + 1L
+        current_trace   <<- 1L
+        tkconfigure(infoLabel,
+          text = paste(names(datasets)[current_dataset], 'trace', current_trace))
+        redraw_console_recordings()
+        tkrreplot(reviewPlot)
+
+      } else {
+        # finished everything
+        tkdelete(consoleText, '1.0', 'end')
+        tkinsert(consoleText, 'end', 'Review complete: All recordings stored.\n')
+        tkyview.moveto(consoleText, 1.0)
+
+        # disable buttons
+        tkconfigure(acceptButton, state = 'disabled')
+        tkconfigure(rejectButton, state = 'disabled')
+        tkconfigure(undoButton,   state = 'disabled')
+      }
+    }
+  }
+
+  # navigation buttons
+  navBar <- tkframe(reviewFrame)
+  tkgrid(navBar, row = 2, column = 1, pady = 5)
+  acceptButton <<- tkbutton(navBar, text = 'Accept', command = function() {
+    traces2average[[current_dataset]] <<-
+      c(traces2average[[current_dataset]], current_trace)
+    redraw_console_recordings(); move_next_recordings()
+  })
+  rejectButton <<- tkbutton(navBar, text = 'Reject', command = move_next_recordings)
+  undoButton   <<- tkbutton(navBar, text = 'Undo',   command = function() {
+    if (length(traces2average[[current_dataset]]) > 0)
+      traces2average[[current_dataset]] <<-
+        head(traces2average[[current_dataset]], -1)
+    if (current_trace > 1) {
+      current_trace <<- current_trace - 1L
+      tkconfigure(infoLabel,
+        text = paste(names(datasets)[current_dataset], 'trace', current_trace))
+      tkrreplot(reviewPlot)
+    }
+    redraw_console_recordings()
+  })
+
+  tkgrid(acceptButton, row = 0, column = 0, padx = 5)
+  tkgrid(rejectButton, row = 0, column = 1, padx = 5)
+  tkgrid(undoButton,   row = 0, column = 2, padx = 5)
+}
+
+
+
+ 
+
+
 
   # averaging Functions
   # function to average selected groups for concatenated mode.
@@ -7857,215 +8098,222 @@ analyseABFtk <- function() {
       tkyview.moveto(consoleText, 1.0)
       return()
     }
-
-    dt_val <- master_abf$samplingIntervalInSec * 1000
-    stim_time <- as.numeric(tclvalue(stimTimeVar))
-    base_val <- as.numeric(tclvalue(baselineVar))
-    data_column <- as.numeric(tclvalue(dataColVar))
+    dt_val       <- master_abf$samplingIntervalInSec * 1000
+    stim_time    <- as.numeric(tclvalue(stimTimeVar))
+    base_val     <- as.numeric(tclvalue(baselineVar))
+    data_column  <- as.numeric(tclvalue(dataColVar))
     if (is.na(data_column) || data_column < 1) data_column <- 1
-
     baseline2zero <- function(y, dt, stim, baseline) {
       idx_baseline <- round(baseline / dt)
       idx_start    <- round((stim - baseline) / dt) + 1
       y0 <- y - mean(y[1:idx_baseline])
       y0[idx_start:length(y0)]
     }
-
     group_corrected_mean <- lapply(groups_list, function(group_indices) {
-      traces_corrected <- lapply(group_indices, function(i) {
+      traces_corr <- lapply(group_indices, function(i) {
         trace <- master_abf$data[[i]][, data_column]
         baseline2zero(trace, dt = dt_val, stim = stim_time, baseline = base_val)
       })
-      trace_mat <- do.call(cbind, traces_corrected)
-      rowMeans(trace_mat)
+      rowMeans(do.call(cbind, traces_corr))
     })
-
     averaged_data <<- group_corrected_mean
-
-    # Ensure that this update is reflected properly when cycling
     current_avg_index <<- 1
 
-    # Code for clearing existing UI elements
     children <- as.character(tkwinfo('children', plotPanel))
-    for (child in children) {
-      tryCatch({ tkdestroy(.Tk.ID[[child]]) }, error = function(e) {}, silent = TRUE)
-    }
+    if (length(children)) sapply(children, function(ch) tcl("destroy", ch))
 
-    # Create a new frame for displaying averages
     avgFrame <<- tkframe(plotPanel)
     tkgrid(avgFrame, row = 0, column = 0, sticky = 'nsew')
+    tkgrid.columnconfigure(avgFrame, 0, weight = 1)
+    tkgrid.columnconfigure(avgFrame, 1, weight = 1)
+    tkgrid.columnconfigure(avgFrame, 2, weight = 1)
+    tkgrid.rowconfigure(   avgFrame, 1, weight = 1)
 
-    # Function to draw the current average
+    plotWrapper <- tkframe(avgFrame, height = graph_height, width = graph_width)
+    tkgrid(plotWrapper, row = 1, column = 1, sticky = 'nsew')
+    tkgrid.propagate(plotWrapper, FALSE)
+
     drawAvgPlot <- function() {
-      num_groups <- length(group_corrected_mean)
-      if (num_groups < 1) {
-        plot.new()
-        text(0.5, 0.5, 'No averaged data available')
-        return()
+      if (length(averaged_data) == 0) {
+        plot.new(); text(0.5, 0.5, 'No averaged data'); return()
       }
-
-      dt_val <- master_abf$samplingIntervalInSec * 1000
-      stim_time <- as.numeric(tclvalue(stimTimeVar))
-      all_y <- unlist(group_corrected_mean)
+      all_y       <- unlist(averaged_data)
       shared_ylim <- range(all_y)
-      max_time <- max(sapply(group_corrected_mean, function(avg) dt_val * (length(avg) - 1)))
+      max_time    <- max(sapply(averaged_data, function(v) dt_val * (length(v) - 1)))
       shared_xlim <- c(0, max_time)
+      cex         <- as.numeric(tclvalue(cexVar))
+      par(mfrow = c(1, 1), cex.lab = cex, cex.axis = cex, cex.main = cex)
 
-      par(mfrow = c(1, 1))
-      cex <- 0.6
-      par(cex.lab = cex, cex.axis = cex, cex.main = cex)
+      avg_trace <- averaged_data[[current_avg_index]]
+      time      <- seq(from = stim_time - base_val, by = dt_val, length.out = length(avg_trace))
+      stim_y    <- avg_trace[which.min(abs(time - stim_time))]
 
-      avg_trace <- group_corrected_mean[[current_avg_index]]
-      time <- seq(from = stim_time - base_val, by = dt_val, length.out = length(avg_trace))
-      stim_y <- avg_trace[which.min(abs(time - stim_time))]
-
-      egs_plot(x = time, y = avg_trace, color = 'darkgray', show_bar = TRUE, show_text = TRUE, 
-        xbar = as.numeric(tclvalue(xbarVar)), ybar = as.numeric(tclvalue(ybarVar)), 
-        xlim = shared_xlim, ylim = shared_ylim, cex = cex)
-      points(stim_time, stim_y, pch = 8, col = 'black')
-      text(stim_time, stim_y, labels = 'stim', pos = 3, cex = 0.6)
+      egs_plot(x = time, y = avg_trace, color = 'darkgray', show_bar = TRUE, show_text = TRUE,
+               xbar = as.numeric(tclvalue(xbarVar)), ybar = as.numeric(tclvalue(ybarVar)),
+               xlim = shared_xlim, ylim = shared_ylim, cex = cex)
+      points(stim_time, stim_y, pch = 8)
+      text(stim_time, stim_y, labels = 'stim', pos = 3, cex = cex)
     }
 
-    avgPlot <<- tkrplot(avgFrame, fun = drawAvgPlot, hscale = 1, vscale = 1)
-    tkgrid(avgPlot, row = 0, column = 0)
+    avgPlot <<- tkrplot(plotWrapper, fun = drawAvgPlot, hscale = 1.25 * graph_hscale, vscale = 1.25 * graph_vscale)
+    tkgrid(avgPlot, row = 0, column = 0, sticky = 'nsew')
 
     navFrame <- tkframe(avgFrame)
-    tkgrid(navFrame, row = 1, column = 0)
-
-    tkgrid(tklabel(navFrame, text = 'Average:'), row = 0, column = 0, padx = 5)
-    avgLabel <- tklabel(navFrame, text = paste(current_avg_index, 'of', length(averaged_data)))
-    tkgrid(avgLabel, row = 0, column = 1, padx = 5)
-
-    nextAvgButton <- tkbutton(navFrame, text = 'Next', command = function(){
+    tkgrid(navFrame, row = 2, column = 1, pady = 10)
+    navLabel   <- tklabel(navFrame, text = paste('Average:', current_avg_index, 'of', length(averaged_data)))
+    nextButton <- tkbutton(navFrame, text = 'Next Trace', command = function() {
       if (current_avg_index < length(averaged_data)) {
         current_avg_index <<- current_avg_index + 1
       } else {
         current_avg_index <<- 1
       }
-      tkconfigure(avgLabel, text = paste(current_avg_index, 'of', length(averaged_data)))
+      tkconfigure(navLabel, text = paste('Average:', current_avg_index, 'of', length(averaged_data)))
       tkrreplot(avgPlot)
     })
-    tkgrid(nextAvgButton, row = 0, column = 2, padx = 5)
+    tkgrid(navLabel,   row = 0, column = 0, padx = 8)
+    tkgrid(nextButton, row = 0, column = 1, padx = 8)
 
     tkdelete(consoleText, '1.0', 'end')
     tkinsert(consoleText, 'end', 'Averaging complete. Check the updated plot.')
     tkyview.moveto(consoleText, 1.0)
   }
 
-  # for separate mode (non-concatenated):
   averageApprovedTraces_sep <- function() {
-    if(length(traces2average) == 0 || all(sapply(traces2average, length) == 0)){
+    if (length(traces2average) == 0 || all(sapply(traces2average, length) == 0)) {
       tkinsert(consoleText, 'end', "No approved traces available. Please review recordings first.\n")
       tkyview.moveto(consoleText, 1.0)
       return()
     }
     folderPath <- tclvalue(folderPathVar)
-    if(nchar(folderPath) == 0){
+    if (nchar(folderPath) == 0) {
       tkinsert(consoleText, 'end', "Please select an ABF folder first.\n")
       tkyview.moveto(consoleText, 1.0)
       return()
     }
     selIndices <- as.integer(tkcurselection(abfListBox))
-    allFiles <- as.character(tkget(abfListBox, 0, 'end'))
-    abf_files <- if(length(selIndices)==0) allFiles else allFiles[selIndices+1]
-    if(length(abf_files)==0){
+    allFiles   <- as.character(tkget(abfListBox, 0, 'end'))
+    abf_files  <- if (length(selIndices) == 0) allFiles else allFiles[selIndices + 1]
+    if (length(abf_files) == 0) {
       tkinsert(consoleText, 'end', "No ABF files selected.\n")
       tkyview.moveto(consoleText, 1.0)
       return()
     }
+
     baseline <- as.numeric(tclvalue(baselineVar))
     stimTime <- as.numeric(tclvalue(stimTimeVar))
-    xbar <- as.numeric(tclvalue(xbarVar))
-    ybar <- as.numeric(tclvalue(ybarVar))
-    
+    xbar     <- as.numeric(tclvalue(xbarVar))
+    ybar     <- as.numeric(tclvalue(ybarVar))
+
     result <- tryCatch({
       abf_out <<- abf_averages(
-        datasets = abf_analysis_result$datasets,
-        traces2average = traces2average,
-        baseline = baseline,
-        stimulation_time = stimTime,
-        dataCol = as.numeric(tclvalue(dataColVar)),
-        xlim = NULL, ylim = NULL,
-        color = 'darkgray',
-        xbar = xbar, ybar = ybar,
-        width = 5.25, height = 2.75,
-        plotIt = FALSE
+        datasets          = abf_analysis_result$datasets,
+        traces2average    = traces2average,
+        baseline          = baseline,
+        stimulation_time  = stimTime,
+        dataCol           = as.numeric(tclvalue(dataColVar)),
+        xlim              = NULL, ylim = NULL,
+        color             = 'darkgray',
+        xbar              = xbar, ybar = ybar,
+        width             = 5.25, height = 2.75,
+        cex               = as.numeric(tclvalue(cexVar)),
+        plotIt            = FALSE
       )
       abf_out
-    }, error = function(e){
-      tkinsert(consoleText, 'end', paste0('Error during averaging of approved traces: ', e$message, '\n'))
+    }, error = function(e) {
+      tkinsert(consoleText, 'end', paste0('Error during averaging: ', e$message, '\n'))
       tkyview.moveto(consoleText, 1.0)
       NULL
     })
-    if(!is.null(result)){
-      tkdelete(consoleText, '1.0', 'end')
-      msg <- sprintf("Averaging on approved traces complete.\nProcessed %d file(s).", length(abf_files))
-      tkinsert(consoleText, 'end', paste0(msg, '\n'))
-      tkyview.moveto(consoleText, 1.0)
-      abf_analysis_result <<- result
-      
-      averaged_data <<- result$baseline_corrected_mean_data
-      datasets <- result$datasets
-      current_avg_index <<- 1
-      
-      children <- as.character(tkwinfo('children', plotPanel))
-      for(child in children){
-        tryCatch({ tkdestroy(.Tk.ID[[child]]) }, error = function(e){}, silent = TRUE)
-      }
-      
-      avgFrame <- tkframe(plotPanel)
-      tkgrid(avgFrame, row = 0, column = 0, sticky = 'nsew')
-      
-      drawSingleAvg <- function(){
-        if(length(averaged_data) == 0){
-          plot.new()
-          text(0.5, 0.5, 'No averaged data')
-          return()
-        }
-        cex <- 0.6
-        par(cex.lab = cex, cex.axis = cex, cex.main = cex)
-        dt_val <- datasets[[current_avg_index]]$samplingIntervalInSec * 1000
-        time <- seq(from = stimTime - baseline, by = dt_val, length.out = length(averaged_data[[current_avg_index]]))
-        all_y <- unlist(averaged_data)
-        ylim <- range(all_y)
-        xlim <- c(0, max(sapply(averaged_data, function(y) length(y) * dt_val)))
-        stim_time <- as.numeric(tclvalue(stimTimeVar))
-        trace_y <- averaged_data[[current_avg_index]]
-        stim_y <- trace_y[which.min(abs(time - stim_time))]
 
-        egs_plot(x = time, y = trace_y, color = 'darkgray',
+    if (!is.null(result)) {
+      tkdelete(consoleText, '1.0', 'end')
+      tkinsert(consoleText, 'end', sprintf(
+        "Averaging on approved traces complete.\nProcessed %d file(s).\n",
+        length(abf_files)
+      ))
+      tkyview.moveto(consoleText, 1.0)
+
+      abf_analysis_result <<- result
+      averaged_data       <<- result$baseline_corrected_mean_data
+      datasets             <- result$datasets
+      current_avg_index   <<- 1
+
+      children <- as.character(tkwinfo('children', plotPanel))
+      if (length(children)) sapply(children, function(ch) tcl("destroy", ch))
+
+      avgFrame <<- tkframe(plotPanel)
+      tkgrid(avgFrame, row = 0, column = 0, sticky = 'nsew')
+      tkgrid.columnconfigure(avgFrame, 0, weight = 1)
+      tkgrid.columnconfigure(avgFrame, 1, weight = 1)
+      tkgrid.columnconfigure(avgFrame, 2, weight = 1)
+      tkgrid.rowconfigure(   avgFrame, 1, weight = 1)
+
+      plotWrapper <- tkframe(avgFrame, height = graph_height, width = graph_width)
+      tkgrid(plotWrapper, row = 1, column = 1, sticky = 'nsew')
+      tkgrid.propagate(plotWrapper, FALSE)
+
+      drawSingleAvg <- function() {
+        if (length(averaged_data) == 0) {
+          plot.new(); text(0.5, 0.5, 'No averaged data'); return()
+        }
+        cex    <- 1.25 * as.numeric(tclvalue(cexVar))
+        par(cex.lab = cex, cex.axis = cex, cex.main = cex)
+
+        dt_val <- datasets[[current_avg_index]]$samplingIntervalInSec * 1000
+        time   <- seq(from = stimTime - baseline, by = dt_val,
+                      length.out = length(averaged_data[[current_avg_index]]))
+        all_y  <- unlist(averaged_data)
+        ylim   <- range(all_y)
+        xlim   <- c(0, max(sapply(averaged_data, function(y) length(y) * dt_val)))
+        stim_y <- averaged_data[[current_avg_index]][which.min(abs(time - stimTime))]
+
+        egs_plot(x = time, y = averaged_data[[current_avg_index]], color = 'darkgray',
                  show_bar = TRUE, show_text = TRUE,
                  xbar = xbar, ybar = ybar,
                  xlim = xlim, ylim = ylim, cex = cex)
-
-        points(stim_time, stim_y, pch = 8, col = 'black')
-        text(stim_time, stim_y, labels = 'stim', pos = 3, cex = 0.6)
+        points(stimTime, stim_y, pch = 8)
+        text(stimTime, stim_y, labels = 'stim', pos = 3, cex = cex)
       }
-      
-      reviewPlot <<- tkrplot(avgFrame, fun = drawSingleAvg, hscale = 1, vscale = 1)
-      tkgrid(reviewPlot, row = 0, column = 0, columnspan = 3)
-      
-      tkgrid(tklabel(avgFrame, text = 'Average:'), row = 1, column = 0)
-      avgLabel <- tklabel(avgFrame, text = paste(current_avg_index, 'of', length(averaged_data)))
-      tkgrid(avgLabel, row = 1, column = 1)
-      
-      nextAvgButton <- tkbutton(avgFrame, text = 'Next', command = function(){
-        if(current_avg_index < length(averaged_data)){
+
+      reviewPlot <<- tkrplot(plotWrapper, fun = drawSingleAvg, hscale = 1.25 * graph_hscale, vscale = 1.25 * graph_vscale)
+      tkgrid(reviewPlot, row = 0, column = 0, sticky = 'nsew')
+
+      navFrame <- tkframe(avgFrame)
+      tkgrid(navFrame, row = 2, column = 1, pady = 10)
+      navLabel   <- tklabel(navFrame, text = paste('Average:', current_avg_index, 'of', length(averaged_data)))
+      nextButton <- tkbutton(navFrame, text = 'Next Trace', command = function() {
+        if (current_avg_index < length(averaged_data)) {
           current_avg_index <<- current_avg_index + 1
         } else {
           current_avg_index <<- 1
         }
-        tkconfigure(avgLabel, text = paste(current_avg_index, 'of', length(averaged_data)))
+        tkconfigure(navLabel, text = paste('Average:', current_avg_index, 'of', length(averaged_data)))
         tkrreplot(reviewPlot)
       })
-      tkgrid(nextAvgButton, row = 1, column = 2)
+      tkgrid(navLabel,   row = 0, column = 0, padx = 8)
+      tkgrid(nextButton, row = 0, column = 1, padx = 8)
     }
   }
+
+
 
   # UI Setup
   ABF_analysis_tk <- function() {
     tt <- tktoplevel()
     tkwm.title(tt, 'ABF Analysis')
+    
+    if (.Platform$OS.type == "windows") {
+      hscale <- 2
+      vscale <- 2
+    } else {
+      dpi    <- as.numeric(tclvalue(tcl('winfo','pixels', tt, '1i')))
+      w_in   <- 7;  h_in  <- 7
+      hscale <- (w_in * dpi) / 480
+      vscale <- (h_in * dpi) / 480
+    }
+
+    # ABF_analysis_tk() → sidebarFrame widgets
+    # ABF_analysis_tk() → sidebarFrame widgets
     sidebarFrame <- tkframe(tt)
     mainFrame   <- tkframe(tt)
     tkgrid(sidebarFrame, row = 0, column = 0, sticky = 'ns')
@@ -8073,26 +8321,26 @@ analyseABFtk <- function() {
     tkgrid.rowconfigure(tt, 0, weight = 1)
     tkgrid.columnconfigure(tt, 1, weight = 1)
 
-    # save mainFrame as the global plot panel
+    # plot panel
     plotPanel <<- mainFrame
 
+    # Folder selector
     folderLabel <- tklabel(sidebarFrame, text = 'Select ABF Folder:')
     tkgrid(folderLabel, row = 0, column = 0, sticky = 'w')
     folderPathVar <<- tclVar('')
     folderEntry <- tkentry(sidebarFrame, textvariable = folderPathVar, width = 30)
     tkgrid(folderEntry, row = 0, column = 1, sticky = 'w')
-
     browseFolderButton <- tkbutton(sidebarFrame, text = 'Browse', command = function(){
       folderPath <- tclvalue(tkchooseDirectory())
-      if(nchar(folderPath) > 0){
+      if (nchar(folderPath) > 0) {
         tclvalue(folderPathVar) <<- folderPath
         abf_list <- list.files(path = folderPath, pattern = '\\.abf$', ignore.case = TRUE)
-        if(length(abf_list) == 0){
+        if (length(abf_list) == 0) {
           tkinsert(consoleText, 'end', 'No ABF files found in the selected folder.\n')
           tkyview.moveto(consoleText, 1.0)
         } else {
           tkdelete(abfListBox, 0, 'end')
-          for(f in abf_list){ tkinsert(abfListBox, 'end', f) }
+          for (f in abf_list) tkinsert(abfListBox, 'end', f)
           firstFilePath <- file.path(folderPath, abf_list[1])
           ds <- readABF(firstFilePath)
           dummy_result <- list(metadata = list(extract_metadata(ds)))
@@ -8102,33 +8350,46 @@ analyseABFtk <- function() {
     })
     tkgrid(browseFolderButton, row = 0, column = 2, padx = 5)
 
+    # ABF file list
     abfListLabel <- tklabel(sidebarFrame, text = 'ABF Files:')
     tkgrid(abfListLabel, row = 1, column = 0, sticky = 'w', pady = 5)
-    
+    abfListBox <<- tklistbox(sidebarFrame, height = 5, selectmode = 'multiple')
+    tkgrid(abfListBox, row = 2, column = 0, columnspan = 2, sticky = 'we', padx = 5, pady = 3)
+
     tkgrid.columnconfigure(sidebarFrame, 0, weight = 1)
     tkgrid.columnconfigure(sidebarFrame, 1, weight = 1)
     tkgrid.columnconfigure(sidebarFrame, 2, weight = 1)
-    abfListBox <<- tklistbox(sidebarFrame, height = 5, selectmode = 'multiple')
-    tkgrid(abfListBox, row = 2, column = 0, columnspan = 3, sticky = 'we', padx = 10, pady = 5)
 
     paramFrame <- tkframe(sidebarFrame)
-    tkgrid(paramFrame, row = 3, column = 0, columnspan = 3, sticky = 'w')
-    experimentVar <<- tclVar('voltage clamp')
-    unitVar       <<- tclVar('')
-    dataColVar    <<- tclVar('')
-    dtVar         <<- tclVar('')
-    ntracesVar    <<- tclVar('')
 
-    tkgrid(tklabel(paramFrame, text = 'Experiment:'), row = 0, column = 0, sticky = 'w')
-    experimentCombo <- ttkcombobox(paramFrame, textvariable = experimentVar,
-                                   values = c('voltage clamp', 'current clamp'), width = 15)
+    # Experiment dropdown
+    tkgrid(
+      tklabel(paramFrame, text = 'Experiment:'), row = 0, column = 0, sticky = 'w'
+    )
+    experimentCombo <- ttkcombobox(
+      paramFrame,
+      textvariable = experimentVar,
+      values       = c('voltage clamp', 'current clamp'),
+      width        = 15
+    )
     tkgrid(experimentCombo, row = 0, column = 1, sticky = 'w')
 
-    tkgrid(tklabel(paramFrame, text = 'Units:'), row = 1, column = 0, sticky = 'w')
-    unitEntry <- tkentry(paramFrame, textvariable = unitVar, width = 10)
+    # Units (read-only)
+    tkgrid(
+      tklabel(paramFrame, text = 'Units:'), row = 1, column = 0, sticky = 'w'
+    )
+    unitEntry <- tkentry(
+      paramFrame,
+      textvariable = unitVar,
+      width        = 10,
+      state        = 'readonly'
+    )
     tkgrid(unitEntry, row = 1, column = 1, sticky = 'w')
 
-    tkgrid(tklabel(paramFrame, text = 'Data Column:'), row = 2, column = 0, sticky = 'w')
+    # Data column + binding
+    tkgrid(
+      tklabel(paramFrame, text = 'Data Column:'), row = 2, column = 0, sticky = 'w'
+    )
     dataColEntry <- tkentry(paramFrame, textvariable = dataColVar, width = 10)
     tkgrid(dataColEntry, row = 2, column = 1, sticky = 'w')
     tkbind(dataColEntry, '<FocusOut>', function() {
@@ -8140,13 +8401,27 @@ analyseABFtk <- function() {
       }
     })
 
-    tkgrid(tklabel(paramFrame, text = 'dt (ms):'), row = 3, column = 0, sticky = 'w')
+    # dt (ms)
+    tkgrid(
+      tklabel(paramFrame, text = 'dt (ms):'), row = 3, column = 0, sticky = 'w'
+    )
     dtEntry <- tkentry(paramFrame, textvariable = dtVar, width = 10)
     tkgrid(dtEntry, row = 3, column = 1, sticky = 'w')
 
-    tkgrid(tklabel(paramFrame, text = '# traces:'), row = 4, column = 0, sticky = 'w')
+    # # traces
+    tkgrid(
+      tklabel(paramFrame, text = '# traces:'), row = 4, column = 0, sticky = 'w'
+    )
     ntracesEntry <- tkentry(paramFrame, textvariable = ntracesVar, width = 10)
     tkgrid(ntracesEntry, row = 4, column = 1, sticky = 'w')
+
+    # now grid the fully-populated frame
+    tkgrid(paramFrame, row = 3, column = 0, columnspan = 2,
+           sticky = 'we', pady = 3)
+    tkgrid.columnconfigure(paramFrame, 0, weight = 1)
+    tkgrid.columnconfigure(paramFrame, 1, weight = 1)
+
+
 
     baselineVar <<- tclVar('100')
     stimTimeVar <<- tclVar('150')
@@ -8158,21 +8433,55 @@ analyseABFtk <- function() {
     tkgrid(tkentry(sidebarFrame, textvariable = baselineVar, width = 10), row = 4, column = 1, sticky = 'w')
     tkgrid(tklabel(sidebarFrame, text = 'Stimulation Time:'), row = 5, column = 0, sticky = 'w')
     tkgrid(tkentry(sidebarFrame, textvariable = stimTimeVar, width = 10), row = 5, column = 1, sticky = 'w')
+   
     tkgrid(tklabel(sidebarFrame, text = 'x-bar length:'), row = 6, column = 0, sticky = 'w')
-    tkgrid(tkentry(sidebarFrame, textvariable = xbarVar, width = 10), row = 6, column = 1, sticky = 'w')
+    xbarEntry <- tkentry(sidebarFrame, textvariable = xbarVar, width = 10)
+    tkgrid(xbarEntry, row = 6, column = 1, sticky = 'w')
+
     tkgrid(tklabel(sidebarFrame, text = 'y-bar length:'), row = 7, column = 0, sticky = 'w')
-    tkgrid(tkentry(sidebarFrame, textvariable = ybarVar, width = 10), row = 7, column = 1, sticky = 'w')
+    ybarEntry <- tkentry(sidebarFrame, textvariable = ybarVar, width = 10)
+    tkgrid(ybarEntry, row = 7, column = 1, sticky = 'w')
+
+
+    tkbind(xbarEntry, '<FocusOut>', function() {
+      if (exists('avgPlot', inherits=TRUE)) tkrreplot(avgPlot)
+    })
+    tkbind(xbarEntry, '<Return>', function() {
+      if (exists('avgPlot', inherits=TRUE)) tkrreplot(avgPlot)
+    })
+
+    tkbind(ybarEntry, '<FocusOut>', function() {
+      if (exists('avgPlot', inherits=TRUE)) tkrreplot(avgPlot)
+    })
+    tkbind(ybarEntry, '<Return>', function() {
+      if (exists('avgPlot', inherits=TRUE)) tkrreplot(avgPlot)
+    })
+
+    
+    tkgrid(tklabel(sidebarFrame, text = 'Text Scale (cex):'), row = 8, column = 0, sticky = 'w')
+    cexEntry <- tkentry(sidebarFrame, textvariable = cexVar, width = 10)
+    tkgrid(cexEntry, row = 8, column = 1, sticky = 'w')
+
+    ## whenever you leave the entry or press Return, redraw any open plot
+    tkbind(cexEntry, '<FocusOut>', function() {
+      if (exists('reviewPlot', inherits = TRUE)) tkrreplot(reviewPlot)
+      if (exists('avgPlot',    inherits = TRUE)) tkrreplot(avgPlot)
+    })
+    tkbind(cexEntry, '<Return>', function() {
+      if (exists('reviewPlot', inherits = TRUE)) tkrreplot(reviewPlot)
+      if (exists('avgPlot',    inherits = TRUE)) tkrreplot(avgPlot)
+    })
 
     concatButton <- tkcheckbutton(sidebarFrame, variable = concatMode,
                                   text = 'Concatenate Imported ABFs')
-    tkgrid(concatButton, row = 8, column = 0, columnspan = 3)
+    tkgrid(concatButton, row = 9, column = 0, columnspan = 3)
 
     tkgrid.columnconfigure(sidebarFrame, 0, weight = 1)
     tkgrid.columnconfigure(sidebarFrame, 1, weight = 1)
     tkgrid.columnconfigure(sidebarFrame, 2, weight = 1)
 
     consoleText <<- tktext(sidebarFrame, height = 5)
-    tkgrid(consoleText, row = 9, column = 0, columnspan = 3, sticky = 'we', padx = 10, pady = 5)
+    tkgrid(consoleText, row = 10, column = 0, columnspan = 3, sticky = 'we', padx = 10, pady = 5)
 
     updateAdditionalParams <<- function(result) {
       if (!is.null(result) && length(result$metadata) >= 1) {
@@ -8306,17 +8615,19 @@ analyseABFtk <- function() {
                                 })
     tkDownloadBtn            <<- tkbutton(sidebarFrame, text = 'Download Data',            command = download_data)
 
-    tkgrid(runAnalysisButton,       row = 10, column = 0, columnspan = 3, pady = 5)
-    tkgrid(reviewButton,            row = 11, column = 0, columnspan = 3, pady = 5)
-    tkgrid(avgApprovedTracesButton, row = 12, column = 0, columnspan = 3, pady = 5)
-    tkgrid(tkDownloadBtn,           row = 13, column = 0, columnspan = 3, pady = 5)
+    tkgrid(runAnalysisButton,       row = 11, column = 0, columnspan = 3, pady = 5)
+    tkgrid(reviewButton,            row = 12, column = 0, columnspan = 3, pady = 5)
+    tkgrid(avgApprovedTracesButton, row = 13, column = 0, columnspan = 3, pady = 5)
+    tkgrid(tkDownloadBtn,           row = 14, column = 0, columnspan = 3, pady = 5)
 
     tkfocus(tt)
   }
 
   # launch UI
   ABF_analysis_tk()
-}
+}  
+
+
 
 ############################################################################################
 analyseABFshiny <- function() {

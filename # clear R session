@@ -19,4 +19,4 @@ path_repository <- '/Documents/Github/Rfits'
 file_path <- paste0('/Users/', UserName, path_repository)
 source(paste0(file_path, '/nNLS functions.R'))
 
-analysePSCtk()
+analyseABFtk()
