@@ -634,33 +634,33 @@ These responses with only differ by added gaussian noise.
     - AIC/BIC criteria values 
     - metadata (all dropdown values)
   
-    In this scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+  In this scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
 
-    This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
+  This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
-    i. **Export Plot to SVG**  
+  i. **Export Plot to SVG**  
 
-    In the `UI`, click the **`Export Plot to SVG`** button.
+  In the `UI`, click the **`Export Plot to SVG`** button.
 
-    The exported plot looks like this:
+  The exported plot looks like this:
      
-    ![analysePSCtk_3](./images/analysePSCtk_3.svg)
+  ![analysePSCtk_3](./images/analysePSCtk_3.svg)
 
-    j. **Clear Output** _(optional)_  
+  j. **Clear Output** _(optional)_  
 
-    Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
+  Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
-    To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
+  To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
 
-    As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
+  As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
 
-    ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
+  ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
 
-    ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
+  ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
 
-    ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
+  ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
 
-    ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
+  ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
    ### Analysing an entire data set
