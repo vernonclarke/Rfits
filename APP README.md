@@ -255,7 +255,7 @@ Any code preceded by # is `commented out` and is provided in `*.R` files for ins
 
 ### Clickable App to launch R based UI
 
-### Clickable .command to launch R based UI
+The following is a description of how a clickable apps for the provided code was created.
 
 a. Create the launcher file with nano:
 
