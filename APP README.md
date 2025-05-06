@@ -48,7 +48,7 @@ Any code preceded by # is `commented out` and is provided in `*.R` files for ins
 
 ### Known set-up issues
 
-# `XQuartz` Permissions & Environment Setup
+#### `XQuartz` Permissions & Environment Setup
 
 If `XQuartz` (`X11`) fails due to permission resets (this routinely occurs on my `MacBook`, most likely as a result of my host institution altering permissions), any graphics in `R` will fail.
 
