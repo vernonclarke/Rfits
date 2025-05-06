@@ -664,69 +664,74 @@ These responses with only differ by added gaussian noise.
   ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
 
-  ### Clickable App to launch R based UI
 
-  ```
-   touch launch_psc_analysis.sh && open -e launch_psc_analysis.sh
 
-  ```
-  
-  a. Create a plain text file called launch_psc_analysis.sh with the following contents:
-  
-  ```
-  #!/bin/zsh
-  # launch an instance of R.app and run analysis
-  open -n -a R --args -e '
-    rm(list = ls(all = TRUE));
-    graphics.off();
-  
-    load_required_packages <- function(packages) {
-      new.packages <- packages[!(packages %in% installed.packages()[, "Package"])]
-      if (length(new.packages)) install.packages(new.packages)
-      invisible(lapply(packages, library, character.only = TRUE))
-    }
-  
-    required.packages <- c("dbscan", "minpack.lm", "Rcpp", "robustbase",
-      "shiny", "signal", "readABF", "readxl", "tcltk", "tkrplot", "openxlsx")
-    load_required_packages(required.packages)
-  
-    UserName <- Sys.getenv("USER")
-    path_repository <- "/Documents/Repositories/Rfits"
-    file_path <- paste0("/Users/", UserName, path_repository)
-    source(paste0(file_path, "/nNLS functions.R"))
-  
-    analyseABFtk()
-  '
-  ```
+	### Clickable App to launch R based UI
 
-  Ensure nNLS functions.R is correctly located at the expected path.
+a. Create a plain text file called `launch_psc_analysis.sh` with the following contents:
 
-  b. Make the script executable
+    #!/bin/zsh
+    # launch an instance of R.app and run analysis
+    open -n -a R --args --no-save --no-restore \
+      -e '
+        rm(list = ls(all = TRUE));
+        graphics.off();
 
-  In Terminal, run:
-   ```
-    chmod +x /path/to/launch_psc_analysis.sh
-   ```
+        load_required_packages <- function(packages) {
+          new.packages <- packages[!(packages %in% installed.packages()[, "Package"])]
+          if (length(new.packages)) install.packages(new.packages)
+          invisible(lapply(packages, library, character.only = TRUE))
+        }
 
-  c. Create an Automator App (for Clickable Icon)
+        required.packages <- c("dbscan", "minpack.lm", "Rcpp", "robustbase",
+          "shiny", "signal", "readABF", "readxl", "tcltk", "tkrplot", "openxlsx")
+        load_required_packages(required.packages)
+
+        UserName <- Sys.getenv("USER")
+        path_repository <- "/Documents/Repositories/Rfits"
+        file_path <- paste0("/Users/", UserName, path_repository)
+        source(paste0(file_path, "/nNLS functions.R"))
+
+        analysePSCtk()
+        tcltk::tkwait.window(tt)
+      '
+
+Ensure `nNLS functions.R` is correctly located at the expected path.
+
+b. Make the script executable in Terminal:
+
+    chmod +x ~/Documents/Repositories/Rfits/launch_psc_analysis.sh
+
+c. Create an Automator App (for Clickable Icon)
+
+1. Open **Automator** → **New** → **Application**  
+2. In the left pane click **Actions** (gear icon).  
+3. In the search field above the actions list type **Run Shell Script**.  
+4. Drag **Run Shell Script** into the right-hand workflow area.  
+5. Set **Shell:** `/bin/zsh`  
+6. Click **Options** ▾ on that action and check **Ignore this action’s input**  
+7. In the script box enter the full path:
+
+       ~/Documents/Repositories/Rfits/launch_psc_analysis.sh
+
+8. Save as **LaunchPSCAnalysis.app** (e.g. on your Desktop)
+
+d. Launch
+
+Double-click **LaunchPSCAnalysis.app**:  
+- A new R session will start.  
+- Your tcltk UI (`analysePSCtk()`) appears and stays open.  
+- When you close the UI window, R quits automatically.
+
+---
+
+**Note:**  
+Ensure your `nNLS functions.R` ends the UI function with:
+
+    tkfocus(tt)
+    tcltk::tkwait.window(tt)
+
     
-  Open Automator on macOS.
-    
-  Choose Application as the type.
-    
-  In the search bar, find “Run Shell Script” and drag it to the workflow area.
-   
-  Set Shell to /bin/zsh.
-	
-  Paste in the full path to your script, like:
-
-   ```
-    /Users/yourname/path/to/launch_psc_analysis.sh
-   ```
-
-  d. 	Save the application
-  
-  Save LaunchPSCAnalysis.app, to your Desktop or Applications folder.
 	    
   Optionally, right-click > Get Info and set a custom icon.
   
