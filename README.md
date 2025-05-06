@@ -666,7 +666,7 @@ These responses with only differ by added gaussian noise.
 
 
 
-	### Clickable App to launch R based UI
+### Clickable App to launch R based UI
 
 a. Create a plain text file called `launch_psc_analysis.sh` with the following contents:
 
