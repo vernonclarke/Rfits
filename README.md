@@ -13,6 +13,7 @@
   - [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
   - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
   - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
+  - [Clickable App to launch R based UI](#clickable-app-to-launch-R-based-UI)
   - [Analysing an entire data set](#analysing-an-entire-data-set)
   - [Retrieving analysed data](#retrieving-analysed-data)
   - [Examining analysed data](#examining-analysed-data)
@@ -662,6 +663,68 @@ These responses with only differ by added gaussian noise.
 
   ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
+
+  ### Clickable App to launch R based UI
+  
+  a. Create a plain text file called launch_psc_analysis.sh with the following contents:
+  
+  ```
+  #!/bin/zsh
+  # launch an instance of R.app and run analysis
+  open -n -a R --args -e '
+    rm(list = ls(all = TRUE));
+    graphics.off();
+  
+    load_required_packages <- function(packages) {
+      new.packages <- packages[!(packages %in% installed.packages()[, "Package"])]
+      if (length(new.packages)) install.packages(new.packages)
+      invisible(lapply(packages, library, character.only = TRUE))
+    }
+  
+    required.packages <- c("dbscan", "minpack.lm", "Rcpp", "robustbase",
+      "shiny", "signal", "readABF", "readxl", "tcltk", "tkrplot", "openxlsx")
+    load_required_packages(required.packages)
+  
+    UserName <- Sys.getenv("USER")
+    path_repository <- "/Documents/Repositories/Rfits"
+    file_path <- paste0("/Users/", UserName, path_repository)
+    source(paste0(file_path, "/nNLS functions.R"))
+  
+    analyseABFtk()
+  '
+  ```
+
+  Ensure nNLS functions.R is correctly located at the expected path.
+
+  b. Make the script executable
+
+  In Terminal, run:
+   ```
+    chmod +x /path/to/launch_psc_analysis.sh
+   ```
+
+  c. Create an Automator App (for Clickable Icon)
+    
+  Open Automator on macOS.
+    
+  Choose Application as the type.
+    
+  In the search bar, find “Run Shell Script” and drag it to the workflow area.
+   
+  Set Shell to /bin/zsh.
+	
+  Paste in the full path to your script, like:
+
+   ```
+    /Users/yourname/path/to/launch_psc_analysis.sh
+   ```
+
+  d. 	Save the application
+  
+  Save LaunchPSCAnalysis.app, to your Desktop or Applications folder.
+	    
+  Optionally, right-click > Get Info and set a custom icon.
+  
 
    ### Analysing an entire data set
 
