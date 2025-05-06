@@ -728,7 +728,9 @@ These responses with only differ by added gaussian noise.
 
 ### Clickable App to launch R based UI
 
-### Clickable .command to launch R based UI
+The following is a description of how a clickable app for the provided code can be created. 
+
+The provided example creates the PSC analysis app from analysePSCtk(). 
 
 a. In `Terminal` create the launcher file with `nano`:
 
