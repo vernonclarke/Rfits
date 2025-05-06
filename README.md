@@ -25,7 +25,7 @@
 
 ## Initial Set Up
 
-All analysis was performed using the R graphical user interface (GUI) and tested on R version 4.4.1 "Race for Your Life" or 4.4.2 "Pile of Leaves".
+All analysis was performed using the R graphical user interface (GUI) and tested on R version 4.4.1 "Race for Your Life" through to 4.5.0 "How About a Twenty-Six".
 
 
 - [`R` Statistical Software](https://www.R-project.org/)
