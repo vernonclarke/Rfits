@@ -105,7 +105,7 @@ i. Test your configuration by launching a simple `X11` app
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
 
-### Average and save ABF data using the UI interface app
+### Average and save `ABF` data using the `UI` interface app
 
 The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
 
@@ -115,7 +115,7 @@ In addition to the tk interface launched using `analyseABFtk()`, an identical an
 
 The steps, options, and workflow are the same for both interfaces.
 
-The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
+The `UI` is designed to normalise selected traces to a chosen baseline period then average and export output to a `csv` file.
 
 a. **Launch UI**  
 
