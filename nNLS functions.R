@@ -9992,3 +9992,258 @@ analysePSCshiny <- function() {
 
   shinyApp(ui=ui, server=server)
 }
+
+
+widgetPSCtk <- function() {
+
+  widget_PSC_tk <- function() {
+    ## only one tktoplevel() here:
+    tt <- tktoplevel()
+    tkwm.title(tt, 'I (pA)')
+
+    Tr            <- tclVar("5")
+    Td            <- tclVar("25")
+    decayUpperVar <- tclVar("0.9")
+    decayLowerVar <- tclVar("0.1")
+
+    updatePlot <- function() {
+      currentTr   <- as.numeric(tclvalue(Tr))
+      currentTd   <- as.numeric(tclvalue(Td))
+      decay_range <- c(
+        as.numeric(tclvalue(decayUpperVar)),
+        as.numeric(tclvalue(decayLowerVar))
+      )
+      t_max  <- 250
+      t_seq  <- seq(0, t_max, length.out = 2000)
+      y_comb <- -(exp(-t_seq / currentTd) - exp(-t_seq / currentTr))
+      y_Td   <- -exp(-t_seq / currentTd)
+      y_Tr   <- -exp(-t_seq / currentTr)
+      T1     <- currentTd * currentTr / (currentTd - currentTr)
+      y_1mTr <- -(1 - exp(-t_seq / T1))
+
+      peak_i <- which.min(y_comb)
+      y_fall <- y_comb[peak_i:length(y_comb)]
+      t_fall <- t_seq[peak_i:length(t_seq)]
+      min_v  <- min(y_fall)
+      up_v   <- decay_range[1] * min_v
+      lo_v   <- decay_range[2] * min_v
+      idx_up <- which(y_fall >= up_v)[1]
+      idx_lo <- which(y_fall >= lo_v)[1]
+
+      if (is.na(idx_lo)) {
+        ext_t  <- seq(0, t_max*2, length.out = length(t_seq)*2)
+        ext_y  <- -(exp(-ext_t/currentTd) - exp(-ext_t/currentTr))
+        y_fall <- ext_y[peak_i:length(ext_y)]
+        t_fall <- ext_t[peak_i:length(ext_t)]
+        idx_lo <- which(y_fall >= lo_v)[1]
+      }
+
+      decay_time <- if (!is.na(idx_up) && !is.na(idx_lo))
+        round(t_fall[idx_lo] - t_fall[idx_up], 2) else NA
+
+      up_pct <- round(decay_range[1]*100)
+      lo_pct <- round(decay_range[2]*100)
+      title2 <- paste("normalised with", up_pct, "-", lo_pct, "% decay time")
+
+      par(mfrow = c(2,1), mar = c(4,4,3,1))
+      plot(t_seq, y_comb, type='l', col='grey', lwd=2, axes=FALSE,
+           main=expression(e^{-t/tau[decay]} - e^{-t/tau[rise]}),
+           xlab='', ylab='F(x)', xlim=c(0,t_max), ylim=c(-1,0))
+      lines(t_seq, y_Td, col='indianred', lty=3, lwd=2)
+      lines(t_seq, y_Tr, col='slateblue', lty=3, lwd=2)
+      axis(2, las=1, tcl=-0.2)
+
+      plot(t_seq, y_comb/abs(min(y_comb)), type='l', col='grey', lwd=2, axes=FALSE,
+           main=title2, xlab='time (ms)', ylab='normalised F(x)',
+           xlim=c(0,t_max), ylim=c(-1,0))
+      lines(t_seq, y_1mTr, col='slateblue', lty=3, lwd=2)
+      lines(t_seq, y_Td, col='indianred', lty=3, lwd=2)
+
+      if (!is.na(decay_time)) {
+        abline(h=-up_v/min_v, col='darkgrey', lty=3)
+        abline(h=-lo_v/min_v, col='darkgrey', lty=3)
+        text(t_max*0.8, -0.5,
+             paste(up_pct, "-", lo_pct, "decay =", decay_time, "ms"),
+             col='darkgrey', cex=0.8)
+      } else {
+        text(t_max*0.8, -0.5, 'Decay not fully reached',
+             col='indianred', cex=0.8)
+      }
+      axis(1, las=1, tcl=-0.2)
+      axis(2, las=1, tcl=-0.2)
+    }
+
+    # build the UI
+    img <- tkrplot(tt, fun=updatePlot, hscale=1.3, vscale=1.3)
+    tkpack(img, side='top', expand=TRUE, fill='both')
+
+    decayFrame <- tkframe(tt)
+    tkpack(decayFrame, side='top', fill='x', pady=5)
+    tkpack(tklabel(decayFrame, text='Decay range (high, low):'),
+           side='left', padx=5)
+    highEntry <- tkentry(decayFrame, textvariable=decayUpperVar, width=5)
+    lowEntry  <- tkentry(decayFrame, textvariable=decayLowerVar, width=5)
+    tkpack(highEntry, side='left', padx=2)
+    tkpack(lowEntry,  side='left', padx=2)
+    tkbind(highEntry, "<KeyRelease>", function() tkrreplot(img))
+    tkbind(lowEntry,  "<KeyRelease>", function() tkrreplot(img))
+
+    tkpack(tklabel(tt, text='\u03C4 rise'),  side='top')
+    Tr_slider <- tkscale(tt, from=0.1, to=50, resolution=0.1,
+                         showvalue=TRUE, variable=Tr, orient='horizontal',
+                         command=function(...) tkrreplot(img))
+    tkpack(Tr_slider, fill='x', padx=10, pady=5)
+
+    tkpack(tklabel(tt, text='\u03C4 decay'), side='top')
+    Td_slider <- tkscale(tt, from=0.1, to=200, resolution=1,
+                         showvalue=TRUE, variable=Td, orient='horizontal',
+                         command=function(...) tkrreplot(img))
+    tkpack(Td_slider, fill='x', padx=10, pady=5)
+
+    tkfocus(tt)
+    tkwait.window(tt)
+  }
+
+  widget_PSC_tk()
+}
+
+
+widgetPSCshiny <- function() {
+
+  ui <- fluidPage(
+    titlePanel(
+      HTML("Interactive Graphs:<br>exp(-t/&tau;<sub>decay</sub>) - exp(-t/&tau;<sub>rise</sub>)")
+    ),
+    sidebarLayout(
+      sidebarPanel(
+        numericInput(
+          "decayUpper", 
+          "Decay upper (fraction)", 
+          value = 0.9, min = 0, max = 1, step = 0.01
+        ),
+        numericInput(
+          "decayLower", 
+          "Decay lower (fraction)", 
+          value = 0.1, min = 0, max = 1, step = 0.001
+        ),
+        sliderInput(
+          "Tr", 
+          HTML("&tau;<sub>rise</sub>"), 
+          min = 0.1, max = 50, value = 5, step = 0.1
+        ),
+        sliderInput(
+          "Td", 
+          HTML("&tau;<sub>decay</sub>"), 
+          min = 0.101, max = 200, value = 25, step = 1
+        )
+      ),
+      mainPanel(
+        plotlyOutput("upperPlot"),
+        plotlyOutput("lowerPlot")
+      )
+    )
+  )
+
+  server <- function(input, output, session) {
+    
+    # ensure Td > Tr
+    observeEvent(input$Tr, {
+      updateSliderInput(
+        session, "Td",
+        min   = input$Tr + 0.001,
+        value = max(input$Td, input$Tr + 0.001)
+      )
+    })
+    
+    output$upperPlot <- renderPlotly({
+      t_max  <- 250
+      t_seq  <- seq(0, t_max, length.out = 2000)
+      y_combined <- -(exp(-t_seq / input$Td) - exp(-t_seq / input$Tr))
+      y_Td <- -exp(-t_seq / input$Td)
+      y_Tr <- -exp(-t_seq / input$Tr)
+      
+      plot_ly(type = 'scatter', mode = 'lines') %>%
+        add_trace(x = t_seq, y = y_combined, name = 'exp(-t/Td) - exp(-t/Tr)',
+                  line = list(color = 'gray')) %>%
+        add_trace(x = t_seq, y = y_Td, name = 'exp(-t/Td)',
+                  line = list(color = 'indianred', dash = 'dot')) %>%
+        add_trace(x = t_seq, y = y_Tr, name = 'exp(-t/Tr)',
+                  line = list(color = 'slateblue', dash = 'dot')) %>%
+        layout(
+          title = 'exp(-t/τ_decay) - exp(-t/τ_rise)',
+          xaxis = list(title = 't (ms)'),
+          yaxis = list(title = 'F(x)')
+        )
+    })
+    
+    output$lowerPlot <- renderPlotly({
+      t_max    <- 250
+      t_seq    <- seq(0, t_max, length.out = 2000)
+      y_comb   <- -(exp(-t_seq / input$Td) - exp(-t_seq / input$Tr))
+      norm     <- y_comb / min(y_comb)
+      peak_i   <- which.min(y_comb)
+      y_fall   <- y_comb[peak_i:length(y_comb)]
+      t_fall   <- t_seq[peak_i:length(t_seq)]
+      min_val  <- min(y_fall)
+      
+      du <- input$decayUpper * min_val
+      dl <- input$decayLower * min_val
+      idx_up   <- which(y_fall >= du)[1]
+      idx_lo   <- which(y_fall >= dl)[1]
+      if (is.na(idx_lo)) {
+        ext_t <- seq(0, t_max*2, length.out = length(t_seq)*2)
+        ext_y <- -(exp(-ext_t/input$Td) - exp(-ext_t/input$Tr))
+        y_fall <- ext_y[peak_i:length(ext_y)]
+        t_fall <- ext_t[peak_i:length(ext_t)]
+        idx_lo <- which(y_fall >= dl)[1]
+      }
+      decay_time <- if (!is.na(idx_up) && !is.na(idx_lo))
+        round(t_fall[idx_lo] - t_fall[idx_up], 2) else NA
+      
+      up_pct <- round(input$decayUpper * 100)
+      lo_pct <- round(input$decayLower * 100)
+      title2 <- paste("normalized with", up_pct, "-", lo_pct, "% decay time")
+      
+      p <- plot_ly(type = 'scatter', mode = 'lines') %>%
+        add_trace(x = t_seq, y = -norm, name = 'normalized F(x)',
+                  line = list(color = 'gray')) %>%
+        add_trace(x = t_seq,
+                  y = -(1 - exp(-t_seq / (input$Td * input$Tr /
+                                          (input$Td - input$Tr)))),
+                  name = '-(1 - exp(-t/τ1))',
+                  line = list(color = 'slateblue', dash = 'dot')) %>%
+        add_trace(x = t_seq, y = -exp(-t_seq / input$Td),
+                  name = '-exp(-t/τ_decay)',
+                  line = list(color = 'indianred', dash = 'dot')) %>%
+        layout(title = title2,
+               xaxis = list(title = 'time (ms)'),
+               yaxis = list(title = 'normalized F(x)'))
+      
+      if (!is.na(decay_time)) {
+        p <- p %>%
+          add_trace(x = c(0, t_max), y = rep(-du/min_val, 2),
+                    showlegend = FALSE,
+                    line = list(color = 'darkgrey', dash = 'dot')) %>%
+          add_trace(x = c(0, t_max), y = rep(-dl/min_val, 2),
+                    showlegend = FALSE,
+                    line = list(color = 'darkgrey', dash = 'dot')) %>%
+          add_annotations(x = t_max * 0.8, y = -0.5,
+                          text = paste(up_pct, "-", lo_pct,
+                                       "decay =", decay_time, "ms"),
+                          showarrow = FALSE,
+                          font = list(color = 'darkgrey'))
+      } else {
+        p <- p %>%
+          add_annotations(x = t_max * 0.8, y = -0.5,
+                          text = 'decay not fully reached',
+                          showarrow = FALSE,
+                          font = list(color = 'indianred'))
+      }
+      
+      p
+    })
+  }
+
+  shinyApp(ui, server)
+
+}
