@@ -3,7 +3,7 @@
 ## Table of Contents
 - [Initial Set Up](#initial-set-up)
 - [Setting up](#setting-up)
-- [Known set-up issues](#known-set-up-issuess)
+- [Known set up issues](#known-set-up-issuess)
 - [Initial Guide](#initial-guide)
 - [Step-by-Step Guide](#step-by-step-guide)
   - [Setting the environment](#setting-the-environment)
@@ -69,7 +69,7 @@ It checks if the required packages are present and, if they are not, it will ins
 
 Any code preceded by # is `commented out` and is provided in `*.R` files for instructional/informational purposes.
 
-### Known set-up issues
+### Known set up issues
 
 # `XQuartz` Permissions & Environment Setup
 
