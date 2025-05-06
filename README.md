@@ -468,17 +468,17 @@ These responses with only differ by added gaussian noise.
     lwd=1.2, height=5, width=5, save=FALSE)
  ```
 
- ### Average and save ABF data using the UI interface
+ ### Average and save `ABF` data using the `UI` interface app
 
  The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
- 
+
  The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
 
  In addition to the tk interface launched using `analyseABFtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analyseABFshiny()`.
 
  The steps, options, and workflow are the same for both interfaces.
 
- The 'UI' is designed to normalise selected traces to a chosen baseline period then average and export output to a 'csv' file.
+ The `UI` is designed to normalise selected traces to a chosen baseline period then average and export output to a `csv` file.
    
  a. **Launch UI**  
  
