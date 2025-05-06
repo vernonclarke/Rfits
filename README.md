@@ -48,6 +48,9 @@ All analysis was performed using the R graphical user interface (GUI) and tested
 
 At the least, both `R` and `XQuartz` are essential to install for this code to work.
 
+Note: the use of X11 (including tcltk) requires XQuartz (version 2.8.5 or later). 
+Always re-install XQuartz when upgrading your macOS to a new major version. 
+
 
 
 ### Setting up
