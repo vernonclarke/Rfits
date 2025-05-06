@@ -13,6 +13,7 @@
   - [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
   - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
   - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
+  - [Clickable App to launch R based UI](#clickable-app-to-launch-R-based-UI)
   - [Analysing an entire data set](#analysing-an-entire-data-set)
   - [Retrieving analysed data](#retrieving-analysed-data)
   - [Examining analysed data](#examining-analysed-data)
@@ -634,34 +635,94 @@ These responses with only differ by added gaussian noise.
     - AIC/BIC criteria values 
     - metadata (all dropdown values)
   
-    In this scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+  In this scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
 
-    This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
+  This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
 
-    i. **Export Plot to SVG**  
+  i. **Export Plot to SVG**  
 
-    In the `UI`, click the **`Export Plot to SVG`** button.
+  In the `UI`, click the **`Export Plot to SVG`** button.
 
-    The exported plot looks like this:
+  The exported plot looks like this:
      
-    ![analysePSCtk_3](./images/analysePSCtk_3.svg)
+  ![analysePSCtk_3](./images/analysePSCtk_3.svg)
 
-    j. **Clear Output** _(optional)_  
+  j. **Clear Output** _(optional)_  
 
-    Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
+  Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
-    To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
+  To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
 
-    As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
+  As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
 
-    ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
+  ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
 
-    ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
+  ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
 
-    ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
+  ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
 
-    ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
+  ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
    
+
+
+
+### Clickable App to launch R based UI
+
+### Clickable .command to launch R based UI
+
+a. Create the launcher file with nano:
+
+    nano ~/Desktop/launch_psc_analysis.command
+
+Paste the following into the editor:
+
+    #!/bin/zsh
+    # launch PSC Analysis via Rscript so the tcltk GUI stays alive
+    RSCRIPT="/Library/Frameworks/R.framework/Resources/bin/Rscript"
+
+    "$RSCRIPT" --vanilla -e "
+      # load/install packages
+      load_required_packages <- function(pkgs) {
+        new.pkgs <- setdiff(pkgs, rownames(installed.packages()))
+        if (length(new.pkgs)) install.packages(new.pkgs)
+        invisible(lapply(pkgs, library, character.only=TRUE))
+      }
+      load_required_packages(c(
+        'dbscan','minpack.lm','Rcpp','robustbase',
+        'shiny','signal','readABF','readxl',
+        'tcltk','tkrplot','openxlsx'
+      ))
+
+      # source your GUI code
+      source('~/Documents/Repositories/Rfits/nNLS functions.R')
+
+      # launch the GUI (blocks until you close the window)
+      analysePSCtk()
+    "
+
+Save and exit nano (`Ctrl+O` ↵, `Ctrl+X`).
+
+b. Make the script executable:
+
+    chmod +x ~/Desktop/launch_psc_analysis.command
+
+c. Launch:
+
+Double-click `launch_psc_analysis.command` on your Desktop  
+• A Terminal window opens and runs Rscript  
+• Your tcltk UI (`analysePSCtk()`) pops up and stays open  
+• When you close the UI window, the R session exits automatically  
+
+**Note:**  
+Ensure your `nNLS functions.R` ends the UI function with:
+
+    tkfocus(tt)
+    tcltk::tkwait.window(tt)
+
+    
+	    
+  Optionally, right-click > Get Info and set a custom icon.
+  
 
    ### Analysing an entire data set
 
