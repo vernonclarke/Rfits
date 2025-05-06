@@ -3,7 +3,7 @@
 ## Table of Contents
   - [Initial Set Up](#initial-set-up)
   - [Setting up](#setting-up) 
-  - [Initial Guide](#initial-guide)
+  - [Known set-up issues](#known-set-up-issues) 
   - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
   - [Clickable App to launch R based UI](#clickable-app-to-launch-R-based-UI)
 
@@ -45,6 +45,62 @@ The following code should be executed in R prior to running any of the analysis 
 It checks if the required packages are present and, if they are not, it will install them.
 
 Any code preceded by # is `commented out` and is provided in `*.R` files for instructional/informational purposes.
+
+### Known set-up issues
+
+# `XQuartz` Permissions & Environment Setup
+
+If `XQuartz` (`X11`) fails due to permission resets (this routinely occurs on my `MacBook`, most likely as a result of my host institution altering permissions), any graphics in `R` will fail.
+
+Reset `XQuartz` permission by following these steps:
+
+a. Open `Terminal`
+
+b. Create the /tmp/.X11-unix directory with sticky-world permissions
+
+ ```
+  sudo mkdir -p /tmp/.X11-unix
+  sudo chmod 1777 /tmp/.X11-unix
+ ```
+
+c. Ensure no conflicting `X11` processes are running
+
+ ```
+  ps aux | grep X11
+  sudo killall XQuartz
+ ```
+
+d. Restart `XQuartz`
+
+ ```
+  open -a XQuartz
+ ```
+
+e. Set the DISPLAY environment variable so X clients know where to connect
+
+ ```
+  export DISPLAY=:0
+ ```
+
+f. Allow connections from localhost (needed for calls from `R` / `tcltk`)
+
+ ```
+  xhost +localhost
+ ```
+
+g. Verify Security Settings for `Xquartz` GUI (optional):
+
+Open XQuartz → Preferences → Security → check 'Allow connections from network clients'
+
+h. Check the macOS Console for `XQuartz` errors (optional):
+
+Open Console.app → filter for `XQuartz` → inspect any error messages
+
+i. Test your configuration by launching a simple `X11` app
+
+ ```
+  xterm   # if an xterm window appears, your XQuartz setup is correct
+ ```
 
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
