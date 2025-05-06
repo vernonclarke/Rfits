@@ -82,33 +82,33 @@ a. Open `Terminal`
 
 b. Create the /tmp/.X11-unix directory with sticky-world permissions
 
- ```
+ ```bash
   sudo mkdir -p /tmp/.X11-unix
   sudo chmod 1777 /tmp/.X11-unix
  ```
 
 c. Ensure no conflicting `X11` processes are running
 
- ```
+ ```bash
   ps aux | grep X11
   sudo killall XQuartz
  ```
 
 d. Restart `XQuartz`
 
- ```
+ ```bash
   open -a XQuartz
  ```
 
 e. Set the DISPLAY environment variable so X clients know where to connect
 
- ```
+ ```bash
   export DISPLAY=:0
  ```
 
 f. Allow connections from localhost (needed for calls from `R` / `tcltk`)
 
- ```
+ ```bash
   xhost +localhost
  ```
 
@@ -122,7 +122,7 @@ Open Console.app → filter for `XQuartz` → inspect any error messages
 
 i. Test your configuration by launching a simple `X11` app
 
- ```
+ ```bash
   xterm   # if an xterm window appears, your XQuartz setup is correct
  ```
 
@@ -735,7 +735,9 @@ The provided example creates the PSC analysis app from analysePSCtk().
 
 a. In `Terminal` create the launcher file with `nano`:
 
-    nano ~/Desktop/launch_psc_analysis.command
+```bash
+ nano ~/Desktop/launch_psc_analysis.command
+```
 
 Paste the following into the editor:
 
@@ -766,8 +768,9 @@ Paste the following into the editor:
 Save and exit nano (`Ctrl+O` ↵, `Ctrl+X`).
 
 b. Make the script executable:
-
-    chmod +x ~/Desktop/launch_psc_analysis.command
+```bash
+ chmod +x ~/Desktop/launch_psc_analysis.command
+```
 
 c. Launch:
 
