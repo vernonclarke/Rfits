@@ -8400,6 +8400,7 @@ ABF_analysis_tk <- function() {
     tkgrid(tkDownloadBtn,           row = 14, column = 0, columnspan = 3, pady = 5)
 
     tkfocus(tt)
+    tkwait.window(tt)
   }
 
   # launch UI
@@ -9509,6 +9510,7 @@ analysePSCtk <- function() {
     tkgrid(fitOutputText, row=12, column=0, columnspan=3, sticky='w', padx=20)
     
     tkfocus(tt)
+    tkwait.window(tt)
   }
 
   PSC_analysis_tk()
