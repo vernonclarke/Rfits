@@ -11,7 +11,7 @@
   - [View data](#view-data)
   - [Load data](#load-data)
   - [View imported data](#view-imported-data)
-  - [Analyse in RGui using analyse_PSC](#analyse-in-rgui-using-analyse_psc)
+  - [Analyse in R GUI using analyse_PSC](#analyse-in-r-gui-using-analyse_psc)
   - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
   - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
   - [Clickable App to launch R based UI](#clickable-app-to-launch-R-based-UI)
