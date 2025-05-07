@@ -9993,7 +9993,6 @@ analysePSCshiny <- function() {
   shinyApp(ui=ui, server=server)
 }
 
-
 widgetPSCtk <- function() {
 
   widget_PSC_tk <- function() {
@@ -10001,10 +10000,10 @@ widgetPSCtk <- function() {
     tt <- tktoplevel()
     tkwm.title(tt, 'I (pA)')
 
-    Tr            <- tclVar("5")
-    Td            <- tclVar("25")
-    decayUpperVar <- tclVar("0.9")
-    decayLowerVar <- tclVar("0.1")
+    Tr            <- tclVar('5')
+    Td            <- tclVar('25')
+    decayUpperVar <- tclVar('0.9')
+    decayLowerVar <- tclVar('0.1')
 
     updatePlot <- function() {
       currentTr   <- as.numeric(tclvalue(Tr))
@@ -10043,7 +10042,7 @@ widgetPSCtk <- function() {
 
       up_pct <- round(decay_range[1]*100)
       lo_pct <- round(decay_range[2]*100)
-      title2 <- paste("normalised with", up_pct, "-", lo_pct, "% decay time")
+      title2 <- paste('normalised with', up_pct, '-', lo_pct, '% decay time')
 
       par(mfrow = c(2,1), mar = c(4,4,3,1))
       plot(t_seq, y_comb, type='l', col='grey', lwd=2, axes=FALSE,
@@ -10051,6 +10050,13 @@ widgetPSCtk <- function() {
            xlab='', ylab='F(x)', xlim=c(0,t_max), ylim=c(-1,0))
       lines(t_seq, y_Td, col='indianred', lty=3, lwd=2)
       lines(t_seq, y_Tr, col='slateblue', lty=3, lwd=2)
+      legend('bottomright', legend = c(
+        expression(e^{-t/tau[decay]} - e^{-t/tau[rise]}),
+        expression(e^{-t/tau[decay]}),
+        expression(e^{-t/tau[rise]})
+      ),
+      col = c('grey', 'indianred', 'slateblue'), lty = c(1,3,3), lwd = 2,
+      bty = 'n', inset = c(0.02, 0.15))
       axis(2, las=1, tcl=-0.2)
 
       plot(t_seq, y_comb/abs(min(y_comb)), type='l', col='grey', lwd=2, axes=FALSE,
@@ -10058,16 +10064,21 @@ widgetPSCtk <- function() {
            xlim=c(0,t_max), ylim=c(-1,0))
       lines(t_seq, y_1mTr, col='slateblue', lty=3, lwd=2)
       lines(t_seq, y_Td, col='indianred', lty=3, lwd=2)
-
+      legend('bottomright', legend = c(
+        expression((e^{-t/tau[decay]} - e^{-t/tau[rise]}) / abs),
+        expression(-(1 - e^{-t/tau[1]})),
+        expression(-e^{-t/tau[decay]})
+      ),
+      col = c('gray','slateblue','indianred'), lty = c(1,3,3), lwd = 2,
+      bty = 'n', inset = c(0.02, 0.15))
       if (!is.na(decay_time)) {
         abline(h=-up_v/min_v, col='darkgrey', lty=3)
         abline(h=-lo_v/min_v, col='darkgrey', lty=3)
-        text(t_max*0.8, -0.5,
-             paste(up_pct, "-", lo_pct, "decay =", decay_time, "ms"),
+        text(t_max*0.8, -0.3,
+             paste(up_pct, '-', lo_pct, 'decay =', decay_time, 'ms'),
              col='darkgrey', cex=0.8)
       } else {
-        text(t_max*0.8, -0.5, 'Decay not fully reached',
-             col='indianred', cex=0.8)
+        text(t_max*0.8, -0.3, 'Decay not fully reached', col='indianred', cex=0.8)
       }
       axis(1, las=1, tcl=-0.2)
       axis(2, las=1, tcl=-0.2)
@@ -10079,25 +10090,24 @@ widgetPSCtk <- function() {
 
     decayFrame <- tkframe(tt)
     tkpack(decayFrame, side='top', fill='x', pady=5)
-    tkpack(tklabel(decayFrame, text='Decay range (high, low):'),
-           side='left', padx=5)
+    tkpack(tklabel(decayFrame, text='Decay range (high, low):'), side='left', padx=5)
     highEntry <- tkentry(decayFrame, textvariable=decayUpperVar, width=5)
     lowEntry  <- tkentry(decayFrame, textvariable=decayLowerVar, width=5)
     tkpack(highEntry, side='left', padx=2)
     tkpack(lowEntry,  side='left', padx=2)
-    tkbind(highEntry, "<KeyRelease>", function() tkrreplot(img))
-    tkbind(lowEntry,  "<KeyRelease>", function() tkrreplot(img))
+    tkbind(highEntry, '<KeyRelease>', function() tkrplot::tkrreplot(img))
+    tkbind(lowEntry,  '<KeyRelease>', function() tkrplot::tkrreplot(img))
 
     tkpack(tklabel(tt, text='\u03C4 rise'),  side='top')
     Tr_slider <- tkscale(tt, from=0.1, to=50, resolution=0.1,
                          showvalue=TRUE, variable=Tr, orient='horizontal',
-                         command=function(...) tkrreplot(img))
+                         command=function(...) tkrplot::tkrreplot(img))
     tkpack(Tr_slider, fill='x', padx=10, pady=5)
 
     tkpack(tklabel(tt, text='\u03C4 decay'), side='top')
     Td_slider <- tkscale(tt, from=0.1, to=200, resolution=1,
                          showvalue=TRUE, variable=Td, orient='horizontal',
-                         command=function(...) tkrreplot(img))
+                         command=function(...) tkrplot::tkrreplot(img))
     tkpack(Td_slider, fill='x', padx=10, pady=5)
 
     tkfocus(tt)
