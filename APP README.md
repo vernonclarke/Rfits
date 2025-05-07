@@ -306,6 +306,8 @@ Paste the following into the editor:
     RSCRIPT="/Library/Frameworks/R.framework/Resources/bin/Rscript"
 
     "$RSCRIPT" --vanilla -e "
+      # set a CRAN mirror for non-interactive installs
+      options(repos = c(CRAN = 'https://cloud.r-project.org'))
       # load/install packages
       load_required_packages <- function(pkgs) {
         new.pkgs <- setdiff(pkgs, rownames(installed.packages()))
