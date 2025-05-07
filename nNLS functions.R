@@ -7727,7 +7727,7 @@ review_master_recordings <- function() {
          axes = FALSE, bty = 'l')
     axis(1); axis(2, las = 1)
     points(stim_time, stim_y, pch = 8, col = 'black')
-    text(  stim_time, stim_y, labels = 'stim', pos = 3, cex = cex)
+    text(stim_time, stim_y, labels = 'stim', pos = 3, cex = cex)
   }, hscale = graph_hscale, vscale = graph_vscale)
   tkgrid(reviewPlot, row = 0, column = 0, sticky = 'nsew')
 
@@ -7748,7 +7748,6 @@ review_master_recordings <- function() {
       tkconfigure(infoLabel, text = paste('Trace', current_trace, 'of', total_traces))
       tkrreplot(reviewPlot)
     } else {
-      tkinsert(consoleText, '1.0', 'end')
       tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
       tkconfigure(acceptButton, state = 'disabled')
       tkconfigure(rejectButton, state = 'disabled')
@@ -7759,6 +7758,7 @@ review_master_recordings <- function() {
 
   navBar <- tkframe(reviewFrame)
   tkgrid(navBar, row = 2, column = 1, pady = 5)
+
   acceptButton <<- tkbutton(navBar, text = 'Accept', command = function() {
     current_group_selected <<- c(current_group_selected, current_trace)
     redraw_console_master()
@@ -7775,9 +7775,23 @@ review_master_recordings <- function() {
     }
     redraw_console_master()
   })
+  averageGroupButton <<- tkbutton(navBar, text = 'Add Selected Group', command = function() {
+    if (length(current_group_selected) > 0) {
+      groups_list[[length(groups_list) + 1]] <<- current_group_selected
+      current_group_selected <<- integer(0)
+      redraw_console_master()
+    }
+  })
+  selectionCompleteButton <<- tkbutton(navBar, text = 'Selection Complete', command = function() {
+    tkinsert(consoleText, 'end', 'Review complete: Approved traces stored.\n')
+    tkyview.moveto(consoleText, 1.0)
+  })
+
   tkgrid(acceptButton, row = 0, column = 0, padx = 5)
   tkgrid(rejectButton, row = 0, column = 1, padx = 5)
   tkgrid(undoButton,   row = 0, column = 2, padx = 5)
+  tkgrid(averageGroupButton, row = 1, column = 0, padx = 5, pady=5)
+  tkgrid(selectionCompleteButton, row = 1, column = 1, padx = 5, pady=5)
 }
 
 review_recordings <- function() {
@@ -7912,14 +7926,15 @@ review_recordings <- function() {
 
 
 
-  # averaging Functions
-  # function to average selected groups for concatenated mode.
-  average_selected_groups <- function() {
+# averaging Functions
+# function to average selected groups for concatenated mode.
+average_selected_groups <- function() {
   if (length(groups_list) == 0) {
     tkinsert(consoleText, 'end', "No groups available for averaging. Please select groups first.\n")
     tkyview.moveto(consoleText, 1.0)
     return()
   }
+  
   dt_val      <- master_abf$samplingIntervalInSec * 1000
   stim_time   <- as.numeric(tclvalue(stimTimeVar))
   base_val    <- as.numeric(tclvalue(baselineVar))
@@ -7939,19 +7954,20 @@ review_recordings <- function() {
                     dt_val, stim_time, base_val))
     rowMeans(do.call(cbind, mats))
   })
+
   current_avg_index <<- 1
 
   children <- as.character(tkwinfo('children', plotPanel))
   if (length(children)) sapply(children, function(ch) tcl("destroy", ch))
   tkgrid.columnconfigure(plotPanel, 0, weight = 1)
-  tkgrid.rowconfigure(   plotPanel, 0, weight = 1)
+  tkgrid.rowconfigure(plotPanel, 0, weight = 1)
 
   avgFrame <<- tkframe(plotPanel)
   tkgrid(avgFrame, row = 0, column = 0, sticky = 'nsew')
   tkgrid.columnconfigure(avgFrame, 0, weight = 1)
   tkgrid.columnconfigure(avgFrame, 1, weight = 1)
   tkgrid.columnconfigure(avgFrame, 2, weight = 1)
-  tkgrid.rowconfigure(   avgFrame, 1, weight = 1)
+  tkgrid.rowconfigure(avgFrame, 1, weight = 1)
 
   plotWrapper <- tkframe(avgFrame, height = graph_height, width = graph_width)
   tkgrid(plotWrapper, row = 1, column = 1, sticky = 'nsew')
@@ -7962,27 +7978,21 @@ review_recordings <- function() {
     tk_par_settings()
     cex <- as.numeric(tclvalue(cexVar))
     par(cex.lab = cex, cex.axis = cex, cex.main = cex)
-    y    <- averaged_data[[current_avg_index]]
+    
+    y <- averaged_data[[current_avg_index]]
+    dt_val <- master_abf$samplingIntervalInSec * 1000
     time <- seq(from = stim_time - base_val, by = dt_val, length.out = length(y))
-
-    egs_plot(x = time, y = y,
-             color     = 'darkgray',
-             show_bar  = TRUE,
-             show_text = TRUE,
-             xbar      = as.numeric(tclvalue(xbarVar)),
-             ybar      = as.numeric(tclvalue(ybarVar)),
-             xlim      = smart_axis_limits(time),
-             ylim      = smart_axis_limits(y),
-             cex       = cex)
-
-    # add stimulation marker
+    
+    plot(time, y, type = 'l', col = 'darkgray', xlab = 'time (ms)', ylab = tclvalue(unitVar),
+         xlim = smart_axis_limits(time), ylim = smart_axis_limits(y),
+         axes = FALSE, bty = 'l')
+    axis(1); axis(2, las = 1)
     stim_y <- y[which.min(abs(time - stim_time))]
     points(stim_time, stim_y, pch = 8, col = 'black')
-    text(  stim_time, stim_y, labels = 'stim', pos = 3, cex = cex)
+    text(stim_time, stim_y, labels = 'stim', pos = 3, cex = cex)
   }
 
-  avgPlot <<- tkrplot(plotWrapper, fun = drawAvgPlot,
-                      hscale = graph_hscale, vscale = graph_vscale)
+  avgPlot <<- tkrplot(plotWrapper, fun = drawAvgPlot, hscale = graph_hscale, vscale = graph_vscale)
   tkgrid(avgPlot, row = 0, column = 0, sticky = 'nsew')
 
   navFrame <- tkframe(avgFrame)
@@ -7991,14 +8001,9 @@ review_recordings <- function() {
   nextButton <- tkbutton(navFrame, text = 'Next', command = function() {
     current_avg_index <<- if (current_avg_index < length(averaged_data)) current_avg_index + 1 else 1
     tkconfigure(navLabel, text = paste('Average:', current_avg_index, 'of', length(averaged_data)))
-    try({
-      if (exists('avgPlot', inherits = TRUE)) {
-        widget_id <- as.character(avgPlot$ID)
-        if (tcl('winfo', 'exists', widget_id) == '1') tkrreplot(avgPlot)
-      }
-    }, silent = TRUE)
-
+    tkrreplot(avgPlot)
   })
+  
   tkgrid(navLabel,   row = 0, column = 0, padx = 5)
   tkgrid(nextButton, row = 0, column = 1, padx = 5)
 
