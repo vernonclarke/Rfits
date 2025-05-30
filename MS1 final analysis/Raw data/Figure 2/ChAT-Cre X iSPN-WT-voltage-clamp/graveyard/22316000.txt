@@ -1,0 +1,5 @@
+Trace 1-10: Control----Trace 5-10 were averaged
+Trace 11-25: +GABAzine ----Trace 21-25 were averaged
+Trace 26-37: +Mecamylamine 
+
+Here I subtracted the averaged traces in "Control" from the averaged traces after the addition of GABAzine
