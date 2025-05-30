@@ -1,43 +1,37 @@
-# Ignore all the specified folders
-Leila analysis/**
-Linqing analysis/**
-Marziyeh analysis/**
-Tamara analysis/**
-Qiaoling analysis/**
-Nora analysis/**
+# Ignore specified analysis folders
+Leila analysis/
+Linqing analysis/
+Marziyeh analysis/
+Tamara analysis/
+Qiaoling analysis/
+Nora analysis/
 
-# Ignore specific file types
-**/*.RData
-**/*.ai
-**/*.svg
-**/*.abf
-**/*.DS_store
-**/*.Rapp.history
-**/*.command
+# Ignore specific file types globally
+*.RData
+*.ai
+*.svg
+*.abf
+.DS_store
+*.Rapp.history
+*.command
+*.pdf
 
-# Ignore all .svg files in all directories
-**/*.svg
-
-# Don't ignore .svg files in the images/svg/ folder
+# Unignore .svg files in images/ but still ignore elsewhere
 !images/**/*.svg
 !images/**/*.png
 
-# Don't ignore .abf files in the examples folder
+# Unignore .abf files in the examples folder
 !examples/**/*.abf
 
 # Ignore everything in the root directory 'Rfits'
 /Rfits/
 
-# Ignore specific file types in the repository
+# Ignore all .R files, but allow specific ones
 *.R
-*.pdf
-
-# Unignore specific files in the root directory
 !/nNLS functions.R
 !/NLS functions.R
 
-# Unignore example.R in the Yichen analysis directory
+# Unignore specific example.R files in specific folders
 !Yichen analysis/example.R
-
-# Unignore example.R in the James analysis directory
 !James analysis/example.R
+
