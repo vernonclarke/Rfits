@@ -1,5 +1,0 @@
-Trace 1-8: Control----Trace 1-5 and 7-8 were averaged
-Trace 9-21: +AP5+NBQX ----Trace 15-21 were averaged
-Trace 22-45: +GABAzine----Trace 39-45 were averaged
-
-Here I subtracted the averaged traces (after AMPA/NMDA blockers) from the averaged traces after GABAzine

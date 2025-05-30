@@ -1,5 +1,0 @@
-Trace 1-4: Control----Trace 1-4 were averaged
-Trace 6-13: +GABAzine ----Trace 10-13 were averaged
- 
-
-subtract the averaged traces in "Control" from the averaged traces after the addition of GABAzine
