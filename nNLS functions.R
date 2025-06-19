@@ -2987,12 +2987,16 @@ nFIT_sequential <- function(response, n=30, N=1, IEI=50, dt=0.1, func=product2N,
 analyse_PSC <- function(response, dt=0.1, n=30, N=1, IEI=50, stimulation_time=150, baseline=50, smooth=5, func=product2N,  method=c("BF.LM", "LM", "GN", "port", "robust", "MLE"), 
   weight_method=c('none', '~y_sqrt', '~y'), sequential.fit=FALSE, fit.limits=NULL, MLEsettings=list(iter=1e3, metropolis.scale=1.5, fit.attempts=10, RWm=FALSE), 
   filter=FALSE, fc=1000, interval=c(0.1, 0.9), lower=NULL, upper=NULL,  fast.decay.limit=NULL, fast.constraint=FALSE, fast.constraint.method=c('rise', 'peak'), 
-  first.delay.constraint=FALSE, latency.limit=NULL, rel.decay.fit.limit=0.1, half_width_fit_limit=500, dp=3, lwd=1.2, xlab='time (ms)', ylab='PSC (pA)', return.output=TRUE, height=5, width=5, seed=42) {
+  first.delay.constraint=FALSE, latency.limit=NULL, rel.decay.fit.limit=0.1, half_width_fit_limit=500, dp=3, lwd=1.2, xlab='time (ms)', ylab='PSC (pA)', 
+  downsample=1, return.output=TRUE, height=5, width=5, seed=42) {
   
   y <- response
   if (all(is.na(y[(which(!is.na(y))[length(which(!is.na(y)))] + 1):length(y)]))) {
     y <- y[!is.na(y)]
   }
+
+  y <- y[seq(1, length(y), by = downsample)]
+  dt <- dt * downsample
 
   x <- seq(0, (length(y) - 1) * dt, by = dt)
 
@@ -6663,7 +6667,7 @@ charge_transfer_fun <- function(x, y, fc=300, dt=0.1, baseline=40, filter=TRUE, 
 
   if (filter) {
     fs=1 / dt * 1000; bf <- butter(2, fc / (fs / 2), type='low')
-    yfilter <- signal::filter(bf, y)
+    yfilter <- as.numeric(signal::filter(bf, y))
   } else {
     ind=1
     yfilter=y
