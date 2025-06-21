@@ -3226,7 +3226,7 @@ extract_variable <- function(data_list, id = 'area', rename_datasets = TRUE) {
 }
 
 
-boxplot_calculator <- function(data, type = 6, na.rm=FALSE) {
+boxplot_calculator_ver0 <- function(data, type = 6, na.rm=FALSE) {
   unique_x <- unique(data$x)
   result <- data.frame(x = numeric(), Q1 = numeric(), Q3 = numeric(), Median = numeric(), Min = numeric(), Max = numeric(), MAD = numeric())
   
@@ -3258,12 +3258,42 @@ boxplot_calculator <- function(data, type = 6, na.rm=FALSE) {
   return(result)
 }
 
-
-WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude (mV)', 
+boxplot_calculator <- function(data, type = 6, na.rm=FALSE) {
+  unique_x <- unique(data$x)
+  result <- data.frame(x = numeric(), Q1 = numeric(), Q3 = numeric(), Median = numeric(), Min = numeric(), Max = numeric(), MAD = numeric())
+  
+  for (i in 1:length(unique_x)) {
+    current_x <- unique_x[i]
+    d <- data$y[data$x == current_x]
+    
+    q1 <- quantile(d, probs = 0.25, type = type, na.rm = na.rm)
+    q3 <- quantile(d, probs = 0.75, type = type, na.rm = na.rm)
+    iqr <- q3 - q1  # Calculate IQR
+    
+    lower_bound <- q1 - 1.5 * iqr  # Lower bound for outliers
+    upper_bound <- q3 + 1.5 * iqr  # Upper bound for outliers
+    
+    # Exclude outliers
+    d_filtered <- d[d >= lower_bound & d <= upper_bound]
+    
+    median_val <- median(d, na.rm = na.rm)
+    min_val <- min(d_filtered, na.rm = na.rm)
+    max_val <- max(d_filtered, na.rm = na.rm)
+    
+    # Calculate MAD
+    mad <- median(abs(d - median_val), na.rm = na.rm)
+    
+    result <- rbind(result, data.frame(x = current_x, Q1 = q1, Q3 = q3, Median = median_val, Min = min_val, Max = max_val, MAD = mad))
+  }
+  
+  rownames(result) <- NULL  # Remove row names
+  return(result)
+}
+WBplot_ver0 <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude (mV)', 
                    xrange = c(0.75, 2.25), yrange = c(0, 400), main = '', tick_length = 0.02, 
                    x_tick_interval = NULL, y_tick_interval = 100, lwd = 0.8, type = 6, na.rm=FALSE) {
   
-  boxplot_values <- boxplot_calculator(data=data, type=type, na.rm=na.rm)
+  boxplot_values <- boxplot_calculator_ver0(data=data, type=type, na.rm=na.rm)
   
   if (is.null(x_tick_interval)) {
     x_ticks <- unique(data$x)
@@ -3297,6 +3327,47 @@ WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude
   axis(2, at = y_ticks, tcl = -tick_length, las = 1, lwd = lwd)
 }
 
+WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude (mV)', 
+                   xrange = c(0.75, 2.25), yrange = c(0, 400), main = '', tick_length = 0.02, 
+                   x_tick_interval = NULL, y_tick_interval = 100, lwd = 0.8, type = 6, log_y=FALSE, na.rm=FALSE) {
+  
+  boxplot_values <- boxplot_calculator(data=data, type=type, na.rm=na.rm)
+  if (log_y){
+    num_cols <- sapply(boxplot_values, is.numeric)
+    boxplot_values[num_cols] <- lapply(boxplot_values[num_cols], log10)
+  }
+
+  if (is.null(x_tick_interval)) {
+    x_ticks <- unique(data$x)
+  } else {
+    x_ticks <- seq(xrange[1], xrange[2], by = x_tick_interval)
+  }
+  xrange <- xrange + c(-wid, wid)
+  
+  # Ensure background is off and plot area is clear
+  par(bg = NA)
+  plot(1, type = 'n', ylim = yrange, xlim = xrange, xlab = xlab, ylab = ylab, 
+       main = main, xaxt = 'n', yaxt = 'n', bty = 'n', lwd = lwd)
+  
+  for (i in 1:nrow(boxplot_values)) {
+    # Convert current_x to numeric for arithmetic operations
+    current_x <- as.numeric(boxplot_values$x[i])
+    
+    rect(current_x - wid, boxplot_values$Q1[i], current_x + wid, boxplot_values$Q3[i], col = 'white', lwd = lwd)
+    segments(current_x, boxplot_values$Q1[i], current_x, boxplot_values$Min[i], lwd = lwd)
+    segments(current_x, boxplot_values$Q3[i], current_x, boxplot_values$Max[i], lwd = lwd)
+    segments(current_x - cap, boxplot_values$Min[i], current_x + cap, boxplot_values$Min[i], lwd = lwd)
+    segments(current_x - cap, boxplot_values$Max[i], current_x + cap, boxplot_values$Max[i], lwd = lwd)
+    segments(current_x - wid * 1.1, boxplot_values$Median[i], current_x + wid * 1.1, boxplot_values$Median[i], col = 'black', lwd = 3 * lwd)
+  }
+  
+  # Set the x-axis ticks
+  axis(1, at = x_ticks, labels = x_ticks, tcl = -tick_length, lwd = lwd)
+  
+  # Set the y-axis ticks
+  y_ticks <- seq(yrange[1], yrange[2], by = y_tick_interval)
+  axis(2, at = y_ticks, tcl = -tick_length, las = 1, lwd = lwd)
+}
 
 BoxPlot <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)', main='', 
                     xrange=c(0.75,2.25), yrange=c(-400, 0), tick_length=0.2, 
@@ -3343,121 +3414,121 @@ BoxPlot <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)',
 }
 
 
-# BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05,
-#                      xlab = '', ylab = 'PSC amplitude (pA)', main = '',
-#                      xrange = NULL, yrange = c(-400, 0), tick_length = 0.2,
-#                      x_tick_interval = NULL, y_tick_interval = 100,
-#                      xlabel_angle = NULL,    # NEW: angle in degrees, or NULL for horizontal
-#                      lwd = 1, type = 6, amount = 0.05, p.cex = 0.5,
-#                      filename = 'boxplot.svg', height = 2.5, width = 4,
-#                      bg = 'transparent', alpha = 0.6, na.rm = FALSE, save = FALSE) {
+BoxPlot2_ver0 <- function(formula, data, wid = 0.2, cap = 0.05,
+                     xlab = '', ylab = 'PSC amplitude (pA)', main = '',
+                     xrange = NULL, yrange = c(-400, 0), tick_length = 0.2,
+                     x_tick_interval = NULL, y_tick_interval = 100,
+                     xlabel_angle = NULL,
+                     lwd = 1, type = 6, amount = 0.05, p.cex = 0.5,
+                     filename = 'boxplot.svg', height = 2.5, width = 4,
+                     bg = 'transparent', alpha = 0.6, na.rm = FALSE, save = FALSE) {
 
-#   # formula
-#   response   <- as.character(formula[[2]])
-#   predictors <- all.vars(formula[[3]])
-#   if (!all(c(response, predictors) %in% names(data))) {
-#     stop('Response or predictor not found in data.')
-#   }
+  # formula
+  response   <- as.character(formula[[2]])
+  predictors <- all.vars(formula[[3]])
+  if (!all(c(response, predictors) %in% names(data))) {
+    stop('Response or predictor not found in data.')
+  }
 
-#   if (length(predictors) == 1) {
-#     data$x <- factor(data[[predictors[1]]])
-#   } else {
-#     data$x <- interaction(data[[predictors[1]]], data[[predictors[2]]], sep=' : ')
-#   }
-#   data$y <- data[[response]]
+  if (length(predictors) == 1) {
+    data$x <- factor(data[[predictors[1]]])
+  } else {
+    data$x <- interaction(data[[predictors[1]]], data[[predictors[2]]], sep=' : ')
+  }
+  data$y <- data[[response]]
 
-#   if (is.null(xrange)) {
-#     xrange <- range(as.numeric(data$x), na.rm=TRUE) + c(-wid, wid)
-#   }
+  if (is.null(xrange)) {
+    xrange <- range(as.numeric(data$x), na.rm=TRUE) + c(-wid, wid)
+  }
 
-#   if (save) {
-#     svg(filename, width=width, height=height, bg=bg)
-#     on.exit(dev.off(), add=TRUE)
-#   } else {
-#     dev.new(width=width, height=height, noRStudioGD=TRUE)
-#   }
+  if (save) {
+    svg(filename, width=width, height=height, bg=bg)
+    on.exit(dev.off(), add=TRUE)
+  } else {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+  }
 
-#   # suppress default x‐labels
-#   orig_axis <- graphics::axis
-#   assign('axis',
-#     function(side, at, labels = TRUE, tcl = NA, ...) {
-#       if (side == 1) {
-#         orig_axis(side, at = at, labels = FALSE, tcl = -tick_length, ...)
-#       } else {
-#         orig_axis(side, at = at, labels = labels, tcl = -tick_length, ...)
-#       }
-#     },
-#     envir = .GlobalEnv
-#   )
-#   on.exit(assign('axis', orig_axis, envir = .GlobalEnv), add = TRUE)
+  # suppress default x‐labels
+  orig_axis <- graphics::axis
+  assign('axis',
+    function(side, at, labels = TRUE, tcl = NA, ...) {
+      if (side == 1) {
+        orig_axis(side, at = at, labels = FALSE, tcl = -tick_length, ...)
+      } else {
+        orig_axis(side, at = at, labels = labels, tcl = -tick_length, ...)
+      }
+    },
+    envir = .GlobalEnv
+  )
+  on.exit(assign('axis', orig_axis, envir = .GlobalEnv), add = TRUE)
 
-#   # draw the boxplot (WBplot calls axis(1) & axis(2) internally)
-#   WBplot(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main,
-#          xrange = xrange, yrange = yrange, tick_length = tick_length,
-#          x_tick_interval = x_tick_interval, y_tick_interval = y_tick_interval,
-#          lwd = lwd, type = type, na.rm = na.rm)
+  # draw the boxplot (WBplot calls axis(1) & axis(2) internally)
+  WBplot_ver0(data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, main = main,
+         xrange = xrange, yrange = yrange, tick_length = tick_length,
+         x_tick_interval = x_tick_interval, y_tick_interval = y_tick_interval,
+         lwd = lwd, type = type, na.rm = na.rm)
 
-#   # restore axis()
-#   assign('axis', orig_axis, envir = .GlobalEnv)
+  # restore axis()
+  assign('axis', orig_axis, envir = .GlobalEnv)
 
 
-#   # draw custom x‐labels
-#   x_labels <- levels(data$x)
+  # draw custom x‐labels
+  x_labels <- levels(data$x)
 
-#   # strip off everything from the first ' :'
-#   labs <- sub('\\s*:\\s*.*$', '', x_labels)
+  # strip off everything from the first ' :'
+  labs <- sub('\\s*:\\s*.*$', '', x_labels)
 
-#   # draw axis
-#   at <- seq_along(labs)
-#   if (is.null(xlabel_angle)) {
-#     axis(1, at = at, labels = labs, tcl = -tick_length, lwd = lwd)
-#   } else {
-#     axis(1, at = at, labels = FALSE, tcl = -tick_length, lwd = lwd)
-#     usr <- par('usr')
-#     y0  <- usr[3] - 0.1 * diff(usr[3:4])
-#     text(x = at, y = y0, labels = labs,
-#          srt = xlabel_angle, adj = 1, xpd = TRUE)
-#   }
+  # draw axis
+  at <- seq_along(labs)
+  if (is.null(xlabel_angle)) {
+    axis(1, at = at, labels = labs, tcl = -tick_length, lwd = lwd)
+  } else {
+    axis(1, at = at, labels = FALSE, tcl = -tick_length, lwd = lwd)
+    usr <- par('usr')
+    y0  <- usr[3] - 0.1 * diff(usr[3:4])
+    text(x = at, y = y0, labels = labs,
+         srt = xlabel_angle, adj = 1, xpd = TRUE)
+  }
 
-#   # —————— jitter & paired/unpaired block ——————
-#   set.seed(42)
-#   data$x_jitter <- jitter(as.numeric(data$x), amount = amount)
+  # —————— jitter & paired/unpaired block ——————
+  set.seed(42)
+  data$x_jitter <- jitter(as.numeric(data$x), amount = amount)
   
-#   # identify paired subjects (>=2 non-NA y’s)
-#   if ('s' %in% names(data)) {
-#     counts      <- ave(!is.na(data$y), data$s, FUN = sum)
-#     data$paired <- counts >= 2
-#   } else {
-#     data$paired <- rep(FALSE, nrow(data))
-#   }
+  # identify paired subjects (>=2 non-NA y’s)
+  if ('s' %in% names(data)) {
+    counts      <- ave(!is.na(data$y), data$s, FUN = sum)
+    data$paired <- counts >= 2
+  } else {
+    data$paired <- rep(FALSE, nrow(data))
+  }
   
-#   # draw lines for repeated measures (>=2)
-#   if ('s' %in% names(data)) {
-#     for (subj in unique(data$s[data$paired])) {
-#       sd <- subset(data, s == subj & !is.na(y))
-#       sd <- sd[order(as.numeric(sd$x)), ]
-#       lines(sd$x_jitter, sd$y,
-#             col = 'darkgray', lwd = lwd, lty = 3)
-#     }
-#   }
+  # draw lines for repeated measures (>=2)
+  if ('s' %in% names(data)) {
+    for (subj in unique(data$s[data$paired])) {
+      sd <- subset(data, s == subj & !is.na(y))
+      sd <- sd[order(as.numeric(sd$x)), ]
+      lines(sd$x_jitter, sd$y,
+            col = 'darkgray', lwd = lwd, lty = 3)
+    }
+  }
   
-#   # draw all paired points (or, if no 's', all points) in gray
-#   gray_col <- rgb(169/255,169/255,169/255, alpha = alpha)
-#   points(data$x_jitter[data$paired | !('s' %in% names(data))],
-#          data$y    [data$paired | !('s' %in% names(data))],
-#          pch = 19, col = gray_col, cex = p.cex, lwd = lwd/3)
+  # draw all paired points (or, if no 's', all points) in gray
+  gray_col <- rgb(169/255,169/255,169/255, alpha = alpha)
+  points(data$x_jitter[data$paired | !('s' %in% names(data))],
+         data$y    [data$paired | !('s' %in% names(data))],
+         pch = 19, col = gray_col, cex = p.cex, lwd = lwd/3)
   
-#   # draw the strictly unpaired points in red—but only if you really had 's'
-#   if ('s' %in% names(data)) {
-#     unpaired <- !data$paired & !is.na(data$y)
-#     red_col  <- rgb(205/255,92/255,92/255, alpha = alpha)
-#     points(data$x_jitter[unpaired],
-#            data$y    [unpaired],
-#            pch = 19, col = red_col, cex = p.cex, lwd = lwd/3)
-#   }
+  # draw the strictly unpaired points in red—but only if you really had 's'
+  if ('s' %in% names(data)) {
+    unpaired <- !data$paired & !is.na(data$y)
+    red_col  <- rgb(205/255,92/255,92/255, alpha = alpha)
+    points(data$x_jitter[unpaired],
+           data$y    [unpaired],
+           pch = 19, col = red_col, cex = p.cex, lwd = lwd/3)
+  }
   
-#   if (save) dev.off()
-# }
+  if (save) dev.off()
+}
 
 BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
                      xrange = NULL, yrange = c(-400, 0), tick_length = 0.2, x_tick_interval = NULL, y_tick_interval = 100,
@@ -3473,6 +3544,7 @@ BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
     data$x <- interaction(data[[predictors[1]]], data[[predictors[2]]], sep=' : ')
   }
   data$y <- data[[response]]
+  data_orig <- data
 
   if (log_y) {
     data$y[data$y <= 0] <- NA
@@ -3503,10 +3575,10 @@ BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
   }
   on.exit(assign('axis', orig_axis, envir=.GlobalEnv), add=TRUE)
 
-  WBplot(data=data, wid=wid, cap=cap, xlab=xlab, ylab=ylab, main=main,
+  WBplot(data=data_orig, wid=wid, cap=cap, xlab=xlab, ylab=ylab, main=main,
          xrange=xrange, yrange=yrange, tick_length=tick_length,
          x_tick_interval=x_tick_interval, y_tick_interval=y_tick_interval,
-         lwd=lwd, type=type, na.rm=na.rm)
+         lwd=lwd, type=type, log_y=log_y, na.rm=na.rm)
 
   assign('axis', orig_axis, envir=.GlobalEnv)
 
@@ -3557,129 +3629,129 @@ BoxPlot2 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
   if (save) dev.off()
 }
 
-# BoxPlot3 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
-#                      xrange = NULL, yrange = c(-400, 0), xlabel_angle = NULL, tick_length = 0.2, 
-#                      x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, type = 6, amount = 0.05, p.cex = 0.5,
-#                      height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, log_y = FALSE, na_rm_subjects = FALSE,
-#                      test_result, alpha_level = 0.05, group_names = NULL, sig_offset = NULL) {
+BoxPlot3_ver0 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
+                     xrange = NULL, yrange = c(-400, 0), xlabel_angle = NULL, tick_length = 0.2, 
+                     x_tick_interval = NULL, y_tick_interval = 100, lwd = 1, type = 6, amount = 0.05, p.cex = 0.5,
+                     height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, na_rm_subjects = FALSE,
+                     test_result, alpha_level = 0.05, group_names = NULL, sig_offset = NULL) {
 
   
-#   f_str <- deparse(formula)
-#   has_error <- grepl('Error', f_str)
+  f_str <- deparse(formula)
+  has_error <- grepl('Error', f_str)
 
-#   if (has_error) {
-#     err_part <- sub('.*Error\\((.*)\\).*', '\\1', f_str)
-#     subject_var <- strsplit(err_part, '/')[[1]][1]
-#     subject_var <- gsub('[[:space:]]', '', subject_var)
-#     main_formula_str <- sub('\\+\\s*Error\\(.*\\)', '', f_str)
-#     main_formula <- as.formula(main_formula_str)
-#   } else {
-#     subject_var <- NULL
-#     main_formula <- formula
-#   }
+  if (has_error) {
+    err_part <- sub('.*Error\\((.*)\\).*', '\\1', f_str)
+    subject_var <- strsplit(err_part, '/')[[1]][1]
+    subject_var <- gsub('[[:space:]]', '', subject_var)
+    main_formula_str <- sub('\\+\\s*Error\\(.*\\)', '', f_str)
+    main_formula <- as.formula(main_formula_str)
+  } else {
+    subject_var <- NULL
+    main_formula <- formula
+  }
 
-#   response_var <- all.vars(formula(main_formula))[1]
-#   predictors <- all.vars(formula(main_formula))[-1]
+  response_var <- all.vars(formula(main_formula))[1]
+  predictors <- all.vars(formula(main_formula))[-1]
 
-#   if (na_rm_subjects && !is.null(subject_var)) {
-#     data <- df[ !ave(is.na(data[[response_var]]), data[[subject_var]], FUN = any), ]
-#   }
+  if (na_rm_subjects && !is.null(subject_var)) {
+    data <- df[ !ave(is.na(data[[response_var]]), data[[subject_var]], FUN = any), ]
+  }
 
-#   BoxPlot2(formula = formula, data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, xlabel_angle = xlabel_angle, main = main,
-#            xrange = xrange, yrange = yrange, tick_length = tick_length, y_tick_interval = y_tick_interval,
-#            lwd = lwd, type = type, amount = amount, p.cex = p.cex, height = height, width = width, log_y=log_y,
-#            bg = bg, na.rm = TRUE)
+  BoxPlot2_ver0(formula = formula, data = data, wid = wid, cap = cap, xlab = xlab, ylab = ylab, xlabel_angle = xlabel_angle, main = main,
+           xrange = xrange, yrange = yrange, tick_length = tick_length, y_tick_interval = y_tick_interval,
+           lwd = lwd, type = type, amount = amount, p.cex = p.cex, height = height, width = width,
+           bg = bg, na.rm = TRUE)
 
-#   has_error <- grepl("Error", deparse(formula))
-#   if (missing(test_result) || is.null(test_result) || nrow(test_result) == 0) {
-#     return()
-#   }
+  has_error <- grepl("Error", deparse(formula))
+  if (missing(test_result) || is.null(test_result) || nrow(test_result) == 0) {
+    return()
+  }
 
-#   # Prepare data$x & data$y
-#   response   <- response_var
-#   # predictors <- all.vars(formula[[3]])
-#   data$y     <- data[[response]]
+  # Prepare data$x & data$y
+  response   <- response_var
+  # predictors <- all.vars(formula[[3]])
+  data$y     <- data[[response]]
 
-#   if (length(predictors) == 1) {
-#     data$x        <- factor(data[[predictors[1]]])
-#     single_factor <- TRUE
-#   } else {
-#     data$x        <- interaction(
-#       data[[predictors[1]]],
-#       data[[predictors[2]]],
-#       sep = ' : '
-#     )
-#     single_factor <- FALSE
-#   }
+  if (length(predictors) == 1) {
+    data$x        <- factor(data[[predictors[1]]])
+    single_factor <- TRUE
+  } else {
+    data$x        <- interaction(
+      data[[predictors[1]]],
+      data[[predictors[2]]],
+      sep = ' : '
+    )
+    single_factor <- FALSE
+  }
 
-#   x_labels    <- levels(data$x)
-#   x_positions <- setNames(seq_along(x_labels), x_labels)
+  x_labels    <- levels(data$x)
+  x_positions <- setNames(seq_along(x_labels), x_labels)
 
-#   # compute base offset and tick
-#   y_span <- diff(range(data$y, na.rm = TRUE))
-#   offset <- if (is.null(sig_offset)) 0.05 * y_span else sig_offset
-#   tick   <- 0.25 * offset
+  # compute base offset and tick
+  y_span <- diff(range(data$y, na.rm = TRUE))
+  offset <- if (is.null(sig_offset)) 0.05 * y_span else sig_offset
+  tick   <- 0.25 * offset
 
-#   # Loop over tests
-#   for (i in seq_len(nrow(test_result))) {
-#     p_adj <- test_result$`p adjusted`[i]
-#     if (is.na(p_adj) || p_adj >= alpha_level) next
+  # Loop over tests
+  for (i in seq_len(nrow(test_result))) {
+    p_adj <- test_result$`p adjusted`[i]
+    if (is.na(p_adj) || p_adj >= alpha_level) next
 
-#     parts <- strsplit(as.character(test_result$contrast[i]), ' vs ')[[1]]
-#     if (length(parts) != 2) next
-#     lev1 <- trimws(parts[1])
-#     lev2 <- trimws(parts[2])
+    parts <- strsplit(as.character(test_result$contrast[i]), ' vs ')[[1]]
+    if (length(parts) != 2) next
+    lev1 <- trimws(parts[1])
+    lev2 <- trimws(parts[2])
 
-#     # Build the two labels that match interaction()
-#     if (single_factor) {
-#       label1 <- lev1
-#       label2 <- lev2
-#     } else {
-#       comp      <- as.character(test_result$comparison[i])
-#       outer_lev <- sub('.*? ([^ ]+) \\(.*', '\\1', comp)
-#       if (grepl('\\(paired\\)', comp)) {
-#         label1 <- paste0(lev1, ' : ', outer_lev)
-#         label2 <- paste0(lev2, ' : ', outer_lev)
-#       } else {
-#         label1 <- paste0(outer_lev, ' : ', lev1)
-#         label2 <- paste0(outer_lev, ' : ', lev2)
-#       }
-#     }
+    # Build the two labels that match interaction()
+    if (single_factor) {
+      label1 <- lev1
+      label2 <- lev2
+    } else {
+      comp      <- as.character(test_result$comparison[i])
+      outer_lev <- sub('.*? ([^ ]+) \\(.*', '\\1', comp)
+      if (grepl('\\(paired\\)', comp)) {
+        label1 <- paste0(lev1, ' : ', outer_lev)
+        label2 <- paste0(lev2, ' : ', outer_lev)
+      } else {
+        label1 <- paste0(outer_lev, ' : ', lev1)
+        label2 <- paste0(outer_lev, ' : ', lev2)
+      }
+    }
 
-#     if (!(label1 %in% x_labels) || !(label2 %in% x_labels)) next
-#     x1 <- x_positions[label1]
-#     x2 <- x_positions[label2]
+    if (!(label1 %in% x_labels) || !(label2 %in% x_labels)) next
+    x1 <- x_positions[label1]
+    x2 <- x_positions[label2]
 
-#     yvals <- c(data$y[data$x == label1], data$y[data$x == label2])
-#     yvals <- yvals[!is.na(yvals)]
-#     if (length(yvals) == 0) next
-#     y_max <- max(yvals)
-#     y_min <- min(yvals)
+    yvals <- c(data$y[data$x == label1], data$y[data$x == label2])
+    yvals <- yvals[!is.na(yvals)]
+    if (length(yvals) == 0) next
+    y_max <- max(yvals)
+    y_min <- min(yvals)
 
-#     # shift unpaired sig bars by 6*tick
-#     if (single_factor) {
-#       shift_amt <- 0
-#     } else {
-#       paired    <- grepl('\\(paired\\)', comp)
-#       shift_amt <- if (!paired) 6 * tick else 0
-#     }
+    # shift unpaired sig bars by 6*tick
+    if (single_factor) {
+      shift_amt <- 0
+    } else {
+      paired    <- grepl('\\(paired\\)', comp)
+      shift_amt <- if (!paired) 6 * tick else 0
+    }
 
-#     if (y_max > 0) {
-#       y_line <- y_max + offset + shift_amt
-#       segments(x1, y_line, x1, y_line - tick, lwd = lwd)
-#       segments(x2, y_line, x2, y_line - tick, lwd = lwd)
-#       text_y <- y_line + tick
-#     } else {
-#       y_line <- y_min - offset - shift_amt
-#       segments(x1, y_line, x1, y_line + tick, lwd = lwd)
-#       segments(x2, y_line, x2, y_line + tick, lwd = lwd)
-#       text_y <- y_line - tick
-#     }
+    if (y_max > 0) {
+      y_line <- y_max + offset + shift_amt
+      segments(x1, y_line, x1, y_line - tick, lwd = lwd)
+      segments(x2, y_line, x2, y_line - tick, lwd = lwd)
+      text_y <- y_line + tick
+    } else {
+      y_line <- y_min - offset - shift_amt
+      segments(x1, y_line, x1, y_line + tick, lwd = lwd)
+      segments(x2, y_line, x2, y_line + tick, lwd = lwd)
+      text_y <- y_line - tick
+    }
 
-#     segments(x1, y_line, x2, y_line, lwd = lwd)
-#     text((x1 + x2) / 2, text_y, labels = '*', cex = 1.2)
-#   }
-# }
+    segments(x1, y_line, x2, y_line, lwd = lwd)
+    text((x1 + x2) / 2, text_y, labels = '*', cex = 1.2)
+  }
+}
 
 BoxPlot3 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
                      xrange = NULL, yrange = c(-400, 0), xlabel_angle = NULL, tick_length = 0.2, 
