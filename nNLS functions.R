@@ -5036,7 +5036,7 @@ single_egs <- function(traces, sign=-1, xlim=NULL, ylim=NULL, main='', lwd=1.2, 
   }
 
   x <- traces$time
-  ymat <- traces[, colnames(traces) != 'time']
+  ymat <- as.matrix(traces[, colnames(traces) != 'time', drop = FALSE])
 
   if (is.null(xlim)) xlim <- c(min(x), max(x))
 
@@ -5074,8 +5074,10 @@ single_egs <- function(traces, sign=-1, xlim=NULL, ylim=NULL, main='', lwd=1.2, 
        type = 'l', bty = 'l', las = 1, axes = FALSE, frame = FALSE, lwd = lwd, main = main)
 
   # then plot the rest in reverse order
-  for (ii in (ncol(ymat) - 1):1) {
-    lines(x[idx1:idx2], ymat[idx1:idx2, ii], col = cols[ii])
+  if (ncol(ymat) > 1){
+    for (ii in (ncol(ymat) - 1):1) {
+      lines(x[idx1:idx2], ymat[idx1:idx2, ii], col = cols[ii])
+    }
   }
 
   ybar <- ifelse(log_y, exp(1), ybar)
