@@ -4485,120 +4485,120 @@ create2condition_df <- function(mat, cols = c(1, 10), var_name = 'amplitude',
 # }
 
 
-ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interval=100, y_tick_interval=100, tick_length=0.2, 
-                        height=4, width=4, xlab='', ylab='', main='', colors=c('black', 'indianred'), open_symbols=FALSE, 
-                        lwd=1, p.cex=0.5, filename='scatter.svg', reg=FALSE, plot.CI=FALSE, reg.points=1e3, reg.color='darkgray', 
-                        reg.method=c('Siegel', 'Theil-Sen'), reg.CI.settings=list(nboot=1e4, conf_level=0.95), save=FALSE, 
-                        show_pairs=FALSE, bg='transparent', dp=3, return.output=FALSE) {
+# ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interval=100, y_tick_interval=100, tick_length=0.2, 
+#                         height=4, width=4, xlab='', ylab='', main='', colors=c('black', 'indianred'), open_symbols=FALSE, 
+#                         lwd=1, p.cex=0.5, filename='scatter.svg', reg=FALSE, plot.CI=FALSE, reg.points=1e3, reg.color='darkgray', 
+#                         reg.method=c('Siegel', 'Theil-Sen'), reg.CI.settings=list(nboot=1e4, conf_level=0.95), save=FALSE, 
+#                         show_pairs=FALSE, bg='transparent', dp=3, return.output=FALSE) {
   
-  # Convert A to scatter
-  scatter <- convert_to_scatter(A=A, sign=sign)
+#   # Convert A to scatter
+#   scatter <- convert_to_scatter(A=A, sign=sign)
 
-  # Create the scatter plot
-  if (save) {
-    svg(file=filename, width=width, height=height, bg=bg)
-  } else {
-    dev.new(width=width, height=height, noRStudioGD=TRUE)
-  }
+#   # Create the scatter plot
+#   if (save) {
+#     svg(file=filename, width=width, height=height, bg=bg)
+#   } else {
+#     dev.new(width=width, height=height, noRStudioGD=TRUE)
+#   }
 
-  # Check if 'level' column exists and map levels to 1 and 2 alternately, if not set n=1
-  if ('level' %in% colnames(scatter)) {
-    unique_levels <- unique(scatter$level)
-    n <- length(unique_levels)
-    scatter$level <- as.numeric(factor(scatter$level, levels=unique_levels, labels=rep(1:n, length.out=length(unique_levels))))
-  } else {
-    n <- 1  # If 'level' column does not exist
-    scatter$level <- rep(1, dim(scatter)[1])
-  }
+#   # Check if 'level' column exists and map levels to 1 and 2 alternately, if not set n=1
+#   if ('level' %in% colnames(scatter)) {
+#     unique_levels <- unique(scatter$level)
+#     n <- length(unique_levels)
+#     scatter$level <- as.numeric(factor(scatter$level, levels=unique_levels, labels=rep(1:n, length.out=length(unique_levels))))
+#   } else {
+#     n <- 1  # If 'level' column does not exist
+#     scatter$level <- rep(1, dim(scatter)[1])
+#   }
 
-  # Determine plot symbols
-  pch <- if (open_symbols) 1 else 19
-  cols <- hex_palette(n=2, color1=colors[1], color2=colors[2], reverse=FALSE)
+#   # Determine plot symbols
+#   pch <- if (open_symbols) 1 else 19
+#   cols <- hex_palette(n=2, color1=colors[1], color2=colors[2], reverse=FALSE)
   
-  # Plot scatter points
-  plot(scatter$x, scatter$y, col=cols[scatter$level], pch=pch, cex=p.cex, xlim=xlim, ylim=ylim, 
-       xlab=xlab, ylab=ylab, main=main, xaxt='n', yaxt='n', bty='n')
+#   # Plot scatter points
+#   plot(scatter$x, scatter$y, col=cols[scatter$level], pch=pch, cex=p.cex, xlim=xlim, ylim=ylim, 
+#        xlab=xlab, ylab=ylab, main=main, xaxt='n', yaxt='n', bty='n')
 
-  # Initialize list to store summary tables for each level
-  summary_tables <- list()
+#   # Initialize list to store summary tables for each level
+#   summary_tables <- list()
 
-  # Add regression line or non-parametric line based on 'reg' parameter
-  if (!reg) {
-    segments(min(xlim), min(ylim), max(xlim), max(ylim), lwd=lwd, col=reg.color, lty=3)  # lty=3 for dotted line
-  } else {
-    reg.method <- match.arg(reg.method)
-    levels <- unique(scatter$level)
+#   # Add regression line or non-parametric line based on 'reg' parameter
+#   if (!reg) {
+#     segments(min(xlim), min(ylim), max(xlim), max(ylim), lwd=lwd, col=reg.color, lty=3)  # lty=3 for dotted line
+#   } else {
+#     reg.method <- match.arg(reg.method)
+#     levels <- unique(scatter$level)
 
-    reg_func <- switch(reg.method,
-                       'Siegel' = if (plot.CI || return.output) siegel_sen_with_ci else siegel_sen,
-                       'Theil-Sen' = if (plot.CI || return.output) theil_sen_with_ci else theil_sen)
+#     reg_func <- switch(reg.method,
+#                        'Siegel' = if (plot.CI || return.output) siegel_sen_with_ci else siegel_sen,
+#                        'Theil-Sen' = if (plot.CI || return.output) theil_sen_with_ci else theil_sen)
 
-    for (level in levels) {
-      # Filter data for the current level
-      level_data <- scatter[scatter$level==level,]
+#     for (level in levels) {
+#       # Filter data for the current level
+#       level_data <- scatter[scatter$level==level,]
       
-      if (plot.CI || return.output) {
-        # Perform regression with confidence intervals for the current level
-        reg_results <- reg_func(level_data$x, level_data$y, n_bootstrap=reg.CI.settings$nboot, 
-                                conf_level=reg.CI.settings$conf_level, dp=dp, n_points=reg.points)
+#       if (plot.CI || return.output) {
+#         # Perform regression with confidence intervals for the current level
+#         reg_results <- reg_func(level_data$x, level_data$y, n_bootstrap=reg.CI.settings$nboot, 
+#                                 conf_level=reg.CI.settings$conf_level, dp=dp, n_points=reg.points)
         
-        # Store the summary table for this level
-        summary_tables[[as.character(level)]] <- reg_results$summary_table
+#         # Store the summary table for this level
+#         summary_tables[[as.character(level)]] <- reg_results$summary_table
         
-        intercept <- reg_results$summary_table["(intercept)", "est"]
-        slope <- reg_results$summary_table["slope", "est"]
+#         intercept <- reg_results$summary_table["(intercept)", "est"]
+#         slope <- reg_results$summary_table["slope", "est"]
         
-        # Confidence intervals for predictions
-        lower_ci <- reg_results$lower_ci
-        upper_ci <- reg_results$upper_ci
-        predicted_y <- reg_results$predicted_y
-        x1 <- reg_results$x1
-      } else {
-        # Perform standard regression without confidence intervals for the current level
-        out <- reg_func(level_data$x, level_data$y)
-        intercept <- out$intercept
-        slope <- out$slope
-        x1 <- seq(min(level_data$x), max(level_data$x), length.out=reg.points)
-        predicted_y <- intercept + slope * x1
-      }
+#         # Confidence intervals for predictions
+#         lower_ci <- reg_results$lower_ci
+#         upper_ci <- reg_results$upper_ci
+#         predicted_y <- reg_results$predicted_y
+#         x1 <- reg_results$x1
+#       } else {
+#         # Perform standard regression without confidence intervals for the current level
+#         out <- reg_func(level_data$x, level_data$y)
+#         intercept <- out$intercept
+#         slope <- out$slope
+#         x1 <- seq(min(level_data$x), max(level_data$x), length.out=reg.points)
+#         predicted_y <- intercept + slope * x1
+#       }
       
-      # Plot the regression line for the current level
-      lines(x1, predicted_y, lwd=lwd, col=cols[as.integer(level)], lty=3)
+#       # Plot the regression line for the current level
+#       lines(x1, predicted_y, lwd=lwd, col=cols[as.integer(level)], lty=3)
       
-      # Plot confidence intervals if requested
-      if (plot.CI) {
-        lines(x1, lower_ci, col=cols[as.integer(level)], lty=2)
-        lines(x1, upper_ci, col=cols[as.integer(level)], lty=2)
-      }
-    }
-  }
+#       # Plot confidence intervals if requested
+#       if (plot.CI) {
+#         lines(x1, lower_ci, col=cols[as.integer(level)], lty=2)
+#         lines(x1, upper_ci, col=cols[as.integer(level)], lty=2)
+#       }
+#     }
+#   }
 
-  if (show_pairs && "s" %in% colnames(scatter)) {
-    subjects <- unique(scatter$s)
-    for (subj in subjects) {
-      subj_data <- scatter[scatter$s == subj, ]
-      # Optionally, order the data by x or some grouping variable:
-      # subj_data <- subj_data[order(subj_data$x), ]
-      # Connect them with lines
-      if (nrow(subj_data) > 1) {
-        lines(subj_data$x, subj_data$y, col='darkgray', lty=3, lwd=lwd)
-      }
-    }
-  }
+#   if (show_pairs && "s" %in% colnames(scatter)) {
+#     subjects <- unique(scatter$s)
+#     for (subj in subjects) {
+#       subj_data <- scatter[scatter$s == subj, ]
+#       # Optionally, order the data by x or some grouping variable:
+#       # subj_data <- subj_data[order(subj_data$x), ]
+#       # Connect them with lines
+#       if (nrow(subj_data) > 1) {
+#         lines(subj_data$x, subj_data$y, col='darkgray', lty=3, lwd=lwd)
+#       }
+#     }
+#   }
 
-  # Customize axes
-  axis(1, at=seq(min(xlim), max(xlim), by=x_tick_interval), tcl=-tick_length, lwd=lwd)
-  axis(2, at=seq(min(ylim), max(ylim), by=y_tick_interval), las=1, tcl=-tick_length, lwd=lwd)
+#   # Customize axes
+#   axis(1, at=seq(min(xlim), max(xlim), by=x_tick_interval), tcl=-tick_length, lwd=lwd)
+#   axis(2, at=seq(min(ylim), max(ylim), by=y_tick_interval), las=1, tcl=-tick_length, lwd=lwd)
 
-  if (save) {
-    dev.off()
-  }
+#   if (save) {
+#     dev.off()
+#   }
 
-  # Return the list of summary tables if requested
-  if (reg && return.output) {
-    return(summary_tables)
-  }
-}
+#   # Return the list of summary tables if requested
+#   if (reg && return.output) {
+#     return(summary_tables)
+#   }
+# }
 # Define the start and end colors of your palette Slate Blue to Indian Red
 hex_palette <- function(n, color1='#6A5ACD', color2='#CD5C5C', reverse = FALSE) {
   
@@ -4611,6 +4611,128 @@ hex_palette <- function(n, color1='#6A5ACD', color2='#CD5C5C', reverse = FALSE) 
   }
   
   return(colors)
+}
+
+ScatterPlot <- function(A, sign=1, xlim=c(0, 400), ylim=c(0, 400), x_tick_interval=100, y_tick_interval=100, tick_length=0.2, 
+                        height=4, width=4, xlab='', ylab='', main='', colors=c('black', 'indianred'), open_symbols=FALSE, 
+                        lwd=1, p.cex=0.5, filename='scatter.svg', reg=FALSE, plot.CI=FALSE, reg.points=1e3, reg.color='darkgray', 
+                        reg.method=c('Siegel', 'Theil-Sen'), reg.CI.settings=list(nboot=1e4, conf_level=0.95), save=FALSE, 
+                        show_pairs=FALSE, bg='transparent', dp=3, return.output=FALSE, log_xy=FALSE) {
+  
+  scatter <- convert_to_scatter(A=A, sign=sign)
+  
+  if (log_xy) {
+    if (xlim[1] == 0) xlim[1] <- 0.1
+    if (ylim[1] == 0) ylim[1] <- 0.1
+    scatter <- scatter[scatter$x > 0 & scatter$y > 0, ]
+    scatter$x <- log10(scatter$x)
+    scatter$y <- log10(scatter$y)
+    xlim_plot <- log10(xlim)
+    ylim_plot <- log10(ylim)
+  } else {
+    xlim_plot <- xlim
+    ylim_plot <- ylim
+  }
+  
+  if (save) {
+    svg(file=filename, width=width, height=height, bg=bg)
+  } else {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+  }
+  
+  if ('level' %in% colnames(scatter)) {
+    unique_levels <- unique(scatter$level)
+    n <- length(unique_levels)
+    scatter$level <- as.numeric(factor(scatter$level, levels=unique_levels, labels=rep(1:n, length.out=length(unique_levels))))
+  } else {
+    n <- 1
+    scatter$level <- rep(1, dim(scatter)[1])
+  }
+  
+  pch <- if (open_symbols) 1 else 19
+  cols <- hex_palette(n=2, color1=colors[1], color2=colors[2], reverse=FALSE)
+  
+  plot(scatter$x, scatter$y, col=cols[scatter$level], pch=pch, cex=p.cex, xlim=xlim_plot, ylim=ylim_plot, 
+       xlab=xlab, ylab=ylab, main=main, xaxt='n', yaxt='n', bty='n')
+  
+  summary_tables <- list()
+  
+  if (!reg) {
+    if (log_xy) {
+      abline(0, 1, lwd=lwd, col=reg.color, lty=3)
+    } else {
+      segments(min(xlim), min(ylim), max(xlim), max(ylim), lwd=lwd, col=reg.color, lty=3)
+    }
+  } else {
+    reg.method <- match.arg(reg.method)
+    levels <- unique(scatter$level)
+    reg_func <- switch(reg.method,
+                       'Siegel' = if (plot.CI || return.output) siegel_sen_with_ci else siegel_sen,
+                       'Theil-Sen' = if (plot.CI || return.output) theil_sen_with_ci else theil_sen)
+    for (level in levels) {
+      level_data <- scatter[scatter$level==level,]
+      if (plot.CI || return.output) {
+        reg_results <- reg_func(level_data$x, level_data$y, n_bootstrap=reg.CI.settings$nboot, 
+                                conf_level=reg.CI.settings$conf_level, dp=dp, n_points=reg.points)
+        summary_tables[[as.character(level)]] <- reg_results$summary_table
+        intercept <- reg_results$summary_table["(intercept)", "est"]
+        slope <- reg_results$summary_table["slope", "est"]
+        lower_ci <- reg_results$lower_ci
+        upper_ci <- reg_results$upper_ci
+        predicted_y <- reg_results$predicted_y
+        x1 <- reg_results$x1
+      } else {
+        out <- reg_func(level_data$x, level_data$y)
+        intercept <- out$intercept
+        slope <- out$slope
+        x1 <- seq(min(level_data$x), max(level_data$x), length.out=reg.points)
+        predicted_y <- intercept + slope * x1
+      }
+      lines(x1, predicted_y, lwd=lwd, col=cols[as.integer(level)], lty=3)
+      if (plot.CI) {
+        lines(x1, lower_ci, col=cols[as.integer(level)], lty=2)
+        lines(x1, upper_ci, col=cols[as.integer(level)], lty=2)
+      }
+    }
+  }
+  
+  if (show_pairs && "s" %in% colnames(scatter)) {
+    subjects <- unique(scatter$s)
+    for (subj in subjects) {
+      subj_data <- scatter[scatter$s == subj, ]
+      if (nrow(subj_data) > 1) {
+        lines(subj_data$x, subj_data$y, col='darkgray', lty=3, lwd=lwd)
+      }
+    }
+  }
+  
+  if (log_xy) {
+    at_x <- log10(outer(1:9, 10^(floor(xlim_plot[1]):ceiling(xlim_plot[2])), "*"))
+    at_x <- at_x[at_x >= xlim_plot[1] & at_x <= xlim_plot[2]]
+    labs_x <- 10^at_x
+    major_x <- which(log10(labs_x) %% 1 == 0)
+    axis(1, at=at_x[major_x], labels=format(labs_x[major_x], trim=TRUE, scientific=FALSE), lwd=lwd, tcl=-tick_length)
+    axis(1, at=at_x, labels=FALSE, lwd=lwd, tcl=-0.5*tick_length)
+    at_y <- log10(outer(1:9, 10^(floor(ylim_plot[1]):ceiling(ylim_plot[2])), "*"))
+    at_y <- at_y[at_y >= ylim_plot[1] & at_y <= ylim_plot[2]]
+    labs_y <- 10^at_y
+    major_y <- which(log10(labs_y) %% 1 == 0)
+    axis(2, at=at_y[major_y], labels=format(labs_y[major_y], trim=TRUE, scientific=FALSE), las=1, lwd=lwd, tcl=-tick_length)
+    axis(2, at=at_y, labels=FALSE, lwd=lwd, tcl=-0.5*tick_length)
+  } else {
+    x_ticks <- seq(min(xlim), max(xlim), by=x_tick_interval)
+    y_ticks <- seq(min(ylim), max(ylim), by=y_tick_interval)
+    axis(1, at=x_ticks, labels=x_ticks, tcl=-tick_length, lwd=lwd)
+    axis(2, at=y_ticks, labels=y_ticks, las=1, tcl=-tick_length, lwd=lwd)
+  }
+  
+  if (save) {
+    dev.off()
+  }
+  
+  if (reg && return.output) {
+    return(summary_tables)
+  }
 }
 
 traces2plot <- function(V, traces, offsets=NULL, color1='#6A5ACD', color2='#CD5C5C', xlim=NULL, ylim=NULL, lwd=1, 
