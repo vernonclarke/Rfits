@@ -1226,10 +1226,10 @@ product_rise_and_decay_percent <- function(tau1, tau2, interval=c(0.1, 0.9), sho
     return(c(root1, root2))
   }
 
-  # Determine the end time of the signal
-  end_time <- 10 * max(tau1, tau2) # This is a heuristic; adjust based on your signal's characteristics
+  # determine the end time of the signal
+  end_time <- 10 * max(tau1, tau2) #  adjust based on your signal's characteristics
 
-  # Find roots for both p values and plot if required
+  # roots for both p values 
   if (showplot) {
     x <- seq(0, end_time, length.out = 1000)
     yplot <- exp(-x / tau2) - exp(-x * (tau1 + tau2) / (tau1 * tau2))
