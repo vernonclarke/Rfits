@@ -3373,7 +3373,254 @@ WBplot <- function(data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSP amplitude
   axis(2, at = y_ticks, tcl = -tick_length, las = 1, lwd = lwd)
 }
 
-BoxPlot <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)', main='', 
+
+BoxPlot4 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
+                     xrange = NULL, yrange = c(-400, 0), tick_length = 0.2, x_tick_interval = NULL, y_tick_interval = 100,
+                     xlabel_angle = NULL, lwd = 1, type = 6, amount = 0.05, p.cex = 0.5, filename = 'boxplot.svg', 
+                     height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, log_y = FALSE, na.rm = FALSE, save = FALSE) {
+
+  response   <- as.character(formula[[2]])
+  predictors <- all.vars(formula[[3]])
+  if (!all(c(response, predictors) %in% names(data))) stop('Response or predictor not found in data.')
+  if (length(predictors) == 1) {
+    data$x <- factor(data[[predictors]])
+  } else {
+    data$x <- interaction(data[[predictors[1]]], data[[predictors[2]]], sep=' : ')
+  }
+  data$y <- data[[response]]
+  data_orig <- data
+
+  if (log_y) {
+    data$y[data$y <= 0] <- NA
+    if (any(yrange <= 0, na.rm=TRUE)) stop('yrange must be > 0 when log_y=TRUE')
+    data$y <- log10(data$y)
+    yrange <- log10(yrange)
+  }
+
+  if (is.null(xrange)) {
+    xrange <- range(as.numeric(data$x), na.rm=TRUE) + c(-wid, wid)
+  }
+
+  if (save) {
+    svg(filename, width=width, height=height, bg=bg)
+    on.exit(dev.off(), add=TRUE)
+  } else {
+    dev.new(width=width, height=height, noRStudioGD=TRUE)
+  }
+
+  orig_axis <- graphics::axis
+  if (log_y) {
+    assign('axis', function(...) {}, envir=.GlobalEnv)
+  } else {
+    assign('axis', function(side, at, labels=TRUE, tcl=NA, ...){
+      if (side==1) orig_axis(side, at=at, labels=FALSE, tcl=-tick_length, ...)
+      else         orig_axis(side, at=at, labels=labels, tcl=-tick_length, ...)
+    }, envir=.GlobalEnv)
+  }
+  on.exit(assign('axis', orig_axis, envir=.GlobalEnv), add=TRUE)
+
+  WBplot(data=data_orig, wid=wid, cap=cap, xlab=xlab, ylab=ylab, main=main,
+         xrange=xrange, yrange=yrange, tick_length=tick_length,
+         x_tick_interval=x_tick_interval, y_tick_interval=y_tick_interval,
+         lwd=lwd, type=type, log_y=log_y, na.rm=na.rm)
+
+  assign('axis', orig_axis, envir=.GlobalEnv)
+
+  labs <- sub('\\s*:\\s*.*$', '', levels(data$x))
+  at   <- seq_along(labs)
+  if (is.null(xlabel_angle)) {
+    axis(1, at=at, labels=labs, tcl=-tick_length, lwd=lwd)
+  } else {
+    axis(1, at=at, labels=FALSE, tcl=-tick_length, lwd=lwd)
+    usr <- par('usr'); y0 <- usr[3] - 0.1*diff(usr[3:4])
+    text(x=at, y=y0, labels=labs, srt=xlabel_angle, adj=1, xpd=TRUE)
+  }
+
+  set.seed(42)
+  data$x_jitter <- jitter(as.numeric(data$x), amount=amount)
+  if ('col' %in% names(data)) {
+    points(data$x_jitter, data$y, pch=19, col=data$col, cex=p.cex)
+  } else {
+    if ('s' %in% names(data)) {
+      counts      <- ave(!is.na(data$y), data$s, FUN=sum)
+      data$paired <- counts >= 2
+      for (subj in unique(data$s[data$paired])) {
+        sd <- subset(data, s==subj & !is.na(y))
+        sd <- sd[order(as.numeric(sd$x)), ]
+        lines(sd$x_jitter, sd$y, col='darkgray', lwd=lwd, lty=3)
+      }
+    } else {
+      data$paired <- FALSE
+    }
+    gray_col <- adjustcolor('#A9A9A9', alpha.f=alpha)
+    red_col  <- adjustcolor('#CD5C5C', alpha.f=alpha)
+    pts <- data$paired | !('s' %in% names(data))
+    points(data$x_jitter[pts], data$y[pts], pch=19, col=gray_col, cex=p.cex, lwd=lwd/3)
+    if ('s' %in% names(data)) {
+      up <- !data$paired & !is.na(data$y)
+      points(data$x_jitter[up], data$y[up], pch=19, col=red_col, cex=p.cex, lwd=lwd/3)
+    }
+  }
+
+  if (log_y) {
+    major_tick_len <- -0.2
+    minor_tick_len <- -0.1
+    d0 <- floor(yrange[1]):ceiling(yrange[2])
+    axis(2, at=d0, labels=10^d0, tcl=major_tick_len, las=1)
+    minor_vals <- unlist(lapply(d0, function(d) (2:9)*10^d))
+    mp <- log10(minor_vals)
+    mp <- mp[mp >= yrange[1] & mp <= yrange[2]]
+    axis(2, at=mp, labels=NA, tcl=minor_tick_len)
+  }
+
+  if (save) dev.off()
+}
+
+BoxPlot <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC amplitude (pA)', main = '',
+  xrange = NULL, yrange = c(-400, 0), xlabel_angle = NULL, tick_length = 0.2, x_tick_interval = NULL, y_tick_interval = 100,
+  lwd = 1, type = 6, amount = 0.05, p.cex = 0.5, height = 2.5, width = 4, bg = 'transparent', alpha = 0.6, log_y = FALSE, 
+  na_rm_subjects = FALSE, test_result, color_palette = c('viridis', 'jet', 'darkgray'), alpha_level = 0.05, sig_offset = NULL, reverse = FALSE) {
+
+  color_palette <- match.arg(color_palette)
+
+  response_name <- deparse(formula[[2]])
+  predictors    <- all.vars(formula[[3]])
+  f_str         <- paste(deparse(formula), collapse = '')
+  has_re        <- grepl('\\(1\\s*\\|', f_str)
+  has_err       <- grepl('Error\\(', f_str)
+
+  if (has_re) {
+    group_var <- gsub('\\s+', '', sub('.*\\(1\\s*\\|\\s*([^\\)]+)\\).*', '\\1', f_str))
+  }
+  if (has_err) {
+    subject_var <- gsub('\\s+', '', sub('.*Error\\(([^\\)]+)\\).*', '\\1', f_str))
+  }
+
+  fixed_str <- gsub('\\+?\\s*\\(1\\s*\\|[^\\)]+\\)', '', f_str)
+  fixed_str <- gsub('\\+?\\s*Error\\([^\\)]+\\)', '', fixed_str)
+  main_fml  <- as.formula(fixed_str)
+
+  if (has_err && na_rm_subjects) {
+    data <- data[ !ave(is.na(data[[response_name]]), data[[subject_var]], FUN = any), ]
+  }
+
+  keep <- c(response_name, predictors)
+  if (has_err) keep <- c(keep, subject_var)
+  if (has_re)  keep <- c(keep, group_var)
+  data_sub <- data[, unique(keep), drop = FALSE]
+
+  if (has_err) {
+    data_sub$s <- data[[subject_var]]
+  } else {
+    data_sub$s <- NULL
+  }
+
+  if (has_re) {
+    levs <- unique(data_sub[[group_var]])
+    n   <- length(levs)
+    pal <- switch(color_palette,
+      viridis = {
+        stops <- c('#440154', '#3B528B', '#21918C', '#5DC963', '#FDE725')
+        p <- colorRampPalette(stops)(n)
+        adjustcolor(p, alpha.f = alpha)
+      },
+      jet = {
+        stops <- c('#00007F','blue','#007FFF','cyan','#7FFF7F','yellow','#FF7F00','red','#7F0000')
+        p <- colorRampPalette(stops)(n)
+        adjustcolor(p, alpha.f = alpha)
+      },
+      darkgray = {
+        rep(adjustcolor('darkgray', alpha.f = alpha), n)
+      }
+    )
+    if (reverse) pal <- rev(pal)
+    names(pal)   <- levs
+    data_sub$col <- pal[as.character(data_sub[[group_var]])]
+    
+  } else {
+    data_sub$col <- NULL
+  }
+
+  BoxPlot4(formula=main_fml, data=data_sub, wid=wid, cap=cap, xlab=xlab, ylab=ylab, xlabel_angle=xlabel_angle, 
+    main=main, xrange=xrange, yrange=yrange, tick_length=tick_length, y_tick_interval=y_tick_interval, 
+    lwd=lwd, type=type, amount=amount, p.cex=p.cex, height=height, width=width, log_y=log_y, bg=bg, na.rm=TRUE)
+
+  if (missing(test_result) || is.null(test_result) || nrow(test_result) == 0) return()
+
+  data_sub$y <- data_sub[[response_name]]
+  if (length(predictors) == 1) {
+    data_sub$x        <- factor(data_sub[[predictors[1]]])
+    single_factor     <- TRUE
+  } else {
+    data_sub$x        <- interaction(data_sub[[predictors[1]]], data_sub[[predictors[2]]], sep = ' : ')
+    single_factor     <- FALSE
+  }
+  x_labels    <- levels(data_sub$x)
+  x_positions <- setNames(seq_along(x_labels), x_labels)
+  y_span      <- diff(range(data_sub$y, na.rm = TRUE))
+  offset      <- if (is.null(sig_offset)) 0.05 * y_span else sig_offset
+  tick        <- 0.25 * offset
+
+  for (i in seq_len(nrow(test_result))) {
+    p_adj <- test_result$`p adjusted`[i]
+    if (is.na(p_adj) || p_adj >= alpha_level) next
+    parts <- strsplit(as.character(test_result$contrast[i]), ' vs ')[[1]]
+    if (length(parts) != 2) next
+    lev1 <- trimws(parts[1]); lev2 <- trimws(parts[2])
+    if (single_factor) {
+      label1 <- lev1; label2 <- lev2; paired <- FALSE
+    } else {
+      comp      <- as.character(test_result$comparison[i])
+      outer_lev <- sub('.*? ([^ ]+) \\(.*', '\\1', comp)
+      if (grepl('\\(paired\\)', comp)) {
+        label1 <- paste0(lev1, ' : ', outer_lev); label2 <- paste0(lev2, ' : ', outer_lev); paired <- TRUE
+      } else {
+        label1 <- paste0(outer_lev, ' : ', lev1); label2 <- paste0(outer_lev, ' : ', lev2); paired <- FALSE
+      }
+    }
+    if (!(label1 %in% x_labels) || !(label2 %in% x_labels)) next
+    x1 <- x_positions[label1]; x2 <- x_positions[label2]
+    if (log_y) {
+      yvals      <- c(data_sub$y[data_sub$x == label1], data_sub$y[data_sub$x == label2])
+      yvals      <- yvals[!is.na(yvals) & yvals > 0]; if (!length(yvals)) next
+      yvals      <- log10(yvals); y_max <- max(yvals); y_min <- min(yvals)
+      y_span_log <- diff(range(log10(data_sub[[response_name]][data_sub[[response_name]] > 0]), na.rm = TRUE))
+      offset     <- if (is.null(sig_offset)) 0.05 * y_span_log else sig_offset
+      tick       <- 0.25 * offset; shift_amt <- if (!single_factor && !paired) 6 * tick else 0
+      if (y_max > 0) {
+        y_line <- y_max + offset + shift_amt
+        segments(x1, y_line, x1, y_line - tick, lwd = lwd)
+        segments(x2, y_line, x2, y_line - tick, lwd = lwd)
+        text_y <- y_line + tick
+      } else {
+        y_line <- y_min - offset - shift_amt
+        segments(x1, y_line, x1, y_line + tick, lwd = lwd)
+        segments(x2, y_line, x2, y_line + tick, lwd = lwd)
+        text_y <- y_line - tick
+      }
+    } else {
+      yvals     <- c(data_sub$y[data_sub$x == label1], data_sub$y[data_sub$x == label2])
+      yvals     <- yvals[!is.na(yvals)]; if (!length(yvals)) next
+      y_max     <- max(yvals); y_min <- min(yvals); shift_amt <- if (!single_factor && !paired) 6 * tick else 0
+      if (y_max > 0) {
+        y_line <- y_max + offset + shift_amt
+        segments(x1, y_line, x1, y_line - tick, lwd = lwd)
+        segments(x2, y_line, x2, y_line - tick, lwd = lwd)
+        text_y <- y_line + tick
+      } else {
+        y_line <- y_min - offset - shift_amt
+        segments(x1, y_line, x1, y_line + tick, lwd = lwd)
+        segments(x2, y_line, x2, y_line + tick, lwd = lwd)
+        text_y <- y_line - tick
+      }
+    }
+    segments(x1, y_line, x2, y_line, lwd = lwd)
+    text((x1 + x2)/2, text_y, labels = '*', cex = 1.2)
+  }
+}
+
+
+BoxPlot_ver0 <- function(data, wid=0.2, cap=0.05, xlab='', ylab='PSC amplitude (pA)', main='', 
                     xrange=c(0.75,2.25), yrange=c(-400, 0), tick_length=0.2, 
                     x_tick_interval = NULL, y_tick_interval=100, lwd=1, 
                     type=6, amount=0.05, p.cex=0.5, filename='boxplot.svg', 
