@@ -3381,7 +3381,9 @@ BoxPlot4 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
 
   response   <- as.character(formula[[2]])
   predictors <- all.vars(formula[[3]])
+  
   if (!all(c(response, predictors) %in% names(data))) stop('Response or predictor not found in data.')
+  
   if (length(predictors) == 1) {
     data$x <- factor(data[[predictors]])
   } else {
@@ -3427,7 +3429,7 @@ BoxPlot4 <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PS
   assign('axis', orig_axis, envir=.GlobalEnv)
 
   labs <- sub('\\s*:\\s*.*$', '', levels(data$x))
-  at   <- seq_along(labs)
+  at <- seq_along(labs)
   if (is.null(xlabel_angle)) {
     axis(1, at=at, labels=labs, tcl=-tick_length, lwd=lwd)
   } else {
@@ -3549,17 +3551,17 @@ BoxPlot <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC
 
   data_sub$y <- data_sub[[response_name]]
   if (length(predictors) == 1) {
-    data_sub$x        <- factor(data_sub[[predictors[1]]])
-    single_factor     <- TRUE
+    data_sub$x <- factor(data_sub[[predictors[1]]])
+    single_factor <- TRUE
   } else {
-    data_sub$x        <- interaction(data_sub[[predictors[1]]], data_sub[[predictors[2]]], sep = ' : ')
-    single_factor     <- FALSE
+    data_sub$x <- interaction(data_sub[[predictors[1]]], data_sub[[predictors[2]]], sep = ' : ')
+    single_factor <- FALSE
   }
-  x_labels    <- levels(data_sub$x)
+  x_labels <- levels(data_sub$x)
   x_positions <- setNames(seq_along(x_labels), x_labels)
-  y_span      <- diff(range(data_sub$y, na.rm = TRUE))
-  offset      <- if (is.null(sig_offset)) 0.05 * y_span else sig_offset
-  tick        <- 0.25 * offset
+  y_span <- diff(range(data_sub$y, na.rm = TRUE))
+  offset <- if (is.null(sig_offset)) 0.05 * y_span else sig_offset
+  tick <- 0.25 * offset
 
   for (i in seq_len(nrow(test_result))) {
     p_adj <- test_result$`p adjusted`[i]
@@ -3581,12 +3583,12 @@ BoxPlot <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC
     if (!(label1 %in% x_labels) || !(label2 %in% x_labels)) next
     x1 <- x_positions[label1]; x2 <- x_positions[label2]
     if (log_y) {
-      yvals      <- c(data_sub$y[data_sub$x == label1], data_sub$y[data_sub$x == label2])
-      yvals      <- yvals[!is.na(yvals) & yvals > 0]; if (!length(yvals)) next
-      yvals      <- log10(yvals); y_max <- max(yvals); y_min <- min(yvals)
+      yvals <- c(data_sub$y[data_sub$x == label1], data_sub$y[data_sub$x == label2])
+      yvals <- yvals[!is.na(yvals) & yvals > 0]; if (!length(yvals)) next
+      yvals <- log10(yvals); y_max <- max(yvals); y_min <- min(yvals)
       y_span_log <- diff(range(log10(data_sub[[response_name]][data_sub[[response_name]] > 0]), na.rm = TRUE))
-      offset     <- if (is.null(sig_offset)) 0.05 * y_span_log else sig_offset
-      tick       <- 0.25 * offset; shift_amt <- if (!single_factor && !paired) 6 * tick else 0
+      offset <- if (is.null(sig_offset)) 0.05 * y_span_log else sig_offset
+      tick <- 0.25 * offset; shift_amt <- if (!single_factor && !paired) 6 * tick else 0
       if (y_max > 0) {
         y_line <- y_max + offset + shift_amt
         segments(x1, y_line, x1, y_line - tick, lwd = lwd)
@@ -3599,9 +3601,9 @@ BoxPlot <- function(formula, data, wid = 0.2, cap = 0.05, xlab = '', ylab = 'PSC
         text_y <- y_line - tick
       }
     } else {
-      yvals     <- c(data_sub$y[data_sub$x == label1], data_sub$y[data_sub$x == label2])
-      yvals     <- yvals[!is.na(yvals)]; if (!length(yvals)) next
-      y_max     <- max(yvals); y_min <- min(yvals); shift_amt <- if (!single_factor && !paired) 6 * tick else 0
+      yvals <- c(data_sub$y[data_sub$x == label1], data_sub$y[data_sub$x == label2])
+      yvals <- yvals[!is.na(yvals)]; if (!length(yvals)) next
+      y_max <- max(yvals); y_min <- min(yvals); shift_amt <- if (!single_factor && !paired) 6 * tick else 0
       if (y_max > 0) {
         y_line <- y_max + offset + shift_amt
         segments(x1, y_line, x1, y_line - tick, lwd = lwd)
