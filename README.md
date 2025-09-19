@@ -130,6 +130,29 @@ i. Test your configuration by launching a simple `X11` app
  ```
 
 
+#### Attempt at a permanent fix for `XQuartz` Environment Variable Setup
+
+If `DISPLAY` is not automatically set on macOS, `tcltk` GUIs launched from `R` will fail with errors such as *"couldn't connect to display :0"*.  
+This can be resolved by ensuring the environment variable is defined whenever a new shell session starts.
+
+a. Open `Terminal`  
+b. Edit your shell startup file (`~/.zshrc` for Zsh, `~/.bashrc` for Bash)  
+c. Add the following lines to automatically set the display and allow local connections  
+d. Save and reload your shell configuration  
+e. Verify that the variable is set  
+f. Test your configuration by launching a simple `X11` app  
+
+```bash
+nano ~/.zshrc
+
+export DISPLAY=:0
+xhost +localhost
+
+source ~/.zshrc
+
+echo $DISPLAY
+xterm   # if an xterm window appears, your XQuartz setup is correct
+```
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
 
