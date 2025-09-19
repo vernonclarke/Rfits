@@ -147,6 +147,7 @@ nano ~/.zshrc
 ```
 Ensure XQuartz is running and DISPLAY is set by adding these lines to the shell startup:
 
+```
 # Set DISPLAY for X11 apps
 export DISPLAY=:0
 
@@ -154,6 +155,7 @@ export DISPLAY=:0
 if [ -S /tmp/.X11-unix/X0 ]; then
     xhost +localhost >/dev/null 2>&1
 fi
+```
 
 Check working: 
 ```bash
