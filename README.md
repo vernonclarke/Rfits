@@ -144,15 +144,26 @@ f. Test your configuration by launching a simple `X11` app
 
 ```bash
 nano ~/.zshrc
+```
+Ensure XQuartz is running and DISPLAY is set by adding these lines to the shell startup:
 
+# Set DISPLAY for X11 apps
 export DISPLAY=:0
-xhost +localhost
 
+# Run xhost only if display is available
+if [ -S /tmp/.X11-unix/X0 ]; then
+    xhost +localhost >/dev/null 2>&1
+fi
+
+Check working: 
+```bash
 source ~/.zshrc
 
 echo $DISPLAY
 xterm   # if an xterm window appears, your XQuartz setup is correct
 ```
+
+
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
 
