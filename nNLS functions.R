@@ -6675,7 +6675,7 @@ traces_smoothfits <- function(y, fits, dt=0.1, N=1, IEI=50, stimulation_time=150
 
 
 
-fit_plot2 <- function(traces, func=product1N, xlab='time (ms)', ylab='PSC amplitude (pA)', xlim=NULL, ylim=NULL, bl=NULL, lwd=1.2, filter=FALSE, width=4, height=4, bg='transparent', filename='trace.svg', save=FALSE) {
+fit_plot5 <- function(traces, func=product1N, xlab='time (ms)', ylab='PSC amplitude (pA)', xlim=NULL, ylim=NULL, bl=NULL, lwd=1.2, filter=FALSE, width=4, height=4, bg='transparent', filename='trace.svg', save=FALSE) {
   
   if (save) {
     # Open SVG device
@@ -6711,13 +6711,12 @@ fit_plot2 <- function(traces, func=product1N, xlab='time (ms)', ylab='PSC amplit
 }
 
 
-
 smooth.plots <- function(y, fits, N=1, IEI=50, dt=0.1,  stimulation_time=150, baseline=50, func=product1N, filter=FALSE, fc=1000, upsample.fit = c(upsample=FALSE, factor=100),
   xlab='time (ms)', ylab='', xlim=NULL, ylim=NULL, lwd=1.2, width=5, height=5, bg='transparent', filename='trace.svg', save=FALSE){
 
   traces <- traces_smoothfits(y=y, fits=fits, N=N, IEI=IEI, dt=dt,  stimulation_time=stimulation_time, baseline=baseline, func=func, filter=filter, fc=fc, upsample.fit = upsample.fit)
 
-  fit_plot2(traces=traces, func=func, xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, lwd=lwd, filter=filter, width=width, height=height, bg=bg, filename=filename, save=save) 
+  fit_plot5(traces=traces, func=func, xlab=xlab, ylab=ylab, xlim=xlim, ylim=ylim, lwd=lwd, filter=filter, width=width, height=height, bg=bg, filename=filename, save=save) 
   
 }
 
