@@ -9273,7 +9273,7 @@ ABF_analysis_tk <- function() {
     folderLabel <- tklabel(sidebarFrame, text = 'Select ABF Folder:')
     tkgrid(folderLabel, row = 0, column = 0, sticky = 'w')
     folderPathVar <<- tclVar('')
-    folderEntry <- tkentry(sidebarFrame, textvariable = folderPathVar, width = 30)
+    folderEntry <- ttkentry(sidebarFrame, textvariable = folderPathVar, width = 30)
     tkgrid(folderEntry, row = 0, column = 1, sticky = 'w')
     browseFolderButton <- tkbutton(sidebarFrame, text = 'Browse', command = function(){
       folderPath <- tclvalue(tkchooseDirectory())
@@ -9316,15 +9316,15 @@ ABF_analysis_tk <- function() {
     tkgrid(experimentCombo, row = 0, column = 1, sticky = 'w')
 
     tkgrid(tklabel(paramFrame, text = 'Units:'), row = 1, column = 0, sticky = 'w')
-    unitEntry <- tkentry(paramFrame,
+    unitEntry <- ttkentry(paramFrame,
       textvariable = unitVar,
-      width        = 10,
-      state        = 'readonly'
+      width        = 10
     )
+    tcl(unitEntry, 'state', 'readonly')
     tkgrid(unitEntry, row = 1, column = 1, sticky = 'w')
 
     tkgrid(tklabel(paramFrame, text = 'Data Column:'), row = 2, column = 0, sticky = 'w')
-    dataColEntry <- tkentry(paramFrame, textvariable = dataColVar, width = 10)
+    dataColEntry <- ttkentry(paramFrame, textvariable = dataColVar, width = 10)
     tkgrid(dataColEntry, row = 2, column = 1, sticky = 'w')
     tkbind(dataColEntry, '<FocusOut>', function(...) {
       dc <- as.numeric(tclvalue(dataColVar))
@@ -9335,12 +9335,12 @@ ABF_analysis_tk <- function() {
     tkbind(dataColEntry,'<Return>',function(...) try(tcl("focus",""),silent=TRUE))
 
     tkgrid(tklabel(paramFrame, text = 'dt (ms):'), row = 3, column = 0, sticky = 'w')
-    dtEntry <- tkentry(paramFrame, textvariable = dtVar, width = 10)
+    dtEntry <- ttkentry(paramFrame, textvariable = dtVar, width = 10)
     tkgrid(dtEntry, row = 3, column = 1, sticky = 'w')
     tkbind(dtEntry,'<Return>',function(...){})
 
     tkgrid(tklabel(paramFrame, text = '# traces:'), row = 4, column = 0, sticky = 'w')
-    ntracesEntry <- tkentry(paramFrame, textvariable = ntracesVar, width = 10)
+    ntracesEntry <- ttkentry(paramFrame, textvariable = ntracesVar, width = 10)
     tkgrid(ntracesEntry, row = 4, column = 1, sticky = 'w')
     tkbind(ntracesEntry,'<Return>',function(...){})
 
@@ -9356,17 +9356,17 @@ ABF_analysis_tk <- function() {
     concatMode  <<- tclVar('0')
 
     tkgrid(tklabel(sidebarFrame, text = 'Baseline:'), row = 4, column = 0, sticky = 'w')
-    baselineEntry <- tkentry(sidebarFrame, textvariable = baselineVar, width = 10)
+    baselineEntry <- ttkentry(sidebarFrame, textvariable = baselineVar, width = 10)
     tkgrid(baselineEntry, row = 4, column = 1, sticky = 'w')
     tkbind(baselineEntry,'<Return>',function(...){})
 
     tkgrid(tklabel(sidebarFrame, text = 'Stimulation Time:'), row = 5, column = 0, sticky = 'w')
-    stimTimeEntry <- tkentry(sidebarFrame, textvariable = stimTimeVar, width = 10)
+    stimTimeEntry <- ttkentry(sidebarFrame, textvariable = stimTimeVar, width = 10)
     tkgrid(stimTimeEntry, row = 5, column = 1, sticky = 'w')
     tkbind(stimTimeEntry,'<Return>',function(...){})
 
     tkgrid(tklabel(sidebarFrame, text = 'x-bar length:'), row = 6, column = 0, sticky = 'w')
-    xbarEntry <- tkentry(sidebarFrame, textvariable = xbarVar, width = 10)
+    xbarEntry <- ttkentry(sidebarFrame, textvariable = xbarVar, width = 10)
     tkgrid(xbarEntry, row = 6, column = 1, sticky = 'w')
     tkbind(xbarEntry, '<FocusOut>', function(...) {
       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
@@ -9376,7 +9376,7 @@ ABF_analysis_tk <- function() {
     })
 
     tkgrid(tklabel(sidebarFrame, text = 'y-bar length:'), row = 7, column = 0, sticky = 'w')
-    ybarEntry <- tkentry(sidebarFrame, textvariable = ybarVar, width = 10)
+    ybarEntry <- ttkentry(sidebarFrame, textvariable = ybarVar, width = 10)
     tkgrid(ybarEntry, row = 7, column = 1, sticky = 'w')
     tkbind(ybarEntry, '<FocusOut>', function(...) {
       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
@@ -9386,7 +9386,7 @@ ABF_analysis_tk <- function() {
     })
 
     tkgrid(tklabel(sidebarFrame, text = 'Text scale (cex):'), row = 8, column = 0, sticky = 'w')
-    cexEntry <- tkentry(sidebarFrame, textvariable = cexVar, width = 10)
+    cexEntry <- ttkentry(sidebarFrame, textvariable = cexVar, width = 10)
     tkgrid(cexEntry, row = 8, column = 1, sticky = 'w')
     tkbind(cexEntry, '<FocusOut>', function(...) {
       try({
@@ -9557,7 +9557,325 @@ ABF_analysis_tk <- function() {
 
   # launch UI
   ABF_analysis_tk()
-}  
+}
+
+
+
+# UI Setup
+
+
+# ABF_analysis_tk <- function() {
+#     tt <- tktoplevel()
+#     tkwm.title(tt, 'ABF Analysis')
+    
+#     if (.Platform$OS.type == "windows") {
+#       hscale <- 2
+#       vscale <- 2
+#     } else {
+#       dpi    <- as.numeric(tclvalue(tcl('winfo','pixels', tt, '1i')))
+#       w_in   <- 7;  h_in  <- 7
+#       hscale <- (w_in * dpi) / 480
+#       vscale <- (h_in * dpi) / 480
+#     }
+
+#     sidebarFrame <- tkframe(tt)
+#     mainFrame   <- tkframe(tt)
+#     tkgrid(sidebarFrame, row = 0, column = 0, sticky = 'ns')
+#     tkgrid(mainFrame,   row = 0, column = 1, sticky = 'nsew')
+#     tkgrid.rowconfigure(tt, 0, weight = 1)
+#     tkgrid.columnconfigure(tt, 1, weight = 1)
+
+#     plotPanel <<- mainFrame
+
+#     ## --- folder selector ---
+#     folderLabel <- tklabel(sidebarFrame, text = 'Select ABF Folder:')
+#     tkgrid(folderLabel, row = 0, column = 0, sticky = 'w')
+#     folderPathVar <<- tclVar('')
+#     folderEntry <- tkentry(sidebarFrame, textvariable = folderPathVar, width = 30)
+#     tkgrid(folderEntry, row = 0, column = 1, sticky = 'w')
+#     browseFolderButton <- tkbutton(sidebarFrame, text = 'Browse', command = function(){
+#       folderPath <- tclvalue(tkchooseDirectory())
+#       if (nchar(folderPath) > 0) {
+#         tclvalue(folderPathVar) <<- folderPath
+#         abf_list <- list.files(path = folderPath, pattern = '\\.abf$', ignore.case = TRUE)
+#         if (length(abf_list) == 0) {
+#           tkinsert(consoleText, 'end', 'No ABF files found in the selected folder.\n')
+#           tkyview.moveto(consoleText, 1.0)
+#         } else {
+#           tkdelete(abfListBox, 0, 'end')
+#           for (f in abf_list) tkinsert(abfListBox, 'end', f)
+#           firstFilePath <- file.path(folderPath, abf_list[1])
+#           ds <- readABF(firstFilePath)
+#           dummy_result <- list(metadata = list(extract_metadata(ds)))
+#           updateAdditionalParams(dummy_result)
+#         }
+#       }
+#     })
+#     tkgrid(browseFolderButton, row = 0, column = 2, padx = 5)
+
+#     abfListLabel <- tklabel(sidebarFrame, text = 'ABF Files:')
+#     tkgrid(abfListLabel, row = 1, column = 0, sticky = 'w', pady = 5)
+#     abfListBox <<- tklistbox(sidebarFrame, height = 5, selectmode = 'multiple')
+#     tkgrid(abfListBox, row = 2, column = 0, columnspan = 2, sticky = 'we', padx = 5, pady = 3)
+
+#     tkgrid.columnconfigure(sidebarFrame, 0, weight = 1)
+#     tkgrid.columnconfigure(sidebarFrame, 1, weight = 1)
+#     tkgrid.columnconfigure(sidebarFrame, 2, weight = 1)
+
+#     paramFrame <- tkframe(sidebarFrame)
+
+#     ## --- parameters in paramFrame ---
+#     tkgrid(tklabel(paramFrame, text = 'Experiment:'), row = 0, column = 0, sticky = 'w')
+#     experimentCombo <- ttkcombobox(paramFrame,
+#       textvariable = experimentVar,
+#       values       = c('voltage clamp','current clamp'),
+#       width        = 15
+#     )
+#     tkgrid(experimentCombo, row = 0, column = 1, sticky = 'w')
+
+#     tkgrid(tklabel(paramFrame, text = 'Units:'), row = 1, column = 0, sticky = 'w')
+#     unitEntry <- tkentry(paramFrame,
+#       textvariable = unitVar,
+#       width        = 10,
+#       state        = 'readonly'
+#     )
+#     tkgrid(unitEntry, row = 1, column = 1, sticky = 'w')
+
+#     tkgrid(tklabel(paramFrame, text = 'Data Column:'), row = 2, column = 0, sticky = 'w')
+#     dataColEntry <- tkentry(paramFrame, textvariable = dataColVar, width = 10)
+#     tkgrid(dataColEntry, row = 2, column = 1, sticky = 'w')
+#     tkbind(dataColEntry, '<FocusOut>', function(...) {
+#       dc <- as.numeric(tclvalue(dataColVar))
+#       if (!exists('abf_analysis_result', envir = .GlobalEnv)) return()
+#       cu <- abf_analysis_result$datasets[[1]]$channelUnits
+#       if (!is.na(dc) && dc>=1 && dc<=length(cu)) tclvalue(unitVar) <<- cu[dc]
+#     })
+#     tkbind(dataColEntry,'<Return>',function(...) try(tcl("focus",""),silent=TRUE))
+
+#     tkgrid(tklabel(paramFrame, text = 'dt (ms):'), row = 3, column = 0, sticky = 'w')
+#     dtEntry <- tkentry(paramFrame, textvariable = dtVar, width = 10)
+#     tkgrid(dtEntry, row = 3, column = 1, sticky = 'w')
+#     tkbind(dtEntry,'<Return>',function(...){})
+
+#     tkgrid(tklabel(paramFrame, text = '# traces:'), row = 4, column = 0, sticky = 'w')
+#     ntracesEntry <- tkentry(paramFrame, textvariable = ntracesVar, width = 10)
+#     tkgrid(ntracesEntry, row = 4, column = 1, sticky = 'w')
+#     tkbind(ntracesEntry,'<Return>',function(...){})
+
+#     tkgrid(paramFrame, row = 3, column = 0, columnspan = 2, sticky = 'we', pady = 3)
+#     tkgrid.columnconfigure(paramFrame, 0, weight = 1)
+#     tkgrid.columnconfigure(paramFrame, 1, weight = 1)
+
+#     ## --- rest of the sidebar ---
+#     baselineVar <<- tclVar('100')
+#     stimTimeVar <<- tclVar('150')
+#     xbarVar     <<- tclVar('100')
+#     ybarVar     <<- tclVar('50')
+#     concatMode  <<- tclVar('0')
+
+#     tkgrid(tklabel(sidebarFrame, text = 'Baseline:'), row = 4, column = 0, sticky = 'w')
+#     baselineEntry <- tkentry(sidebarFrame, textvariable = baselineVar, width = 10)
+#     tkgrid(baselineEntry, row = 4, column = 1, sticky = 'w')
+#     tkbind(baselineEntry,'<Return>',function(...){})
+
+#     tkgrid(tklabel(sidebarFrame, text = 'Stimulation Time:'), row = 5, column = 0, sticky = 'w')
+#     stimTimeEntry <- tkentry(sidebarFrame, textvariable = stimTimeVar, width = 10)
+#     tkgrid(stimTimeEntry, row = 5, column = 1, sticky = 'w')
+#     tkbind(stimTimeEntry,'<Return>',function(...){})
+
+#     tkgrid(tklabel(sidebarFrame, text = 'x-bar length:'), row = 6, column = 0, sticky = 'w')
+#     xbarEntry <- tkentry(sidebarFrame, textvariable = xbarVar, width = 10)
+#     tkgrid(xbarEntry, row = 6, column = 1, sticky = 'w')
+#     tkbind(xbarEntry, '<FocusOut>', function(...) {
+#       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
+#     })
+#     tkbind(xbarEntry, '<Return>', function(...) {
+#       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
+#     })
+
+#     tkgrid(tklabel(sidebarFrame, text = 'y-bar length:'), row = 7, column = 0, sticky = 'w')
+#     ybarEntry <- tkentry(sidebarFrame, textvariable = ybarVar, width = 10)
+#     tkgrid(ybarEntry, row = 7, column = 1, sticky = 'w')
+#     tkbind(ybarEntry, '<FocusOut>', function(...) {
+#       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
+#     })
+#     tkbind(ybarEntry, '<Return>', function(...) {
+#       try(if (exists('avgPlot',inherits=TRUE)) tkrreplot(avgPlot), silent=TRUE)
+#     })
+
+#     tkgrid(tklabel(sidebarFrame, text = 'Text scale (cex):'), row = 8, column = 0, sticky = 'w')
+#     cexEntry <- tkentry(sidebarFrame, textvariable = cexVar, width = 10)
+#     tkgrid(cexEntry, row = 8, column = 1, sticky = 'w')
+#     tkbind(cexEntry, '<FocusOut>', function(...) {
+#       try({
+#         if (exists('reviewPlot', inherits = TRUE) && is.tkwin(reviewPlot$ID)) tkrreplot(reviewPlot)
+#         if (exists('avgPlot',    inherits = TRUE) && is.tkwin(avgPlot$ID))    tkrreplot(avgPlot)
+#       }, silent = TRUE)
+#     })
+
+#     tkbind(cexEntry, '<Return>', function(...) {
+#       try({
+#         if (exists('reviewPlot', inherits = TRUE) && is.tkwin(reviewPlot$ID)) tkrreplot(reviewPlot)
+#         if (exists('avgPlot',    inherits = TRUE) && is.tkwin(avgPlot$ID))    tkrreplot(avgPlot)
+#       }, silent = TRUE)
+#     })
+
+#     concatButton <- tkcheckbutton(sidebarFrame, variable = concatMode,
+#                                   text = 'Concatenate Imported ABFs')
+#     tkgrid(concatButton, row = 9, column = 0, columnspan = 3)
+
+#     tkgrid.columnconfigure(sidebarFrame, 0, weight = 1)
+#     tkgrid.columnconfigure(sidebarFrame, 1, weight = 1)
+#     tkgrid.columnconfigure(sidebarFrame, 2, weight = 1)
+
+#     consoleText <<- tktext(sidebarFrame, height = 5)
+#     tkgrid(consoleText, row = 10, column = 0, columnspan = 3,
+#            sticky = 'we', padx = 10, pady = 5)
+
+#     updateAdditionalParams <<- function(result) {
+#       if (!is.null(result) && length(result$metadata) >= 1) {
+#         meta1 <- result$metadata[[1]]
+#         tclvalue(dtVar) <<- as.character(meta1$samplingIntervalInSec * 1000)
+#         if (as.character(tclvalue(concatMode)) != '1') {
+#           if (!is.null(meta1$header$lActualEpisodes))
+#             tclvalue(ntracesVar) <<- as.character(meta1$header$lActualEpisodes)
+#           else
+#             tclvalue(ntracesVar) <<- 'N/A'
+#         }
+#         expType <- tclvalue(experimentVar)
+#         col_idx <- choose_data_column(meta1$channelUnits, expType)
+#         if (!is.na(col_idx)) {
+#           tclvalue(unitVar) <<- meta1$channelUnits[col_idx]
+#           tclvalue(dataColVar) <<- as.character(col_idx)
+#         } else {
+#           tclvalue(unitVar) <<- 'N/A'
+#           tclvalue(dataColVar) <<- 'N/A'
+#         }
+#       }
+#     }
+#     tkbind(experimentCombo, '<<ComboboxSelected>>', function(widget, ...) {
+#       if (exists('abf_analysis_result', envir = .GlobalEnv)) {
+#         updateAdditionalParams(get('abf_analysis_result', envir = .GlobalEnv))
+#       }
+#     })
+
+#     runAnalysis <<- function() {
+#         # clear previous right‑panel widgets (graphs, metadata, table)
+#         children <- as.character(tkwinfo('children', plotPanel))
+#         if (length(children) > 0) {
+#           sapply(children, function(ch) tcl("destroy", ch))
+#         }
+
+#         folderPath <- tclvalue(folderPathVar)
+#         if (nchar(folderPath) == 0) {
+#           tkinsert(consoleText, 'end', 'Please select an ABF folder first.\n')
+#           tkyview.moveto(consoleText, 1.0)
+#           return()
+#         }
+
+#       folderPath <- tclvalue(folderPathVar)
+#       if (nchar(folderPath) == 0) {
+#         tkinsert(consoleText, 'end', 'Please select an ABF folder first.\n')
+#         tkyview.moveto(consoleText, 1.0)
+#         return()
+#       }
+#       selIndices <- as.integer(tkcurselection(abfListBox))
+#       allFiles    <- as.character(tkget(abfListBox, 0, 'end'))
+#       abf_files   <- if (length(selIndices) == 0) allFiles else allFiles[selIndices + 1]
+#       if (length(abf_files) == 0) {
+#         tkinsert(consoleText, 'end', 'No ABF files selected.\n')
+#         tkyview.moveto(consoleText, 1.0)
+#         return()
+#       }
+#       result <- tryCatch({
+#         load_abf_data(abf_files = abf_files, abf_path = folderPath)
+#       }, error = function(e) {
+#         tkinsert(consoleText, 'end', paste0('Error during data loading: ', e$message, '\n'))
+#         tkyview.moveto(consoleText, 1.0)
+#         NULL
+#       })
+#       if (!is.null(result)) {
+#         tkdelete(consoleText, '1.0', 'end')
+#         tkinsert(consoleText, 'end', paste0('Data loaded. Processed ', length(abf_files), ' file(s).\n'))
+#         tkyview.moveto(consoleText, 1.0)
+#         assign('abf_analysis_result', result, envir = .GlobalEnv)
+#         updateAdditionalParams(result)
+
+#         # display metadata
+#         meta1 <- result$metadata[[1]]
+#         first <- result$datasets[[1]]$data[[1]]
+#         length_sweep <- nrow(first)
+#         metaText <- paste(
+#           paste0("Format version: ", meta1$formatVersion),
+#           paste0("Sampling interval: ", meta1$samplingIntervalInSec, " s"),
+#           paste0("Channel names: ", paste(meta1$channelNames, collapse = " ")),
+#           paste0("Channel units: ", paste(meta1$channelUnits, collapse = " ")),
+#           paste0("Number of sweeps: ", meta1$header$lActualEpisodes),
+#           paste0("Length of first sweep: ", length_sweep),
+#           paste0("Path: ", meta1$path),
+#           sep = "\n"
+#         )
+#         kids <- as.character(tkwinfo('children', plotPanel))
+#         for (k in kids) tryCatch(tkdestroy(.Tk.ID[[k]]), error = function(e) {}, silent = TRUE)
+#         metaFrame  <- tkframe(plotPanel)
+#         tkgrid(metaFrame, row = 0, column = 0, sticky = 'w', pady = 2)
+#         metaLabel  <- tklabel(metaFrame, text = metaText, justify = 'left')
+#         tkgrid(metaLabel)
+
+#         # display first 10 rows of first trace
+#         out <- first[1:10, ]
+#         colnames(out) <- meta1$channelUnits
+#         rownames(out) <- seq(nrow(out))
+#         tableFrame  <- tkframe(plotPanel)
+#         tkgrid(tableFrame, row = 1, column = 0, sticky = 'nsew')
+#         textWidget  <<- tktext(tableFrame, width = 50, height = 11, wrap = 'none')
+#         tkgrid(textWidget, row = 0, column = 0)
+#         for (line in capture.output(print(out))) {
+#           tkinsert(textWidget, 'end', paste0(line, '\n'))
+#         }
+
+#         cons_msg <- check_consistency(result$metadata)
+#         if (cons_msg == 'Data is consistent') {
+#           tkinsert(consoleText, 'end', paste0(cons_msg, '\n'))
+#           tkyview.moveto(consoleText, 1.0)
+#         } else {
+#           tkinsert(consoleText, 'end', paste0('ERROR: ', cons_msg, '\n'))
+#           tkyview.moveto(consoleText, 1.0)
+#         }
+
+#         if (as.character(tclvalue(concatMode)) == '1') {
+#           master_abf <<- combine_abf_data(result)
+#           tclvalue(ntracesVar) <<- as.character(length(master_abf$data))
+#         } else {
+#           master_abf <<- result
+#         }
+#         tkconfigure(runAnalysisButton, text = 'Load Data')
+#       }
+#     }
+
+#     runAnalysisButton        <<- tkbutton(sidebarFrame, text = 'Load Data',               command = runAnalysis)
+#     reviewButton             <<- tkbutton(sidebarFrame, text = 'Review Recordings',        command = function() {
+#                                   if (as.character(tclvalue(concatMode)) == '1') review_master_recordings()
+#                                   else review_recordings()
+#                                 })
+#     avgApprovedTracesButton  <<- tkbutton(sidebarFrame, text = 'Average Approved Traces', command = function() {
+#                                   if (as.character(tclvalue(concatMode)) == '1') average_selected_groups()
+#                                   else averageApprovedTraces_sep()
+#                                 })
+#     tkDownloadBtn            <<- tkbutton(sidebarFrame, text = 'Download Data',            command = download_data)
+
+#     tkgrid(runAnalysisButton,       row = 11, column = 0, columnspan = 3, pady = 5)
+#     tkgrid(reviewButton,            row = 12, column = 0, columnspan = 3, pady = 5)
+#     tkgrid(avgApprovedTracesButton, row = 13, column = 0, columnspan = 3, pady = 5)
+#     tkgrid(tkDownloadBtn,           row = 14, column = 0, columnspan = 3, pady = 5)
+
+#     tkfocus(tt)
+#     tkwait.window(tt)
+#   }
+
+#   # launch UI
+#   ABF_analysis_tk()
+# }  
 
 
 
