@@ -11071,7 +11071,7 @@ analysePSCshiny <- function() {
         verbatimTextOutput('console'),
 
       hr(),
-      h4("Accumulated Results:"),
+      h4("Summary"),
       verbatimTextOutput('accumulated_summary')
 
       )
@@ -11157,20 +11157,29 @@ analysePSCshiny <- function() {
       updateNumericInput(session, "userTmax", value = displayed_tmax)
     })
   
-    # Display accumulated results summary
-    output$accumulated_summary <- renderText({
+    # Display accumulated results - show each column's table separately
+    output$accumulated_summary <- renderPrint({
       if (length(state$accumulated_results) == 0) {
-        "No results accumulated yet.\nAnalyze columns and click 'Add to Results'."
+        cat("No accumulated results yet. Analyze columns and click 'Add to Results'.\n")
       } else {
-        column_names <- sapply(state$accumulated_results, function(x) x$column)
-        paste0(
-          "Total columns: ", length(state$accumulated_results), "\n\n",
-          "Columns accumulated:\n",
-          paste0("  ", seq_along(column_names), ". ", column_names, collapse = "\n")
-        )
+        cat(paste("Analysed:", length(state$accumulated_results), "\n\n"))
+        
+        for (result in state$accumulated_results) {
+          cat("Experiment:", result$column, "\n")
+          
+          df_out <- result$output
+          # Clean up column names exactly as console does
+          if(sum(grepl('^A\\d+$', names(df_out))) == 1) names(df_out)[which(grepl('^A\\d+$', names(df_out)))] <- 'A'
+          if(sum(grepl('^area\\d+$', names(df_out)))==1) names(df_out)[which(grepl('^area\\d+$', names(df_out)))] <- 'area'
+          names(df_out) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(df_out))
+          names(df_out) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(df_out))
+          names(df_out)[names(df_out) == 'half_width'] <- 'half width'
+          
+          print(df_out)
+          cat("\n")
+        }
       }
     })
-
 
     observeEvent(input$add_result, {
       req(state$analysis)
@@ -11504,56 +11513,101 @@ analysePSCshiny <- function() {
 
     output$download_xlsx <- downloadHandler(
       filename = function() {
-        req(input$file)
         if (length(state$accumulated_results) > 0) {
-          paste0(tools::file_path_sans_ext(basename(input$file$name)), "_combined_PSC_analysis.xlsx")
+          paste0(
+            tools::file_path_sans_ext(basename(input$file$name)),
+            "_PSC_analyses.zip"
+          )
         } else {
-          paste0(tools::file_path_sans_ext(basename(input$file$name)), "_", input$data_col, "_PSC_analysis.xlsx")
+          paste0(
+            tools::file_path_sans_ext(basename(input$file$name)),
+            "_", input$data_col,
+            "_PSC_analysis.xlsx"
+          )
         }
       },
       content = function(file) {
-        wb <- openxlsx::createWorkbook()
         
         if (length(state$accumulated_results) > 0) {
-          # COMBINED MODE
+          # Multi-column download: Create ZIP with summary + individual Excel files
           
-          # Sheet 1: Combined output showing all columns
-          all_outputs <- lapply(state$accumulated_results, function(r) {
-            cbind(Column = r$column, r$output)
-          })
-          combined_output <- do.call(rbind, all_outputs)
-          openxlsx::addWorksheet(wb, "combined_output")
-          openxlsx::writeData(wb, "combined_output", combined_output)
+          temp_dir <- tempdir()
+          files_to_zip <- c()
           
-          # Now add detailed sheets for EACH column (exact same format as single mode)
-          for (i in seq_along(state$accumulated_results)) {
-            r <- state$accumulated_results[[i]]
-            col_name <- r$column
+          # 1. Create summary.xlsx
+          summary_file <- file.path(temp_dir, "summary.xlsx")
+          wb_summary <- openxlsx::createWorkbook()
+          
+          # Build wide format summary
+          all_cols <- list()
+          
+          for (result in state$accumulated_results) {
+            col_name <- result$column
+            df <- result$output
             
-            # Ensure unique sheet names even if column name is empty or duplicate
-            prefix <- if (nchar(col_name) > 0) {
-              paste0(col_name, "_")
-            } else {
-              paste0("col", i, "_")
+            for (row_idx in 1:nrow(df)) {
+              row_data <- df[row_idx, , drop = FALSE]
+              
+              if (!is.null(rownames(row_data)) && rownames(row_data)[1] != as.character(row_idx)) {
+                component <- rownames(row_data)[1]
+              } else {
+                component <- row_idx
+              }
+              
+              for (col_idx in 1:ncol(row_data)) {
+                col_label <- names(row_data)[col_idx]
+                value <- row_data[1, col_idx]
+                new_col_name <- paste0(col_label, component)
+                
+                if (is.null(all_cols[[col_name]])) {
+                  all_cols[[col_name]] <- list(Experiment = col_name)
+                }
+                all_cols[[col_name]][[new_col_name]] <- value
+              }
             }
-         
+          }
+          
+          summary_df <- do.call(rbind, lapply(all_cols, function(x) as.data.frame(x, stringsAsFactors = FALSE)))
+          rownames(summary_df) <- NULL
+          
+          names(summary_df) <- gsub("^A\\d+$", "A", names(summary_df))
+          names(summary_df) <- gsub("^area\\d+$", "area", names(summary_df))
+          names(summary_df) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(summary_df))
+          names(summary_df) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(summary_df))
+          names(summary_df) <- gsub("half_width", "half width", names(summary_df))
+          
+          openxlsx::addWorksheet(wb_summary, "summary")
+          openxlsx::writeData(wb_summary, "summary", summary_df)
+          openxlsx::saveWorkbook(wb_summary, summary_file, overwrite = TRUE)
+          files_to_zip <- c(files_to_zip, summary_file)
+          
+          # 2. Create individual Excel files for EACH experiment
+          for (result in state$accumulated_results) {
+            col_name <- result$column
+            safe_name <- gsub("[:\\\\/?*\\[\\]]", "_", col_name)
+            
+            individual_file <- file.path(temp_dir, paste0(safe_name, "_PSC_analysis.xlsx"))
+            wb_individual <- openxlsx::createWorkbook()
+            
             # Output sheet
-            openxlsx::addWorksheet(wb, paste0(prefix, "output"))
-            openxlsx::writeData(wb, paste0(prefix, "output"), r$output)
+            openxlsx::addWorksheet(wb_individual, "output")
+            openxlsx::writeData(wb_individual, "output", result$output)
             
             # Traces sheet
-            openxlsx::addWorksheet(wb, paste0(prefix, "traces"))
-            openxlsx::writeData(wb, paste0(prefix, "traces"), r$traces)
+            openxlsx::addWorksheet(wb_individual, "traces")
+            openxlsx::writeData(wb_individual, "traces", result$traces)
             
             # Fit criterion sheet
-            openxlsx::addWorksheet(wb, paste0(prefix, "fit criterion"))
-            openxlsx::writeData(wb, paste0(prefix, "fit criterion"), data.frame(AIC = r$AIC, BIC = r$BIC))
+            openxlsx::addWorksheet(wb_individual, "fit criterion")
+            openxlsx::writeData(wb_individual, "fit criterion", 
+                               data.frame(AIC = result$AIC, BIC = result$BIC))
             
             # Model message sheet
-            openxlsx::addWorksheet(wb, paste0(prefix, "model message"))
-            openxlsx::writeData(wb, paste0(prefix, "model message"), data.frame(message = r$model_message))
+            openxlsx::addWorksheet(wb_individual, "model message")
+            openxlsx::writeData(wb_individual, "model message", 
+                               data.frame(message = result$model_message))
             
-            # Metadata sheet with EXACT formatting from single mode
+            # Metadata sheet
             metadata_labels <- c(
               'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
               'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
@@ -11564,15 +11618,17 @@ analysePSCshiny <- function() {
               'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
             )
             metadata_values <- list(
-              r$column, r$metadata$dt, r$metadata$stimulation_time, r$metadata$baseline, r$metadata$n, 
-              r$metadata$y_abline, r$metadata$func, r$metadata$ds, r$metadata$userTmax, 
-              r$metadata$fast_constraint, r$metadata$N, r$metadata$IEI, r$metadata$smooth,
-              r$metadata$method, r$metadata$weight_method, r$metadata$sequential_fit, 
-              r$metadata$interval_min, r$metadata$interval_max, r$metadata$lower, r$metadata$upper, 
-              r$metadata$latency_limit, r$metadata$iter, r$metadata$metropolis_scale, 
-              r$metadata$fit_attempts, r$metadata$RWm, r$metadata$filter, r$metadata$fc, 
-              r$metadata$half_width_fit_limit, r$metadata$seed, r$metadata$dp,
-              r$metadata$fast_constraint_method, r$metadata$fast_decay_limit, r$metadata$first_delay_constraint
+              col_name, result$metadata$dt, result$metadata$stimulation_time,
+              result$metadata$baseline, result$metadata$n, result$metadata$y_abline,
+              result$metadata$func, result$metadata$ds, result$metadata$userTmax,
+              result$metadata$fast_constraint, result$metadata$N, result$metadata$IEI,
+              result$metadata$smooth, result$metadata$method, result$metadata$weight_method,
+              result$metadata$sequential_fit, result$metadata$interval_min, result$metadata$interval_max,
+              result$metadata$lower, result$metadata$upper, result$metadata$latency_limit,
+              result$metadata$iter, result$metadata$metropolis_scale, result$metadata$fit_attempts,
+              result$metadata$RWm, result$metadata$filter, result$metadata$fc, NA,
+              result$metadata$seed, result$metadata$dp, result$metadata$fast_constraint_method,
+              result$metadata$fast_decay_limit, result$metadata$first_delay_constraint
             )
             
             numeric_labels <- c(
@@ -11587,38 +11643,53 @@ analysePSCshiny <- function() {
               'First delay constraint:'
             )
             
-            openxlsx::addWorksheet(wb, paste0(prefix, "metadata"))
-            openxlsx::writeData(wb, paste0(prefix, "metadata"), c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
-            for (j in seq_along(metadata_labels)) {
-              lbl <- metadata_labels[j]
-              val <- metadata_values[[j]]
-              openxlsx::writeData(wb, paste0(prefix, "metadata"), lbl, startRow = j+1, startCol = 1, colNames = FALSE)
+            openxlsx::addWorksheet(wb_individual, "metadata")
+            openxlsx::writeData(wb_individual, "metadata", c("Parameter","Value"), 
+                               startRow = 1, startCol = 1, colNames = FALSE)
+            for (i in seq_along(metadata_labels)) {
+              lbl <- metadata_labels[i]
+              val <- metadata_values[[i]]
+              openxlsx::writeData(wb_individual, "metadata", lbl, 
+                                 startRow = i+1, startCol = 1, colNames = FALSE)
               if (lbl %in% numeric_labels) {
-                openxlsx::writeData(wb, paste0(prefix, "metadata"), as.numeric(val), startRow = j+1, startCol = 2, colNames = FALSE)
+                openxlsx::writeData(wb_individual, "metadata", as.numeric(val), 
+                                   startRow = i+1, startCol = 2, colNames = FALSE)
               } else if (lbl %in% logical_labels) {
-                openxlsx::writeData(wb, paste0(prefix, "metadata"), as.logical(val), startRow = j+1, startCol = 2, colNames = FALSE)
+                openxlsx::writeData(wb_individual, "metadata", as.logical(val), 
+                                   startRow = i+1, startCol = 2, colNames = FALSE)
               } else {
-                openxlsx::writeData(wb, paste0(prefix, "metadata"), val, startRow = j+1, startCol = 2, colNames = FALSE)
+                openxlsx::writeData(wb_individual, "metadata", val, 
+                                   startRow = i+1, startCol = 2, colNames = FALSE)
               }
             }
+            
+            openxlsx::saveWorkbook(wb_individual, individual_file, overwrite = TRUE)
+            files_to_zip <- c(files_to_zip, individual_file)
           }
           
+          # 3. Create ZIP file with proper working directory
+          oldwd <- getwd()
+          setwd(temp_dir)
+          zip::zip(zipfile = file, files = basename(files_to_zip))
+          setwd(oldwd)
+          
         } else {
-          # SINGLE MODE (unchanged from your original)
+          # Single column download
           req(state$analysis)
           
-          openxlsx::addWorksheet(wb, "output")
-          openxlsx::writeData(wb, "output", state$analysis$output)
+          wb <- openxlsx::createWorkbook()
           
-          openxlsx::addWorksheet(wb, "traces")
-          openxlsx::writeData(wb, "traces", state$analysis$traces)
-          
-          openxlsx::addWorksheet(wb, "fit criterion")
-          openxlsx::writeData(wb, "fit criterion", data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC))
-          
-          openxlsx::addWorksheet(wb, "model message")
-          openxlsx::writeData(wb, "model message", data.frame(message = state$analysis$model.message))
-          
+          data_list <- list(
+            output = state$analysis$output,
+            traces = state$analysis$traces,
+            `fit criterion` = data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC),
+            `model message` = data.frame(message = state$analysis$model.message)
+          )
+          for (nm in names(data_list)) {
+            openxlsx::addWorksheet(wb, nm)
+            openxlsx::writeData(wb, nm, data_list[[nm]])
+          }
+
           metadata_labels <- c(
             'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
             'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
@@ -11629,14 +11700,18 @@ analysePSCshiny <- function() {
             'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
           )
           metadata_values <- list(
-            input$data_col, input$dt, input$stimulation_time, input$baseline, input$n, input$y_abline, input$func,
-            input$ds, input$userTmax, input$fast_constraint, input$N, input$IEI, input$smooth,
-            input$method, input$weight_method, input$sequential_fit, input$interval_min, input$interval_max,
-            input$lower, input$upper, input$latency_limit, input$iter, input$metropolis_scale, input$fit_attempts,
-            input$RWm, input$filter, input$fc, input$half_width_fit_limit, input$seed, input$dp,
-            input$fast_constraint_method, input$fast_decay_limit, input$first_delay_constraint
+            input$data_col, input$dt, input$stimulation_time, input$baseline,
+            input$n, input$y_abline, input$func, input$ds, input$userTmax,
+            input$fast_constraint, input$N, input$IEI, input$smooth,
+            input$method, input$weight_method, input$sequential_fit,
+            input$interval_min, input$interval_max, input$lower, input$upper,
+            input$latency_limit, input$iter, input$metropolis_scale,
+            input$fit_attempts, input$RWm, input$filter, input$fc,
+            input$half_width_fit_limit, input$seed, input$dp,
+            input$fast_constraint_method, input$fast_decay_limit,
+            input$first_delay_constraint
           )
-          
+
           numeric_labels <- c(
             'dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:',
             'Downsample Factor:','User maximum time for fit:','N:','IEI:','Smooth:',
@@ -11648,31 +11723,38 @@ analysePSCshiny <- function() {
             'Add fast constraint:','Sequential Fit:','Random Walk Metropolis:','Filter:',
             'First delay constraint:'
           )
-          
+
           openxlsx::addWorksheet(wb, "metadata")
-          openxlsx::writeData(wb, "metadata", c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
+          openxlsx::writeData(wb, "metadata", c("Parameter","Value"), 
+                             startRow = 1, startCol = 1, colNames = FALSE)
           for (i in seq_along(metadata_labels)) {
             lbl <- metadata_labels[i]
             val <- metadata_values[[i]]
-            openxlsx::writeData(wb, "metadata", lbl, startRow = i+1, startCol = 1, colNames = FALSE)
+            openxlsx::writeData(wb, "metadata", lbl, 
+                               startRow = i+1, startCol = 1, colNames = FALSE)
             if (lbl %in% numeric_labels) {
-              openxlsx::writeData(wb, "metadata", as.numeric(val), startRow = i+1, startCol = 2, colNames = FALSE)
+              openxlsx::writeData(wb, "metadata", as.numeric(val), 
+                                 startRow = i+1, startCol = 2, colNames = FALSE)
             } else if (lbl %in% logical_labels) {
-              openxlsx::writeData(wb, "metadata", as.logical(val), startRow = i+1, startCol = 2, colNames = FALSE)
+              openxlsx::writeData(wb, "metadata", as.logical(val), 
+                                 startRow = i+1, startCol = 2, colNames = FALSE)
             } else {
-              openxlsx::writeData(wb, "metadata", val, startRow = i+1, startCol = 2, colNames = FALSE)
+              openxlsx::writeData(wb, "metadata", val, 
+                                 startRow = i+1, startCol = 2, colNames = FALSE)
             }
           }
+          
+          openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
         }
-        
-        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
+
     
   }
 
   shinyApp(ui=ui, server=server)
 }
+
 
 widgetPSCtk <- function() {
 
