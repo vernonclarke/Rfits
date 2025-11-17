@@ -9882,6 +9882,15 @@ ABF_analysis_tk <- function() {
 ############################################################################################
 analyseABFshiny <- function() {
 
+  # Increase max upload size (e.g., 100MB)
+  options(shiny.maxRequestSize = 100*1024^2)  # 100MB in bytes
+
+  # 30*1024^2 = 30MB
+  # 50*1024^2 = 50MB
+  # 100*1024^2 = 100MB
+  # 500*1024^2 = 500MB
+  # 1000*1024^2 = 1GB
+
   extract_metadata <- function(abf_dataset) {
     list(
       path                  = abf_dataset$path,
@@ -11087,6 +11096,21 @@ analysePSCshiny <- function() {
       selectInput('data_col', 'Select Column to Analyse', choices=names(uploaded_data()))
     })
     
+    # # run initial analysis
+    # observeEvent(input$run_initial, {
+    #   req(uploaded_data(), input$data_col)
+    #   # Clear any previous response and analysis.
+    #   state$response <- NULL
+    #   state$analysis <- NULL
+    #   # Extract the column from the uploaded data.
+    #   data_col <- uploaded_data()[[input$data_col]]
+    #   ds <- as.numeric(input$ds)
+    #   if (ds > 1) {
+    #     data_col <- data_col[seq(1, length(data_col), by=ds)]
+    #   }
+    #   state$response <- data_col
+    # })
+    
     # run initial analysis
     observeEvent(input$run_initial, {
       req(uploaded_data(), input$data_col)
@@ -11100,8 +11124,33 @@ analysePSCshiny <- function() {
         data_col <- data_col[seq(1, length(data_col), by=ds)]
       }
       state$response <- data_col
+      
+      # Calculate and auto-populate the displayed tmax value
+      dt <- as.numeric(input$dt) * ds
+      adjusted_tmax <- determine_tmax2(
+        y = data_col, 
+        N = as.numeric(input$N), 
+        dt = dt, 
+        stimulation_time = as.numeric(input$stimulation_time), 
+        baseline = as.numeric(input$baseline), 
+        smooth = as.numeric(input$smooth),
+        tmax = NULL, 
+        y_abline = as.numeric(input$y_abline),
+        xbar = as.numeric(input$xbar), 
+        ybar = as.numeric(input$ybar),
+        xbar_lab = input$xbar_lab, 
+        ybar_lab = input$ybar_lab
+      )
+      
+      # Convert from adjusted value to displayed value
+      displayed_tmax <- adjusted_tmax - as.numeric(input$stimulation_time) + as.numeric(input$baseline)
+      updateNumericInput(session, "userTmax", value = displayed_tmax)
     })
-    
+  
+  # Update the userTmax input with calculated value
+  updateNumericInput(session, "userTmax", value = calculated_tmax)
+})
+
     # update when downsampled
     observeEvent(input$ds, {
       req(uploaded_data(), input$data_col)
@@ -11198,7 +11247,7 @@ analysePSCshiny <- function() {
                         xbar=as.numeric(input$xbar), ybar=as.numeric(input$ybar),
                         xbar_lab=input$xbar_lab, ybar_lab=input$ybar_lab)
       } else {
-        as.numeric(input$userTmax)
+        as.numeric(input$userTmax) + stim_time - baseline  # fixed: must add conversion
       }
       x_limit <- tmax_value
       
