@@ -11059,14 +11059,21 @@ analysePSCshiny <- function() {
         numericInput('userTmax', 'User Maximum Time for Fit:', NA),
         actionButton('run_initial', 'Run Initial Analysis'),
         actionButton('run_main', 'Run Main Analysis'),
+        actionButton('add_result', 'Add to Results'),
+        actionButton('clear_results', 'Clear Results'), 
         downloadButton('download_xlsx',  'Download Output (*.xlsx)'),
         downloadButton('download_output', 'Download RData'),
         downloadButton('download_svg', 'Download SVG Plot'),
-        actionButton('clear_output', 'Clear Output')
+        actionButton('clear_output', 'Clear Output'),
       ),
       mainPanel(
         plotOutput('plot', height='500px'),
-        verbatimTextOutput('console')
+        verbatimTextOutput('console'),
+
+      hr(),
+      h4("Accumulated Results:"),
+      verbatimTextOutput('accumulated_summary')
+
       )
     )
   )
@@ -11076,7 +11083,8 @@ analysePSCshiny <- function() {
     # Reactive values to store data and analysis results.
     state <- reactiveValues(
       response=NULL,
-      analysis=NULL
+      analysis=NULL,
+      accumulated_results=list()
     )
     
     # upload file
@@ -11125,31 +11133,120 @@ analysePSCshiny <- function() {
       }
       state$response <- data_col
       
-      # Calculate and auto-populate the displayed tmax value
-      dt <- as.numeric(input$dt) * ds
-      adjusted_tmax <- determine_tmax2(
-        y = data_col, 
-        N = as.numeric(input$N), 
-        dt = dt, 
-        stimulation_time = as.numeric(input$stimulation_time), 
-        baseline = as.numeric(input$baseline), 
-        smooth = as.numeric(input$smooth),
-        tmax = NULL, 
-        y_abline = as.numeric(input$y_abline),
-        xbar = as.numeric(input$xbar), 
-        ybar = as.numeric(input$ybar),
-        xbar_lab = input$xbar_lab, 
-        ybar_lab = input$ybar_lab
-      )
+    # Calculate and auto-populate the displayed tmax value (suppress graphics)
+    dt <- as.numeric(input$dt) * ds
+    png(tempfile())  # Create temporary graphics device (won't display)
+    adjusted_tmax <- determine_tmax2(
+      y = data_col, 
+      N = as.numeric(input$N), 
+      dt = dt, 
+      stimulation_time = as.numeric(input$stimulation_time), 
+      baseline = as.numeric(input$baseline), 
+      smooth = as.numeric(input$smooth),
+      tmax = NULL, 
+      y_abline = as.numeric(input$y_abline),
+      xbar = as.numeric(input$xbar), 
+      ybar = as.numeric(input$ybar),
+      xbar_lab = input$xbar_lab, 
+      ybar_lab = input$ybar_lab
+    )
+    dev.off()  # Close the temporary device
       
       # Convert from adjusted value to displayed value
       displayed_tmax <- adjusted_tmax - as.numeric(input$stimulation_time) + as.numeric(input$baseline)
       updateNumericInput(session, "userTmax", value = displayed_tmax)
     })
   
-  # Update the userTmax input with calculated value
-  updateNumericInput(session, "userTmax", value = calculated_tmax)
-})
+    # Display accumulated results summary
+    output$accumulated_summary <- renderText({
+      if (length(state$accumulated_results) == 0) {
+        "No results accumulated yet.\nAnalyze columns and click 'Add to Results'."
+      } else {
+        column_names <- sapply(state$accumulated_results, function(x) x$column)
+        paste0(
+          "Total columns: ", length(state$accumulated_results), "\n\n",
+          "Columns accumulated:\n",
+          paste0("  ", seq_along(column_names), ". ", column_names, collapse = "\n")
+        )
+      }
+    })
+
+
+    observeEvent(input$add_result, {
+      req(state$analysis)
+      
+      col_name <- req(input$data_col)
+      if (is.null(col_name) || col_name == "") {
+        showNotification("Error: No column selected", type = "error", duration = 3)
+        return()
+      }
+      
+      # Store COMPLETE analysis info for this column (not just output)
+      column_result <- list(
+        column = col_name,
+        output = state$analysis$output,
+        traces = state$analysis$traces,
+        AIC = state$analysis$AIC,
+        BIC = state$analysis$BIC,
+        model_message = state$analysis$model.message,
+        metadata = list(
+          dt = input$dt,
+          stimulation_time = input$stimulation_time,
+          baseline = input$baseline,
+          n = input$n,
+          y_abline = input$y_abline,
+          func = input$func,
+          ds = input$ds,
+          userTmax = input$userTmax,
+          fast_constraint = input$fast_constraint,
+          N = input$N,
+          IEI = input$IEI,
+          smooth = input$smooth,
+          method = input$method,
+          weight_method = input$weight_method,
+          sequential_fit = input$sequential_fit,
+          interval_min = input$interval_min,
+          interval_max = input$interval_max,
+          lower = input$lower,
+          upper = input$upper,
+          latency_limit = input$latency_limit,
+          iter = input$iter,
+          metropolis_scale = input$metropolis_scale,
+          fit_attempts = input$fit_attempts,
+          RWm = input$RWm,
+          filter = input$filter,
+          fc = input$fc,
+          half_width_fit_limit = input$half_width_fit_limit,
+          seed = input$seed,
+          dp = input$dp,
+          fast_constraint_method = input$fast_constraint_method,
+          fast_decay_limit = input$fast_decay_limit,
+          first_delay_constraint = input$first_delay_constraint
+        )
+      )
+      
+      # Check if column already exists
+      existing_cols <- sapply(state$accumulated_results, function(x) x$column)
+      existing_idx <- which(existing_cols == col_name)
+      
+      if (length(existing_idx) > 0) {
+        state$accumulated_results[[existing_idx[1]]] <- column_result
+        showNotification(paste0("Updated: ", col_name), type = "message", duration = 3)
+      } else {
+        state$accumulated_results[[length(state$accumulated_results) + 1]] <- column_result
+        showNotification(paste0("Added: ", col_name, " (Total: ", length(state$accumulated_results), ")"), type = "message", duration = 3)
+      }
+    })
+
+    # Clear accumulated results
+    observeEvent(input$clear_results, {
+      state$accumulated_results <- list()
+      showNotification(
+        "All accumulated results cleared",
+        type = "warning",
+        duration = 3
+      )
+    })
 
     # update when downsampled
     observeEvent(input$ds, {
@@ -11407,102 +11504,167 @@ analysePSCshiny <- function() {
 
     output$download_xlsx <- downloadHandler(
       filename = function() {
-        paste0(
-          tools::file_path_sans_ext(basename(input$file$name)),
-          "_", input$data_col,
-          "_PSC_analysis.xlsx"
-        )
+        req(input$file)
+        if (length(state$accumulated_results) > 0) {
+          paste0(tools::file_path_sans_ext(basename(input$file$name)), "_combined_PSC_analysis.xlsx")
+        } else {
+          paste0(tools::file_path_sans_ext(basename(input$file$name)), "_", input$data_col, "_PSC_analysis.xlsx")
+        }
       },
       content = function(file) {
-        req(state$analysis)
-
         wb <- openxlsx::createWorkbook()
-
-        # result sheets
-        data_list <- list(
-          output          = state$analysis$output,
-          traces          = state$analysis$traces,
-          `fit criterion` = data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC),
-          `model message` = data.frame(message = state$analysis$model.message)
-        )
-        for (nm in names(data_list)) {
-          openxlsx::addWorksheet(wb, nm)
-          openxlsx::writeData(wb, nm, data_list[[nm]])
-        }
-
-        # metadata sheet
-        metadata_labels <- c(
-          'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
-          'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
-          'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
-          'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
-          'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
-          'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
-          'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
-        )
-        metadata_values <- list(
-          input$data_col,
-          input$dt,
-          input$stimulation_time,
-          input$baseline,
-          input$n,
-          input$y_abline,
-          input$func,
-          input$ds,
-          input$userTmax,
-          input$fast_constraint,
-          input$N,
-          input$IEI,
-          input$smooth,
-          input$method,
-          input$weight_method,
-          input$sequential_fit,
-          input$interval_min,
-          input$interval_max,
-          input$lower,
-          input$upper,
-          input$latency_limit,
-          input$iter,
-          input$metropolis_scale,
-          input$fit_attempts,
-          input$RWm,
-          input$filter,
-          input$fc,
-          input$half_width_fit_limit,
-          input$seed,
-          input$dp,
-          input$fast_constraint_method,
-          input$fast_decay_limit,
-          input$first_delay_constraint
-        )
-
-        numeric_labels <- c(
-          'dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:',
-          'Downsample Factor:','User maximum time for fit:','N:','IEI:','Smooth:',
-          'Min interval:','Max interval:','Latency limit:','MLE Iterations:',
-          'Metropolis Scale:','Fit Attempts:','Filter cutoff (Hz):',
-          'Half-width fit limit:','Seed:','Decimal points:'
-        )
-        logical_labels <- c(
-          'Add fast constraint:','Sequential Fit:','Random Walk Metropolis:','Filter:',
-          'First delay constraint:'
-        )
-
-        openxlsx::addWorksheet(wb, "metadata")
-        openxlsx::writeData(wb, "metadata", c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
-        for (i in seq_along(metadata_labels)) {
-          lbl <- metadata_labels[i]
-          val <- metadata_values[[i]]
-          openxlsx::writeData(wb, "metadata", lbl,       startRow = i+1, startCol = 1, colNames = FALSE)
-          if (lbl %in% numeric_labels) {
-            openxlsx::writeData(wb, "metadata", as.numeric(val), startRow = i+1, startCol = 2, colNames = FALSE)
-          } else if (lbl %in% logical_labels) {
-            openxlsx::writeData(wb, "metadata", as.logical(val), startRow = i+1, startCol = 2, colNames = FALSE)
-          } else {
-            openxlsx::writeData(wb, "metadata", val,      startRow = i+1, startCol = 2, colNames = FALSE)
+        
+        if (length(state$accumulated_results) > 0) {
+          # COMBINED MODE
+          
+          # Sheet 1: Combined output showing all columns
+          all_outputs <- lapply(state$accumulated_results, function(r) {
+            cbind(Column = r$column, r$output)
+          })
+          combined_output <- do.call(rbind, all_outputs)
+          openxlsx::addWorksheet(wb, "combined_output")
+          openxlsx::writeData(wb, "combined_output", combined_output)
+          
+          # Now add detailed sheets for EACH column (exact same format as single mode)
+          for (i in seq_along(state$accumulated_results)) {
+            r <- state$accumulated_results[[i]]
+            col_name <- r$column
+            
+            # Ensure unique sheet names even if column name is empty or duplicate
+            prefix <- if (nchar(col_name) > 0) {
+              paste0(col_name, "_")
+            } else {
+              paste0("col", i, "_")
+            }
+         
+            # Output sheet
+            openxlsx::addWorksheet(wb, paste0(prefix, "output"))
+            openxlsx::writeData(wb, paste0(prefix, "output"), r$output)
+            
+            # Traces sheet
+            openxlsx::addWorksheet(wb, paste0(prefix, "traces"))
+            openxlsx::writeData(wb, paste0(prefix, "traces"), r$traces)
+            
+            # Fit criterion sheet
+            openxlsx::addWorksheet(wb, paste0(prefix, "fit criterion"))
+            openxlsx::writeData(wb, paste0(prefix, "fit criterion"), data.frame(AIC = r$AIC, BIC = r$BIC))
+            
+            # Model message sheet
+            openxlsx::addWorksheet(wb, paste0(prefix, "model message"))
+            openxlsx::writeData(wb, paste0(prefix, "model message"), data.frame(message = r$model_message))
+            
+            # Metadata sheet with EXACT formatting from single mode
+            metadata_labels <- c(
+              'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
+              'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
+              'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
+              'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
+              'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
+              'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
+              'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
+            )
+            metadata_values <- list(
+              r$column, r$metadata$dt, r$metadata$stimulation_time, r$metadata$baseline, r$metadata$n, 
+              r$metadata$y_abline, r$metadata$func, r$metadata$ds, r$metadata$userTmax, 
+              r$metadata$fast_constraint, r$metadata$N, r$metadata$IEI, r$metadata$smooth,
+              r$metadata$method, r$metadata$weight_method, r$metadata$sequential_fit, 
+              r$metadata$interval_min, r$metadata$interval_max, r$metadata$lower, r$metadata$upper, 
+              r$metadata$latency_limit, r$metadata$iter, r$metadata$metropolis_scale, 
+              r$metadata$fit_attempts, r$metadata$RWm, r$metadata$filter, r$metadata$fc, 
+              r$metadata$half_width_fit_limit, r$metadata$seed, r$metadata$dp,
+              r$metadata$fast_constraint_method, r$metadata$fast_decay_limit, r$metadata$first_delay_constraint
+            )
+            
+            numeric_labels <- c(
+              'dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:',
+              'Downsample Factor:','User maximum time for fit:','N:','IEI:','Smooth:',
+              'Min interval:','Max interval:','Latency limit:','MLE Iterations:',
+              'Metropolis Scale:','Fit Attempts:','Filter cutoff (Hz):',
+              'Half-width fit limit:','Seed:','Decimal points:'
+            )
+            logical_labels <- c(
+              'Add fast constraint:','Sequential Fit:','Random Walk Metropolis:','Filter:',
+              'First delay constraint:'
+            )
+            
+            openxlsx::addWorksheet(wb, paste0(prefix, "metadata"))
+            openxlsx::writeData(wb, paste0(prefix, "metadata"), c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
+            for (j in seq_along(metadata_labels)) {
+              lbl <- metadata_labels[j]
+              val <- metadata_values[[j]]
+              openxlsx::writeData(wb, paste0(prefix, "metadata"), lbl, startRow = j+1, startCol = 1, colNames = FALSE)
+              if (lbl %in% numeric_labels) {
+                openxlsx::writeData(wb, paste0(prefix, "metadata"), as.numeric(val), startRow = j+1, startCol = 2, colNames = FALSE)
+              } else if (lbl %in% logical_labels) {
+                openxlsx::writeData(wb, paste0(prefix, "metadata"), as.logical(val), startRow = j+1, startCol = 2, colNames = FALSE)
+              } else {
+                openxlsx::writeData(wb, paste0(prefix, "metadata"), val, startRow = j+1, startCol = 2, colNames = FALSE)
+              }
+            }
+          }
+          
+        } else {
+          # SINGLE MODE (unchanged from your original)
+          req(state$analysis)
+          
+          openxlsx::addWorksheet(wb, "output")
+          openxlsx::writeData(wb, "output", state$analysis$output)
+          
+          openxlsx::addWorksheet(wb, "traces")
+          openxlsx::writeData(wb, "traces", state$analysis$traces)
+          
+          openxlsx::addWorksheet(wb, "fit criterion")
+          openxlsx::writeData(wb, "fit criterion", data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC))
+          
+          openxlsx::addWorksheet(wb, "model message")
+          openxlsx::writeData(wb, "model message", data.frame(message = state$analysis$model.message))
+          
+          metadata_labels <- c(
+            'Data column:','dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:','Function:',
+            'Downsample Factor:','User maximum time for fit:','Add fast constraint:','N:','IEI:','Smooth:',
+            'Method:','Weighting:','Sequential Fit:','Min interval:','Max interval:',
+            'Lower bounds (comma-separated):','Upper bounds (comma-separated):','Latency limit:',
+            'MLE Iterations:','Metropolis Scale:','Fit Attempts:','Random Walk Metropolis:',
+            'Filter:','Filter cutoff (Hz):','Half-width fit limit:','Seed:','Decimal points:',
+            'Fast constraint method:','Fast decay limit(s):','First delay constraint:'
+          )
+          metadata_values <- list(
+            input$data_col, input$dt, input$stimulation_time, input$baseline, input$n, input$y_abline, input$func,
+            input$ds, input$userTmax, input$fast_constraint, input$N, input$IEI, input$smooth,
+            input$method, input$weight_method, input$sequential_fit, input$interval_min, input$interval_max,
+            input$lower, input$upper, input$latency_limit, input$iter, input$metropolis_scale, input$fit_attempts,
+            input$RWm, input$filter, input$fc, input$half_width_fit_limit, input$seed, input$dp,
+            input$fast_constraint_method, input$fast_decay_limit, input$first_delay_constraint
+          )
+          
+          numeric_labels <- c(
+            'dt (ms):','Stimulation Time:','Baseline:','n:','Fit cutoff:',
+            'Downsample Factor:','User maximum time for fit:','N:','IEI:','Smooth:',
+            'Min interval:','Max interval:','Latency limit:','MLE Iterations:',
+            'Metropolis Scale:','Fit Attempts:','Filter cutoff (Hz):',
+            'Half-width fit limit:','Seed:','Decimal points:'
+          )
+          logical_labels <- c(
+            'Add fast constraint:','Sequential Fit:','Random Walk Metropolis:','Filter:',
+            'First delay constraint:'
+          )
+          
+          openxlsx::addWorksheet(wb, "metadata")
+          openxlsx::writeData(wb, "metadata", c("Parameter","Value"), startRow = 1, startCol = 1, colNames = FALSE)
+          for (i in seq_along(metadata_labels)) {
+            lbl <- metadata_labels[i]
+            val <- metadata_values[[i]]
+            openxlsx::writeData(wb, "metadata", lbl, startRow = i+1, startCol = 1, colNames = FALSE)
+            if (lbl %in% numeric_labels) {
+              openxlsx::writeData(wb, "metadata", as.numeric(val), startRow = i+1, startCol = 2, colNames = FALSE)
+            } else if (lbl %in% logical_labels) {
+              openxlsx::writeData(wb, "metadata", as.logical(val), startRow = i+1, startCol = 2, colNames = FALSE)
+            } else {
+              openxlsx::writeData(wb, "metadata", val, startRow = i+1, startCol = 2, colNames = FALSE)
+            }
           }
         }
-
+        
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
