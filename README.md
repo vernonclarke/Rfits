@@ -537,7 +537,7 @@ These responses with only differ by added gaussian noise.
  }
  
  required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-   'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+   'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
  load_required_packages(required.packages)
 
   # insert your username and repository path
@@ -657,7 +657,7 @@ These responses with only differ by added gaussian noise.
   }
 
   required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-    'shiny', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+    'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
   load_required_packages(required.packages)
 
   # insert your username and repository path
@@ -793,7 +793,7 @@ Paste the following into the editor:
       }
       load_required_packages(c(
         'dbscan','minpack.lm','Rcpp','robustbase',
-        'shiny','signal','readABF','readxl',
+        'shiny','shinybusy','signal','readABF','readxl',
         'tcltk','tkrplot','openxlsx'
       ))
 
