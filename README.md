@@ -525,6 +525,9 @@ These responses with only differ by added gaussian noise.
  ```R
  # open R from terminal:
  # open -n -a R
+
+  # open R from terminal
+  # R --no-save
  
  rm(list = ls(all = TRUE))
  graphics.off()
@@ -644,6 +647,9 @@ These responses with only differ by added gaussian noise.
   ```R
   # open R from terminal
   # open -n -a R
+
+  # open R from terminal
+  # R --no-save
 
   # clear R session
   rm(list = ls(all = TRUE))
