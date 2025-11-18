@@ -9945,6 +9945,193 @@ analyseABFshiny <- function() {
   }
 
   ui <- fluidPage(
+    # Add dark mode CSS
+    tags$head(
+      tags$style(HTML("
+        /* Light mode (default) */
+        body {
+          background-color: white;
+          color: black;
+        }
+        
+        /* Dark mode - auto-detect browser preference */
+        @media (prefers-color-scheme: dark) {
+          body {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+          }
+          
+          .well {
+            background-color: #2d2d2d;
+            border-color: #444;
+          }
+          
+          /* Regular input fields - keep dark */
+          .form-control {
+            background-color: #2d2d2d;
+            color: #c0c0c0 !important;
+            border: 1px solid #555 !important;
+          }
+
+          /* Numeric and text inputs - keep dark */
+          input[type='number'],
+          input[type='text'] {
+            background-color: #2d2d2d !important;
+            color: #c0c0c0 !important;
+            border: 1px solid #555 !important;
+          }
+
+          /* DROPDOWN MENUS ONLY - WHITE boxes with dark gray text */
+          .selectize-input, .selectize-dropdown {
+            background-color: #ffffff !important;
+            color: #666666 !important;
+            border: none !important;
+          }
+
+          /* Dropdown options */
+          .selectize-dropdown .option {
+            background-color: #ffffff;
+            color: #666666;
+          }
+
+          .selectize-dropdown .option:hover {
+            background-color: #f0f0f0;
+            color: #333333;
+          }
+
+          /* Selected option in dropdown */
+          .selectize-dropdown .selected,
+          .selectize-dropdown .active {
+            background-color: #e0e0e0;
+            color: #333333;
+          }
+
+          /* Selectize item (selected chips) - NO GREY BOX */
+          .selectize-input .item {
+            background-color: #ffffff !important;
+            color: #666666 !important;
+            border: none !important;
+          }
+          
+          /* Labels - also brighter */
+          .shiny-input-container label, h4, h3 {
+            color: #f0f0f0;
+            font-weight: 500;
+          }
+          
+          /* Radio buttons and checkbox labels */
+          .radio label, .checkbox label {
+            color: #f0f0f0;
+          }
+          
+          /* Tab navigation */
+          .nav-tabs {
+            border-bottom-color: #444;
+          }
+          
+          .nav-tabs > li > a {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #444;
+          }
+          
+          .nav-tabs > li.active > a,
+          .nav-tabs > li.active > a:hover,
+          .nav-tabs > li.active > a:focus {
+            background-color: #1e1e1e;
+            color: #fff;
+            border-color: #444 #444 transparent;
+          }
+          
+          /* Buttons */
+          .btn {
+            background-color: #3d3d3d;
+            color: #ffffff;
+            border-color: #555;
+          }
+          
+          .btn:hover {
+            background-color: #4d4d4d;
+            border-color: #666;
+            color: #ffffff;
+          }
+          
+          .btn-default:hover {
+            color: #fff;
+          }
+          
+          /* Download buttons */
+          .btn-default {
+            color: #ffffff;
+          }
+          
+          /* Action buttons - make them stand out more */
+          .btn-primary, .action-button {
+            background-color: #3c8dbc;
+            color: #ffffff;
+            border-color: #357ca5;
+          }
+          
+          .btn-primary:hover, .action-button:hover {
+            background-color: #4a9dd1;
+            border-color: #428bca;
+          }
+          
+          /* Verbatim output */
+          pre, code {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            border-color: #444;
+          }
+          
+          hr {
+            border-top-color: #444;
+          }
+          
+          /* File input styling */
+          .btn-file {
+            background-color: #3d3d3d;
+            color: #ffffff;
+          }
+          
+          /* Progress bar in dark mode */
+          .shiny-progress .progress {
+            background-color: #2d2d2d;
+          }
+          
+          .shiny-progress .progress-bar {
+            background-color: #3c8dbc;
+          }
+          
+          .shiny-progress-notification {
+            background-color: #2d2d2d;
+            color: #f0f0f0;
+            border-color: #444;
+          }
+          
+          /* Focus states for inputs */
+          .form-control:focus, .selectize-input.focus {
+            border-color: #3c8dbc;
+            box-shadow: 0 0 0 0.2rem rgba(60, 141, 188, 0.25);
+          }
+          
+          /* Tables in dark mode */
+          table {
+            color: #e0e0e0;
+          }
+          
+          .table-bordered {
+            border-color: #444;
+          }
+          
+          .table-bordered th,
+          .table-bordered td {
+            border-color: #444;
+          }
+        }
+      "))
+    ),
+    
     titlePanel("ABF Analysis"),
     sidebarLayout(
       sidebarPanel(
@@ -9996,7 +10183,6 @@ analyseABFshiny <- function() {
               )
             )
           ),
-
           tabPanel("Average",
             fluidRow(
               column(8,
@@ -10999,7 +11185,7 @@ analysePSCtk <- function() {
 analysePSCshiny <- function() {
 
   ui <- fluidPage(
-    # Add dark mode CSS detection
+    # Add dark mode CSS
     tags$head(
       tags$style(HTML("
         /* Light mode (default) */
@@ -11020,25 +11206,65 @@ analysePSCshiny <- function() {
             border-color: #444;
           }
           
-          .form-control, .selectize-input, .selectize-dropdown {
+          /* Regular input fields - keep dark */
+          .form-control {
             background-color: #2d2d2d;
-            color: #e0e0e0;
-            border-color: #444;
+            color: #c0c0c0 !important;
+            border: 1px solid #555 !important;
           }
-          
+
+          /* Numeric and text inputs - keep dark */
+          input[type='number'],
+          input[type='text'] {
+            background-color: #2d2d2d !important;
+            color: #c0c0c0 !important;
+            border: 1px solid #555 !important;
+          }
+
+          /* DROPDOWN MENUS ONLY - WHITE boxes with dark gray text */
+          .selectize-input, .selectize-dropdown {
+            background-color: #ffffff !important;
+            color: #666666 !important;
+            border: none !important;  /* NO BORDER AT ALL */
+          }
+
+          /* Dropdown options */
           .selectize-dropdown .option {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
+            background-color: #ffffff;
+            color: #666666;
           }
-          
+
           .selectize-dropdown .option:hover {
-            background-color: #3d3d3d;
+            background-color: #f0f0f0;
+            color: #333333;
+          }
+
+          /* Selected option in dropdown */
+          .selectize-dropdown .selected,
+          .selectize-dropdown .active {
+            background-color: #e0e0e0;
+            color: #333333;
+          }
+
+          /* Selectize item (selected chips) - NO GREY BOX */
+          .selectize-input .item {
+            background-color: #ffffff !important;  /* WHITE, not grey */
+            color: #666666 !important;
+            border: none !important;  /* NO border */
           }
           
+          /* Labels - also brighter */
           .shiny-input-container label, h4, h3 {
-            color: #e0e0e0;
+            color: #f0f0f0;
+            font-weight: 500;
           }
           
+          /* Radio buttons and checkbox labels */
+          .radio label, .checkbox label {
+            color: #f0f0f0;
+          }
+          
+          /* Tab navigation */
           .nav-tabs {
             border-bottom-color: #444;
           }
@@ -11057,25 +11283,44 @@ analysePSCshiny <- function() {
             border-color: #444 #444 transparent;
           }
           
+          /* Buttons */
           .btn {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
-            border-color: #444;
+            background-color: #3d3d3d;
+            color: #ffffff;
+            border-color: #555;
           }
           
           .btn:hover {
-            background-color: #3d3d3d;
-            border-color: #555;
+            background-color: #4d4d4d;
+            border-color: #666;
+            color: #ffffff;
           }
           
           .btn-default:hover {
             color: #fff;
           }
           
-          /* Fix verbatim output in dark mode */
+          /* Download buttons */
+          .btn-default {
+            color: #ffffff;
+          }
+          
+          /* Action buttons - make them stand out more */
+          .btn-primary, .action-button {
+            background-color: #3c8dbc;
+            color: #ffffff;
+            border-color: #357ca5;
+          }
+          
+          .btn-primary:hover, .action-button:hover {
+            background-color: #4a9dd1;
+            border-color: #428bca;
+          }
+          
+          /* Verbatim output */
           pre, code {
             background-color: #1a1a1a;
-            color: #e0e0e0;
+            color: #f0f0f0;
             border-color: #444;
           }
           
@@ -11085,18 +11330,43 @@ analysePSCshiny <- function() {
           
           /* File input styling */
           .btn-file {
-            background-color: #2d2d2d;
-            color: #e0e0e0;
+            background-color: #3d3d3d;
+            color: #ffffff;
           }
           
-          /* Checkbox styling */
-          .checkbox label {
-            color: #e0e0e0;
+          /* Progress bar in dark mode */
+          .shiny-progress .progress {
+            background-color: #2d2d2d;
+          }
+          
+          .shiny-progress .progress-bar {
+            background-color: #3c8dbc;
+          }
+          
+          .shiny-progress-notification {
+            background-color: #2d2d2d;
+            color: #f0f0f0;
+            border-color: #444;
+          }
+          
+          /* Focus states for inputs */
+          .form-control:focus, .selectize-input.focus {
+            border-color: #3c8dbc;
+            box-shadow: 0 0 0 0.2rem rgba(60, 141, 188, 0.25);
           }
         }
       "))
     ),
-    
+
+    # Add automatic busy indicator (ADD THIS)
+    add_busy_spinner(
+      spin = "fading-circle",
+      position = "top-right",
+      color = "#3c8dbc",
+      height = "60px",
+      width = "60px"
+    ),
+
     titlePanel('PSC Analysis'),
     sidebarLayout(
       sidebarPanel(
@@ -11111,7 +11381,6 @@ analysePSCshiny <- function() {
                    numericInput('n', 'n:', 30),
                    numericInput('y_abline', 'Fit Cutoff:', 0.1),
                    selectInput('func', 'Function:', choices=c('product1N', 'product2N', 'product3N')),
-                   checkboxInput('fast_constraint', 'Fast Constraint', FALSE),
                    numericInput('ds', 'Downsample Factor:', 1, min=1)
           ),
           tabPanel('Fit Options',
@@ -11162,7 +11431,7 @@ analysePSCshiny <- function() {
         downloadButton('download_xlsx',  'Download Output (*.xlsx)'),
         downloadButton('download_output', 'Download RData'),
         downloadButton('download_svg', 'Download SVG Plot'),
-        actionButton('clear_output', 'Clear Output'),
+        actionButton('clear_output', 'Clear Output')
       ),
       mainPanel(
         plotOutput('plot', height='500px'),
@@ -11371,6 +11640,19 @@ analysePSCshiny <- function() {
       }
     }, ignoreInit=TRUE)
     
+    # Clear analysis when function or critical parameters change
+    observeEvent(list(input$func, input$N, input$IEI), {
+      # Only clear if analysis exists and response is loaded
+      if (!is.null(state$analysis) && !is.null(state$response)) {
+        state$analysis <- NULL
+        showNotification(
+          "Model changed. Please re-run analysis.",
+          type = "warning",
+          duration = 3
+        )
+      }
+    }, ignoreInit = TRUE)
+
     # plot output
     output$plot <- renderPlot({
       req(state$response)
@@ -11992,6 +12274,206 @@ widgetPSCtk <- function() {
 widgetPSCshiny <- function() {
 
   ui <- fluidPage(
+    # Add dark mode CSS
+    tags$head(
+      tags$style(HTML("
+        /* Light mode (default) */
+        body {
+          background-color: white;
+          color: black;
+        }
+        
+        /* Dark mode - auto-detect browser preference */
+        @media (prefers-color-scheme: dark) {
+          body {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+          }
+          
+          .well {
+            background-color: #2d2d2d;
+            border-color: #444;
+          }
+          
+          /* Regular input fields - keep dark */
+          .form-control {
+            background-color: #2d2d2d;
+            color: #c0c0c0 !important;
+            border: 1px solid #555 !important;
+          }
+
+          /* Numeric and text inputs - keep dark */
+          input[type='number'],
+          input[type='text'] {
+            background-color: #2d2d2d !important;
+            color: #c0c0c0 !important;
+            border: 1px solid #555 !important;
+          }
+
+          /* DROPDOWN MENUS ONLY - WHITE boxes with dark gray text, NO BORDER */
+          .selectize-input, .selectize-dropdown {
+            background-color: #ffffff !important;
+            color: #666666 !important;
+            border: none !important;
+          }
+
+          /* Dropdown options */
+          .selectize-dropdown .option {
+            background-color: #ffffff;
+            color: #666666;
+          }
+
+          .selectize-dropdown .option:hover {
+            background-color: #f0f0f0;
+            color: #333333;
+          }
+
+          /* Selected option in dropdown */
+          .selectize-dropdown .selected,
+          .selectize-dropdown .active {
+            background-color: #e0e0e0;
+            color: #333333;
+          }
+
+          /* Selectize item (selected chips) - NO GREY BOX */
+          .selectize-input .item {
+            background-color: #ffffff !important;
+            color: #666666 !important;
+            border: none !important;
+          }
+          
+          /* Labels - also brighter */
+          .shiny-input-container label, h4, h3 {
+            color: #f0f0f0;
+            font-weight: 500;
+          }
+          
+          /* Radio buttons and checkbox labels */
+          .radio label, .checkbox label {
+            color: #f0f0f0;
+          }
+          
+          /* Tab navigation */
+          .nav-tabs {
+            border-bottom-color: #444;
+          }
+          
+          .nav-tabs > li > a {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #444;
+          }
+          
+          .nav-tabs > li.active > a,
+          .nav-tabs > li.active > a:hover,
+          .nav-tabs > li.active > a:focus {
+            background-color: #1e1e1e;
+            color: #fff;
+            border-color: #444 #444 transparent;
+          }
+          
+          /* Buttons */
+          .btn {
+            background-color: #3d3d3d;
+            color: #ffffff;
+            border-color: #555;
+          }
+          
+          .btn:hover {
+            background-color: #4d4d4d;
+            border-color: #666;
+            color: #ffffff;
+          }
+          
+          .btn-default:hover {
+            color: #fff;
+          }
+          
+          /* Download buttons */
+          .btn-default {
+            color: #ffffff;
+          }
+          
+          /* Action buttons - make them stand out more */
+          .btn-primary, .action-button {
+            background-color: #3c8dbc;
+            color: #ffffff;
+            border-color: #357ca5;
+          }
+          
+          .btn-primary:hover, .action-button:hover {
+            background-color: #4a9dd1;
+            border-color: #428bca;
+          }
+          
+          /* Verbatim output */
+          pre, code {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            border-color: #444;
+          }
+          
+          hr {
+            border-top-color: #444;
+          }
+          
+          /* File input styling */
+          .btn-file {
+            background-color: #3d3d3d;
+            color: #ffffff;
+          }
+          
+          /* Progress bar in dark mode */
+          .shiny-progress .progress {
+            background-color: #2d2d2d;
+          }
+          
+          .shiny-progress .progress-bar {
+            background-color: #3c8dbc;
+          }
+          
+          .shiny-progress-notification {
+            background-color: #2d2d2d;
+            color: #f0f0f0;
+            border-color: #444;
+          }
+          
+          /* Focus states for inputs */
+          .form-control:focus, .selectize-input.focus {
+            border-color: #3c8dbc;
+            box-shadow: 0 0 0 0.2rem rgba(60, 141, 188, 0.25);
+          }
+          
+          /* Slider styling */
+          .irs--shiny .irs-bar {
+            background: #3c8dbc;
+            border-color: #357ca5;
+          }
+          
+          .irs--shiny .irs-handle {
+            background: #3d3d3d;
+            border-color: #555;
+          }
+          
+          .irs--shiny .irs-single,
+          .irs--shiny .irs-from,
+          .irs--shiny .irs-to {
+            background: #3d3d3d;
+            color: #ffffff;
+          }
+          
+          .irs--shiny .irs-grid-text {
+            color: #999;
+          }
+          
+          .irs--shiny .irs-line {
+            background: #2d2d2d;
+            border-color: #555;
+          }
+        }
+      "))
+    ),
+    
     titlePanel(
       HTML("Interactive Graphs:<br>exp(-t/&tau;<sub>decay</sub>) - exp(-t/&tau;<sub>rise</sub>)")
     ),
@@ -12027,6 +12509,10 @@ widgetPSCshiny <- function() {
 
   server <- function(input, output, session) {
     
+    # Throttle slider inputs - updates every 150ms while moving
+    Tr_throttled <- throttle(reactive(input$Tr), 150)
+    Td_throttled <- throttle(reactive(input$Td), 150)
+    
     # ensure Td > Tr
     observeEvent(input$Tr, {
       updateSliderInput(
@@ -12038,30 +12524,35 @@ widgetPSCshiny <- function() {
     
     output$upperPlot <- renderPlotly({
       t_max  <- 250
-      t_seq  <- seq(0, t_max, length.out = 2000)
-      y_combined <- -(exp(-t_seq / input$Td) - exp(-t_seq / input$Tr))
-      y_Td <- -exp(-t_seq / input$Td)
-      y_Tr <- -exp(-t_seq / input$Tr)
+      t_seq  <- seq(0, t_max, length.out = 300)
+      y_combined <- -(exp(-t_seq / Td_throttled()) - exp(-t_seq / Tr_throttled()))
+      y_Td <- -exp(-t_seq / Td_throttled())
+      y_Tr <- -exp(-t_seq / Tr_throttled())
       
       plot_ly(type = 'scatter', mode = 'lines') %>%
-        add_trace(x = t_seq, y = y_combined, name = 'exp(-t/Td) - exp(-t/Tr)',
-                  line = list(color = 'gray')) %>%
-        add_trace(x = t_seq, y = y_Td, name = 'exp(-t/Td)',
-                  line = list(color = 'indianred', dash = 'dot')) %>%
-        add_trace(x = t_seq, y = y_Tr, name = 'exp(-t/Tr)',
-                  line = list(color = 'slateblue', dash = 'dot')) %>%
+        add_trace(x = t_seq, y = y_combined, name = 'exp(-t/τ_decay) - exp(-t/τ_rise)',
+                  line = list(color = 'grey', width = 2)) %>%
+        add_trace(x = t_seq, y = y_Td, name = 'exp(-t/τ_decay)',
+                  line = list(color = 'indianred', dash = 'dot', width = 2)) %>%
+        add_trace(x = t_seq, y = y_Tr, name = 'exp(-t/τ_rise)',
+                  line = list(color = 'slateblue', dash = 'dot', width = 2)) %>%
         layout(
           title = 'exp(-t/τ_decay) - exp(-t/τ_rise)',
-          xaxis = list(title = 't (ms)'),
-          yaxis = list(title = 'F(x)')
+          xaxis = list(title = '', showgrid = FALSE, showline = TRUE, ticks = 'outside', zeroline = FALSE),
+          yaxis = list(title = 'F(x)', showgrid = FALSE, showline = TRUE, ticks = 'outside', zeroline = FALSE),
+          legend = list(x = 0.98, y = 0.02, xanchor = 'right', yanchor = 'bottom')
         )
     })
     
     output$lowerPlot <- renderPlotly({
       t_max    <- 250
-      t_seq    <- seq(0, t_max, length.out = 2000)
-      y_comb   <- -(exp(-t_seq / input$Td) - exp(-t_seq / input$Tr))
-      norm     <- y_comb / min(y_comb)
+      t_seq    <- seq(0, t_max, length.out = 300)
+      y_comb   <- -(exp(-t_seq / Td_throttled()) - exp(-t_seq / Tr_throttled()))
+      norm     <- y_comb / abs(min(y_comb))
+      T1       <- Td_throttled() * Tr_throttled() / (Td_throttled() - Tr_throttled())
+      y_1mTr   <- -(1 - exp(-t_seq / T1))
+      y_Td     <- -exp(-t_seq / Td_throttled())
+      
       peak_i   <- which.min(y_comb)
       y_fall   <- y_comb[peak_i:length(y_comb)]
       t_fall   <- t_seq[peak_i:length(t_seq)]
@@ -12071,34 +12562,33 @@ widgetPSCshiny <- function() {
       dl <- input$decayLower * min_val
       idx_up   <- which(y_fall >= du)[1]
       idx_lo   <- which(y_fall >= dl)[1]
+      
       if (is.na(idx_lo)) {
         ext_t <- seq(0, t_max*2, length.out = length(t_seq)*2)
-        ext_y <- -(exp(-ext_t/input$Td) - exp(-ext_t/input$Tr))
+        ext_y <- -(exp(-ext_t/Td_throttled()) - exp(-ext_t/Tr_throttled()))
         y_fall <- ext_y[peak_i:length(ext_y)]
         t_fall <- ext_t[peak_i:length(ext_t)]
         idx_lo <- which(y_fall >= dl)[1]
       }
+      
       decay_time <- if (!is.na(idx_up) && !is.na(idx_lo))
         round(t_fall[idx_lo] - t_fall[idx_up], 2) else NA
       
       up_pct <- round(input$decayUpper * 100)
       lo_pct <- round(input$decayLower * 100)
-      title2 <- paste("normalized with", up_pct, "-", lo_pct, "% decay time")
+      title2 <- paste("normalised with", up_pct, "-", lo_pct, "% decay time")
       
       p <- plot_ly(type = 'scatter', mode = 'lines') %>%
-        add_trace(x = t_seq, y = -norm, name = 'normalized F(x)',
-                  line = list(color = 'gray')) %>%
-        add_trace(x = t_seq,
-                  y = -(1 - exp(-t_seq / (input$Td * input$Tr /
-                                          (input$Td - input$Tr)))),
-                  name = '-(1 - exp(-t/τ1))',
-                  line = list(color = 'slateblue', dash = 'dot')) %>%
-        add_trace(x = t_seq, y = -exp(-t_seq / input$Td),
-                  name = '-exp(-t/τ_decay)',
-                  line = list(color = 'indianred', dash = 'dot')) %>%
+        add_trace(x = t_seq, y = norm, name = '(exp(-t/τ_decay) - exp(-t/τ_rise)) / abs',
+                  line = list(color = 'grey', width = 2)) %>%
+        add_trace(x = t_seq, y = y_1mTr, name = '-(1 - exp(-t/τ1))',
+                  line = list(color = 'slateblue', dash = 'dot', width = 2)) %>%
+        add_trace(x = t_seq, y = y_Td, name = '-exp(-t/τ_decay)',
+                  line = list(color = 'indianred', dash = 'dot', width = 2)) %>%
         layout(title = title2,
-               xaxis = list(title = 'time (ms)'),
-               yaxis = list(title = 'normalized F(x)'))
+               xaxis = list(title = 'time (ms)', showgrid = FALSE, showline = TRUE, ticks = 'outside', zeroline = FALSE),
+               yaxis = list(title = 'normalised F(x)', showgrid = FALSE, showline = TRUE, ticks = 'outside', zeroline = FALSE),
+               legend = list(x = 0.98, y = 0.02, xanchor = 'right', yanchor = 'bottom'))
       
       if (!is.na(decay_time)) {
         p <- p %>%
@@ -12108,23 +12598,25 @@ widgetPSCshiny <- function() {
           add_trace(x = c(0, t_max), y = rep(-dl/min_val, 2),
                     showlegend = FALSE,
                     line = list(color = 'darkgrey', dash = 'dot')) %>%
-          add_annotations(x = t_max * 0.8, y = -0.5,
-                          text = paste(up_pct, "-", lo_pct,
-                                       "decay =", decay_time, "ms"),
+          add_annotations(x = t_max * 0.8, y = -0.3,
+                          text = paste(up_pct, '-', lo_pct, 'decay =', decay_time, 'ms'),
                           showarrow = FALSE,
-                          font = list(color = 'darkgrey'))
+                          font = list(color = 'darkgrey', size = 11))
       } else {
         p <- p %>%
-          add_annotations(x = t_max * 0.8, y = -0.5,
-                          text = 'decay not fully reached',
+          add_annotations(x = t_max * 0.8, y = -0.3,
+                          text = 'Decay not fully reached',
                           showarrow = FALSE,
-                          font = list(color = 'indianred'))
+                          font = list(color = 'indianred', size = 11))
       }
       
       p
     })
+    
   }
 
   shinyApp(ui, server)
 
 }
+
+
