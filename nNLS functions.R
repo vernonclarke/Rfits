@@ -10999,6 +10999,104 @@ analysePSCtk <- function() {
 analysePSCshiny <- function() {
 
   ui <- fluidPage(
+    # Add dark mode CSS detection
+    tags$head(
+      tags$style(HTML("
+        /* Light mode (default) */
+        body {
+          background-color: white;
+          color: black;
+        }
+        
+        /* Dark mode - auto-detect browser preference */
+        @media (prefers-color-scheme: dark) {
+          body {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+          }
+          
+          .well {
+            background-color: #2d2d2d;
+            border-color: #444;
+          }
+          
+          .form-control, .selectize-input, .selectize-dropdown {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #444;
+          }
+          
+          .selectize-dropdown .option {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+          }
+          
+          .selectize-dropdown .option:hover {
+            background-color: #3d3d3d;
+          }
+          
+          .shiny-input-container label, h4, h3 {
+            color: #e0e0e0;
+          }
+          
+          .nav-tabs {
+            border-bottom-color: #444;
+          }
+          
+          .nav-tabs > li > a {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #444;
+          }
+          
+          .nav-tabs > li.active > a,
+          .nav-tabs > li.active > a:hover,
+          .nav-tabs > li.active > a:focus {
+            background-color: #1e1e1e;
+            color: #fff;
+            border-color: #444 #444 transparent;
+          }
+          
+          .btn {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+            border-color: #444;
+          }
+          
+          .btn:hover {
+            background-color: #3d3d3d;
+            border-color: #555;
+          }
+          
+          .btn-default:hover {
+            color: #fff;
+          }
+          
+          /* Fix verbatim output in dark mode */
+          pre, code {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            border-color: #444;
+          }
+          
+          hr {
+            border-top-color: #444;
+          }
+          
+          /* File input styling */
+          .btn-file {
+            background-color: #2d2d2d;
+            color: #e0e0e0;
+          }
+          
+          /* Checkbox styling */
+          .checkbox label {
+            color: #e0e0e0;
+          }
+        }
+      "))
+    ),
+    
     titlePanel('PSC Analysis'),
     sidebarLayout(
       sidebarPanel(
@@ -11069,11 +11167,10 @@ analysePSCshiny <- function() {
       mainPanel(
         plotOutput('plot', height='500px'),
         verbatimTextOutput('console'),
-
-      hr(),
-      h4("Summary"),
-      verbatimTextOutput('accumulated_summary')
-
+        
+        hr(),
+        h4("Summary"),
+        verbatimTextOutput('accumulated_summary')
       )
     )
   )
@@ -11347,15 +11444,26 @@ analysePSCshiny <- function() {
       if (any(is.na(y))) y <- y[!is.na(y)]
       x <- seq(0, (length(y) - 1) * dt, by=dt)
       
-      tmax_value <- if (is.na(as.numeric(input$userTmax))) {
-        determine_tmax2(y=y, N=N, dt=dt, stimulation_time=stim_time, baseline=baseline,
-                        smooth=smooth, tmax=NULL, y_abline=as.numeric(input$y_abline),
-                        xbar=as.numeric(input$xbar), ybar=as.numeric(input$ybar),
-                        xbar_lab=input$xbar_lab, ybar_lab=input$ybar_lab)
-      } else {
-        as.numeric(input$userTmax) + stim_time - baseline  # fixed: must add conversion
-      }
+      # Suppress graphics and always use determine_tmax2
+      png(tempfile())
+      tmax_value <- determine_tmax2(
+        y = y, 
+        N = N, 
+        dt = dt, 
+        stimulation_time = stim_time, 
+        baseline = baseline,
+        smooth = smooth, 
+        tmax = if (!is.na(as.numeric(input$userTmax))) as.numeric(input$userTmax) else NULL,
+        y_abline = as.numeric(input$y_abline),
+        xbar = as.numeric(input$xbar), 
+        ybar = as.numeric(input$ybar),
+        xbar_lab = input$xbar_lab, 
+        ybar_lab = input$ybar_lab
+      )
+      dev.off()
+      
       x_limit <- tmax_value
+
       
       adjusted_response <- y[x < x_limit]
 
