@@ -2139,4 +2139,100 @@ cbind(PSC, PSC_estimated)[1:10,]
        - **Method:** A trust-region algorithm that works efficiently when the number of observations is much greater than the number of variables.
        - **Robustness:** It’s versatile and can be more efficient than 'trf' for some specific small-scale problems.
 
+
+
+
+j. **gof, AIC, and BIC with Weighted Fits**
+
+   Understanding how gof, AIC, and BIC behave with weighted fits is important for proper model selection.
+
+   `out_list[[ii]]$gof` gives the standard error or 'RMSE' of the residuals:
+
+$$\boldsymbol{ gof = \sqrt{\frac{\sum (y_i - \hat{y}_i)^2}{n - k}} }$$
+
+   It quantifies the precision of the model's fit to the data, accounting for the degrees of freedom df = n - k, where n is the number of data points and k is the number of estimated parameters in the model.
+
+   When using weight_method (e.g., '~y_sqrt' or '~y'), gof uses the same weighted residuals that were minimized during fitting:
+
+$$\boldsymbol{ gof_{weighted} = \sqrt{\frac{\sum [w_i(y_i - \hat{y}_i)]^2}{n - k}} }$$
+
+   where $w_i$ are the weights applied to each residual.
+
+   ```
+   out_list[[ii]]$gof
+
+   [1] 5.037325
+   ```
+
+   `out_list[[ii]]$AIC` gives the Akaike Information Criterion of the fit. AIC is always calculated using unweighted residuals:
+
+$$\boldsymbol{ AIC = 2k + n \cdot \log(RSS/n) + n \cdot \log(2\pi) + n }$$
+
+   where $RSS = \sum (y_i - \hat{y}_i)^2$ is the unweighted residual sum of squares.
+
+   ```
+   out_list[[ii]]$AIC
+
+        AIC 
+   27979.98
+   ```
+
+   `out_list[[ii]]$BIC` gives the Bayesian Information Criterion of the fit. BIC is always calculated using unweighted residuals:
+
+$$\boldsymbol{ BIC = k \cdot \log(n) + n \cdot \log(RSS/n) + n \cdot \log(2\pi) + n }$$
+
+   ```
+   out_list[[ii]]$BIC
+
+        BIC 
+   28031.46 
+   ```
+
+   **Design Rationale:**
+
+   | Metric | Residuals Used | Purpose |
+   |--------|----------------|---------|
+   | gof | Weighted (if weight_method specified) | Select best iteration within same model |
+   | AIC | Always unweighted | Compare different models |
+   | BIC | Always unweighted | Compare different models |
+
+   - **gof with weights:**
+     - Allows you to emphasize peak fitting during the iterative optimization (n=100 fits)
+     - If weight_method='~y_sqrt', fits that better match peaks will have lower gof
+     - This guides the selection toward biologically relevant features
+
+   - **AIC/BIC without weights:**
+     - Ensures valid statistical model comparison
+     - Unweighted likelihood is the true data likelihood
+     - Allows fair comparison between product1N and product2N
+
+   **Weighting Methods:**
+
+   - **weight_method='none' (Default):** Standard least squares, all data points weighted equally. gof, AIC, and BIC all use the same unweighted residuals.
+
+   - **weight_method='~y_sqrt':** Weights residuals by $\sqrt{|y|}$ during fitting and gof calculation only. Emphasizes regions with larger signals (peaks). gof reflects this weighting; AIC/BIC do not.
+
+   - **weight_method='~y':** Weights residuals by $|y|$ during fitting and gof calculation only. Stronger emphasis on peaks than '~y_sqrt'.
+
+   For selecting the best iteration among n=100 fits, the function automatically uses gof. For comparing different models (product1N vs product2N vs product3N), use BIC with the same weight_method when fitting all models.
+
+   **BIC Interpretation (Kass & Raftery, 1995):**
+
+   | ΔBIC | Evidence Against Higher BIC Model |
+   |------|-----------------------------------|
+   | 0-2 | Not worth more than a bare mention |
+   | 2-6 | Positive |
+   | 6-10 | Strong |
+   | >10 | Very strong |
+
+   **Summary:** gof uses weighted residuals (if weight_method specified) to select the best iteration. AIC and BIC always use unweighted residuals for valid model comparison. Lower values are always better for gof, AIC, and BIC.
+
+   **References:**
+
+   - Akaike, H. (1974). A new look at the statistical model identification. *IEEE Transactions on Automatic Control*, 19(6), 716-723.
+
+   - Schwarz, G. (1978). Estimating the dimension of a model. *The Annals of Statistics*, 6(2), 461-464.
+
+   - Kass, R. E., & Raftery, A. E. (1995). Bayes factors. *Journal of the American Statistical Association*, 90(430), 773-795.
+   - 
    
