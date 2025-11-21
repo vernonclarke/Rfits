@@ -9880,7 +9880,1444 @@ ABF_analysis_tk <- function() {
 
 
 ############################################################################################
-analyseABFshiny <- function() {
+peak.fun2 <- function(y, dt, stimulation_time, baseline, detection_window=200, smooth=5){
+  
+  idx1 <- (stimulation_time - baseline) / dt
+  idx2 <- baseline / dt
+  idx3 <-  detection_window / dt
+
+  y1 <- y[idx1:length(y)]
+  bl <- mean(y1[0:idx2])
+
+  y1 <- y1 - bl
+  peak <- moving_avg(y1[idx2:(idx2 + idx3)], n = smooth)
+
+  y2 <- y1[idx2:length(y1)]
+  x <- (1:length(y2))*dt
+  area <- trap_fun(x, y2)
+
+  return(list(response=y1, peak=peak, charge=area, baseline=bl))
+}
+
+combine_abf_headers <- function(headers) {
+  fields   <- names(headers[[1]])
+  combined <- list()
+
+  concat_sweeps <- function(v1, v2) {
+    # round and coerce to integer
+    v1_int <- as.integer(round(v1))
+    v2_int <- as.integer(round(v2))
+
+    # infer the uniform sweep interval
+    interval <- v1_int[2] - v1_int[1]
+
+    # compute the offset (last start of first recording)
+    offset <- max(v1_int)
+
+    # shift *all* v2 starts by offset+interval multiplicatively so
+    # first is offset+interval, second is offset+2*interval, etc.
+    v2_shifted <- offset + seq_along(v2_int) * interval
+
+    # combine lengths: length(v1_int) + length(v2_int)
+    c(v1_int, as.integer(v2_shifted))
+  }
+
+  for (f in fields) {
+    vals <- lapply(headers, `[[`, f)
+
+    # Scalar numeric fields: sum if not all identical
+    if (all(sapply(vals, is.numeric)) && all(sapply(vals, length) == 1)) {
+      if (all(vapply(vals[-1], identical, logical(1), vals[[1]]))) {
+        combined[[f]] <- vals[[1]]
+      } else {
+        combined[[f]] <- sum(unlist(vals))
+      }
+
+    # sweepStartInPts: special continuous concatenation
+    } else if (f == "sweepStartInPts") {
+      v1 <- vals[[1]]
+      v2 <- vals[[2]]
+      combined[[f]] <- concat_sweeps(v1, v2)
+
+    # Other numeric vectors (e.g. telegraph gains): keep identical vector
+    } else if (all(sapply(vals, is.numeric)) &&
+               all(vapply(vals, length, integer(1)) > 1) &&
+               all(vapply(vals[-1], identical, logical(1), vals[[1]]))) {
+      combined[[f]] <- vals[[1]]
+
+    # 4) Fallback: store the list of all values
+    } else {
+      combined[[f]] <- vals
+    }
+  }
+
+  combined
+}
+
+
+readABFs <- function(abf_files){
+
+  if (length(abf_files)==1){
+    out <- readABF(abf_files[1])
+  }else{
+    out_list <- lapply(abf_files , readABF)
+    names(out_list) <- abf_files
+    
+    # create new abf style output
+    master_data <- unlist(lapply(out_list, `[[`, "data"),recursive = FALSE)
+
+    # confirm out_list entries share the same basic metadata
+    same_samplingIntervalInSec <- all(sapply(out_list, function(x) 
+      identical(x$samplingIntervalInSec, out_list[[1]]$samplingIntervalInSec)
+    ))
+    same_channelNames <- all(sapply(out_list, function(x) 
+      identical(x$channelNames, out_list[[1]]$channelNames)
+    ))
+    same_channelUnits <- all(sapply(out_list, function(x) 
+      identical(x$channelUnits, out_list[[1]]$channelUnits)
+    ))
+    same_nTelegraphEnable <- all(sapply(out_list, function(x) 
+      identical(x$header$nTelegraphEnable, out_list[[1]]$header$nTelegraphEnable)
+    ))
+    same_fTelegraphAdditGain <- all(sapply(out_list, function(x) 
+      identical(x$header$fTelegraphAdditGain, out_list[[1]]$header$fTelegraphAdditGain)
+    ))
+    same_fInstrumentScaleFactor <- all(sapply(out_list, function(x) 
+      identical(x$header$fInstrumentScaleFactor, out_list[[1]]$header$fInstrumentScaleFactor)
+    ))
+
+    # If all checks pass, build the master object
+    if (all(
+      same_channelNames,
+      same_channelUnits,
+      same_nTelegraphEnable,
+      same_fTelegraphAdditGain,
+      same_fInstrumentScaleFactor
+    )) {
+      out <- out_list[[1]]
+      out$data <- master_data
+      headers    <- lapply(out_list, `[[`, "header")
+      out$header <- combine_abf_headers(headers)
+    } else {
+      stop("ABF metadata not uniform across all files")
+    }
+  }
+  out
+}
+
+analyseABF <- function() {
+
+  # Increase max upload size (e.g., 100MB)
+  options(shiny.maxRequestSize = 100*1024^2)  # 100MB in bytes
+
+  # 30*1024^2 = 30MB
+  # 50*1024^2 = 50MB
+  # 100*1024^2 = 100MB
+  # 500*1024^2 = 500MB
+  # 1000*1024^2 = 1GB
+    
+
+  ui <- fluidPage(
+    tags$head(
+      tags$style(HTML("
+        @media (prefers-color-scheme: dark) {
+          body { background-color: #1e1e1e; color: #e0e0e0; }
+          .well { background-color: #2d2d2d; border-color: #444; }
+          .form-control { background-color: #2d2d2d; color: #c0c0c0 !important; border: 1px solid #555 !important; }
+          input[type='number'], input[type='text'] { background-color: #2d2d2d !important; color: #c0c0c0 !important; }
+          .selectize-input, .selectize-dropdown { background-color: #ffffff !important; color: #666666 !important; }
+          .btn { background-color: #3d3d3d; color: #ffffff; border-color: #555; }
+          .btn-primary, .action-button { background-color: #3c8dbc; color: #ffffff; }
+          pre, code { background-color: #1a1a1a; color: #f0f0f0; }
+        }
+      "))
+    ),
+    
+    titlePanel("ABF Analysis"),
+    
+    sidebarLayout(
+      sidebarPanel(
+        width = 3,
+        fileInput('abfFiles', 'Upload ABF Files', 
+                  multiple = TRUE, 
+                  accept = '.abf'),
+        
+        tabsetPanel(
+          id = "settingsTabs",
+          
+          tabPanel("Main Settings",
+            numericInput('baseline', 'Baseline (ms):', 100, min = 0),
+            numericInput('stimulation', 'Stimulation Time (ms):', value = 150),
+            checkboxInput('autoDetectStim', 'Auto-detect from TTL', TRUE),
+            
+            hr(),
+            
+            textInput('levels', 'Levels (comma-separated):', 'control,drug'),
+            textInput('drugApplication', 'Drug Application Times (comma-separated):', ''),
+            
+            hr(),
+            
+            numericInput('pscChannel', 'PSC Channel:', 1, min = 1, max = 10),
+            numericInput('hpChannel', 'Holding Potential Channel:', 2, min = 1, max = 10),
+            numericInput('ttlChannel', 'TTL Channel (optional):', 3, min = 1, max = 10),
+            
+            hr(),
+            verbatimTextOutput('fileInfo')
+          ),
+          
+          tabPanel("Trace Selection",
+        helpText("Define traces to average for each level"),
+        uiOutput('traceSelectionUI'),
+        hr(),
+        verbatimTextOutput('tracesInfo')
+      ),
+          
+          tabPanel("Graph Settings",
+            numericInput('width', 'Plot Width:', 6, min = 1, max = 20),
+            numericInput('height', 'Plot Height:', 8, min = 1, max = 20),
+            
+            hr(),
+            h5("Peak Amplitude Plot"),
+            numericInput('xmajor_tick_amp', 'X Tick:', 5, min = 1),
+            numericInput('ymajor_tick_amp', 'Y Tick:', 100, min = 1),
+            
+            hr(),
+            h5("Holding Current Plot"),
+            numericInput('ymajor_tick_hc', 'Y Tick:', 100, min = 1),
+            
+            hr(),
+            h5("Holding Potential Plot"),
+            numericInput('xmajor_tick_hp', 'X Tick:', 5, min = 1),
+            numericInput('ymajor_tick_hp', 'Y Tick:', 10, min = 1),
+            
+            hr(),
+            h5("Appearance"),
+            numericInput('cex_points', 'Point Size:', 1.5, min = 0.1, max = 3, step = 0.1),
+            numericInput('lwd_graph', 'Line Thickness:', 1.5, min = 0.5, max = 5, step = 0.1),
+            numericInput('cex_labels', 'Label Size:', 1.2, min = 0.5, max = 3, step = 0.1),
+            numericInput('cex_axis', 'Axis Text Size:', 1.6, min = 0.5, max = 3, step = 0.1),
+            
+            hr(),
+            textInput('xlab', 'X Label:', 'time (minutes)'),
+            textInput('ylab', 'Y Label:', '|PSC| (pA)'),
+            textInput('color', 'Plot Color:', '#CD5C5C')
+          )
+        ),
+        
+      hr(),
+
+      actionButton('loadData', 'Load ABF Data', class = 'btn-primary'),
+      actionButton('runAnalysis', 'Run Analysis', class = 'btn-primary'),
+
+      hr(),
+
+      downloadButton('downloadExcel', 'Download Excel'),
+      downloadButton('downloadRData', 'Download RData'),
+      actionButton('clearAll', 'Clear All', class = 'btn-default')
+      ),
+      
+      mainPanel(
+      width = 9,
+      tabsetPanel(
+        id = "mainTabs",
+        
+        tabPanel("Summary",
+          h4("Data Summary"),
+          verbatimTextOutput('summaryText'),
+          hr(),
+          tableOutput('summaryTable')
+        ),
+        
+        tabPanel("Time Series Plot",
+          plotOutput('timeSeriesPlot', height = '800px')
+        ),
+        
+        tabPanel("Single Examples",
+          fluidRow(
+            column(12,
+              downloadButton('downloadSVG', 'Download SVG Plots', class = 'btn-default')
+            )
+          ),
+          hr(),
+          uiOutput('examplePlotsUI')
+        ),
+        
+        tabPanel("Review Traces",
+          fluidRow(
+            column(12,
+              h4("Review Individual Traces"),
+              helpText("Review and accept/reject individual traces for each level")
+            )
+          ),
+          hr(),
+          fluidRow(
+            column(4,
+              selectInput('reviewLevelSelect', 'Select Level to Review:', choices = NULL),
+              actionButton('startReview', 'Start Review', class = 'btn-primary'),
+              hr(),
+              verbatimTextOutput('reviewProgress')
+            ),
+            column(8,
+              plotOutput('reviewPlot', height = '500px'),
+              hr(),
+              fluidRow(
+                column(6, actionButton('acceptTrace', 'Accept', class = 'btn-success', style = 'width: 100%;')),
+                column(6, actionButton('rejectTrace', 'Reject', class = 'btn-danger', style = 'width: 100%;'))
+              )
+            )
+          )
+        ),
+        
+        tabPanel("Data Export",
+          h4("Available Data"),
+          verbatimTextOutput('exportInfo'),
+          hr(),
+          h5("Raw Data Preview"),
+          tableOutput('rawDataPreview')
+        )
+      )
+    )
+    )
+  )
+
+  
+  server <- function(input, output, session) {
+    
+    # Reactive values
+    state <- reactiveValues(
+      abf_dataset = NULL,
+      I_data = NULL,
+      I_data2 = NULL,
+      holding_potential = NULL,
+      holding_current = NULL,
+      stimulation_time = NULL,
+      dt = NULL,
+      summary = NULL,
+      Apeak = NULL,
+      charge = NULL,
+      traces2average = list(),
+      split_include = list(),
+      single_examples = NULL,
+    review_level = NULL,    
+    review_index = 1,       
+    review_active = FALSE     
+    )
+
+  # Clear all data when new files are browsed
+  observeEvent(input$abfFiles, {
+    state$abf_dataset <- NULL
+    state$I_data <- NULL
+    state$I_data2 <- NULL
+    state$holding_potential <- NULL
+    state$holding_current <- NULL
+    state$stimulation_time <- NULL
+    state$dt <- NULL
+    state$summary <- NULL
+    state$Apeak <- NULL
+    state$charge <- NULL
+    state$traces2average <- list()
+    state$split_include <- list()
+    state$single_examples <- NULL
+  })
+
+  # Clear all button
+  observeEvent(input$clearAll, {
+    state$abf_dataset <- NULL
+    state$I_data <- NULL
+    state$I_data2 <- NULL
+    state$holding_potential <- NULL
+    state$holding_current <- NULL
+    state$stimulation_time <- NULL
+    state$dt <- NULL
+    state$summary <- NULL
+    state$Apeak <- NULL
+    state$charge <- NULL
+    state$traces2average <- list()
+    state$split_include <- list()
+    state$single_examples <- NULL
+    
+    updateTextInput(session, 'levels', value = 'control,drug')
+    updateTextInput(session, 'drugApplication', value = '')
+    updateNumericInput(session, 'baseline', value = 100)
+    updateNumericInput(session, 'stimulation', value = 150)
+    updateCheckboxInput(session, 'autoDetectStim', value = TRUE)
+    updateNumericInput(session, 'pscChannel', value = 1)
+    updateNumericInput(session, 'hpChannel', value = 2)
+    updateNumericInput(session, 'ttlChannel', value = 3)
+    
+    levels <- c('control', 'drug')
+    for (i in 1:10) {
+      input_id <- paste0('traces_level_', i)
+      if (!is.null(input[[input_id]])) {
+        updateTextInput(session, input_id, value = '')
+      }
+    }
+    
+    showNotification("All data cleared", type = "message", duration = 2)
+  })
+
+    
+    # File info output
+    output$fileInfo <- renderPrint({
+      req(state$abf_dataset)
+      
+      cat("Channels available:", ncol(state$abf_dataset$data[[1]]), "\n")
+      cat("Traces:", length(state$abf_dataset$data), "\n")
+      cat("Channel names:", paste(state$abf_dataset$channelNames, collapse = ", "), "\n")
+      cat("Channel units:", paste(state$abf_dataset$channelUnits, collapse = ", "), "\n")
+    })
+    
+    # Load ABF data
+    observeEvent(input$loadData, {
+      req(input$abfFiles)
+      
+      withProgress(message = 'Loading ABF files...', value = 0, {
+        
+        paths <- input$abfFiles$datapath
+        names(paths) <- input$abfFiles$name
+        
+        incProgress(0.2, detail = "Reading files...")
+        
+        tryCatch({
+          # Read ABF file(s)
+          if (length(paths) == 1) {
+            state$abf_dataset <- readABF(paths[1])
+          } else {
+            old_wd <- getwd()
+            temp_dir <- dirname(paths[1])
+            setwd(temp_dir)
+            
+            for (i in seq_along(paths)) {
+              file.copy(paths[i], input$abfFiles$name[i], overwrite = TRUE)
+            }
+            
+            state$abf_dataset <- readABFs(input$abfFiles$name)
+            setwd(old_wd)
+          }
+          
+          incProgress(0.4, detail = "Extracting data...")
+          
+          # Extract metadata
+          state$dt <- state$abf_dataset$samplingIntervalInSec * 1000
+          
+          # Validate channel numbers
+          n_channels <- ncol(state$abf_dataset$data[[1]])
+          psc_ch <- as.integer(input$pscChannel)
+          hp_ch <- as.integer(input$hpChannel)
+          ttl_ch <- as.integer(input$ttlChannel)
+          
+          if (is.na(psc_ch) || psc_ch < 1 || psc_ch > n_channels) {
+            stop(paste("PSC channel", psc_ch, "is invalid. Available channels: 1 to", n_channels))
+          }
+          
+          if (is.na(hp_ch) || hp_ch < 1 || hp_ch > n_channels) {
+            stop(paste("HP channel", hp_ch, "is invalid. Available channels: 1 to", n_channels))
+          }
+          
+          # Extract PSC data
+          state$I_data <- sapply(1:length(state$abf_dataset$data), function(ii) {
+            state$abf_dataset$data[[ii]][, psc_ch]
+          })
+          colnames(state$I_data) <- seq(ncol(state$I_data))
+          rownames(state$I_data) <- seq(nrow(state$I_data))
+          
+          # Extract holding potential
+          state$holding_potential <- sapply(1:length(state$abf_dataset$data), function(ii) {
+            state$abf_dataset$data[[ii]][, hp_ch]
+          })
+          
+          incProgress(0.6, detail = "Detecting stimulation...")
+          
+          # Auto-detect stimulation from TTL if enabled
+          if (input$autoDetectStim && !is.na(ttl_ch) && ttl_ch > 0 && ttl_ch <= n_channels) {
+            tryCatch({
+              TTL_pulse <- sapply(1:length(state$abf_dataset$data), function(ii) {
+                state$abf_dataset$data[[ii]][, ttl_ch]
+              })
+              
+              threshold <- 0.5
+              pulse_on <- which(TTL_pulse[, 1] > threshold)
+              
+              if (length(pulse_on) > 0) {
+                idx2 <- pulse_on[1]
+                state$stimulation_time <- idx2 * state$dt - state$dt
+                updateNumericInput(session, 'stimulation', value = round(state$stimulation_time, 2))
+                showNotification(paste("Auto-detected stimulation at", round(state$stimulation_time, 2), "ms"), 
+                               type = "message")
+              } else {
+                state$stimulation_time <- input$stimulation
+                showNotification("No TTL pulse detected, using manual stimulation time", type = "warning")
+              }
+            }, error = function(e) {
+              state$stimulation_time <- input$stimulation
+              showNotification(paste("TTL detection failed:", e$message, "- using manual value"), 
+                             type = "warning")
+            })
+          } else {
+            state$stimulation_time <- input$stimulation
+          }
+          
+          # Validate stimulation time
+          if (is.null(state$stimulation_time) || is.na(state$stimulation_time)) {
+            stop("Stimulation time must be specified")
+          }
+          
+          incProgress(0.8, detail = "Processing traces...")
+          
+          # Process all traces
+          out <- lapply(1:ncol(state$I_data), function(ii) {
+            peak.fun2(state$I_data[, ii], 
+                     dt = state$dt, 
+                     stimulation_time = state$stimulation_time, 
+                     baseline = input$baseline, 
+                     smooth = 5)
+          })
+          
+          state$Apeak <- sapply(out, function(x) x$peak)
+          state$charge <- sapply(out, function(x) x$charge)
+          state$I_data2 <- sapply(out, function(x) x$response)
+          rownames(state$I_data2) <- seq(nrow(state$I_data2))
+          colnames(state$I_data2) <- seq(ncol(state$I_data2))
+          state$holding_current <- sapply(out, function(x) x$baseline)
+          
+          # Process holding potential
+          out1 <- lapply(1:ncol(state$holding_potential), function(ii) {
+            peak.fun2(state$holding_potential[, ii], 
+                     dt = state$dt, 
+                     stimulation_time = state$stimulation_time, 
+                     baseline = input$baseline, 
+                     smooth = 5)
+          })
+          state$holding_potential <- sapply(out1, function(x) x$baseline)
+          
+          # Create summary
+          state$summary <- data.frame(
+            'time_minutes' = 1:length(state$Apeak),
+            'holding_potential_mV' = state$holding_potential,
+            'holding_current_pA' = state$holding_current,
+            'peak_amplitude_pA' = -state$Apeak,
+            'charge_transfer_pC' = -state$charge,
+            check.names = FALSE
+          )
+          
+          incProgress(1.0, detail = "Done!")
+          
+          showNotification("ABF data loaded successfully!", type = "message", duration = 5)
+          
+        }, error = function(e) {
+          showNotification(paste("Error loading ABF:", e$message), type = "error", duration = 10)
+        })
+      })
+    })
+    
+    # Dynamic trace selection UI
+    output$traceSelectionUI <- renderUI({
+      req(state$I_data)
+      n_traces <- ncol(state$I_data)
+      
+      tagList(
+        helpText(paste("Total traces available:", n_traces)),
+        uiOutput('dynamicTraceInputs')
+      )
+    })
+    
+  output$dynamicTraceInputs <- renderUI({
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    tagList(
+      h5("Plot Axis Limits (applies to all Single Examples)"),
+      fluidRow(
+        column(6, 
+          numericInput('xlim_min_all', 'X min:', value = NULL, step = 10)
+        ),
+        column(6, 
+          numericInput('xlim_max_all', 'X max:', value = NULL, step = 10)
+        )
+      ),
+      fluidRow(
+        column(6, 
+          numericInput('ylim_min_all', 'Y min:', value = NULL, step = 10)
+        ),
+        column(6, 
+          numericInput('ylim_max_all', 'Y max:', value = NULL, step = 10)
+        )
+      ),
+      hr(),
+      h5("Scale Bar Settings"),
+      fluidRow(
+        column(6,
+          numericInput('xbar_length', 'X bar:', value = 50, min = 1, step = 10)
+        ),
+        column(6,
+          numericInput('ybar_length', 'Y bar:', value = 50, min = 1, step = 10)
+        )
+      ),
+      fluidRow(
+        column(6,
+          numericInput('bar_lwd', 'Bar thickness:', value = 2, min = 0.5, max = 5, step = 0.5)
+        )
+      ),
+      hr(),
+      h5("Trace Selection"),
+      lapply(seq_along(levels), function(i) {
+        textInput(paste0('traces_level_', i), 
+                 paste0('Traces for ', levels[i], ':'),
+                 placeholder = 'e.g., 1,2,3,4,5 or 1:5')
+      })
+    )
+  })
+    
+    # Parse traces2average from inputs
+    parseTraces2Average <- reactive({
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    traces_list <- list()
+    for (i in seq_along(levels)) {
+      input_id <- paste0('traces_level_', i)
+      trace_str <- input[[input_id]]
+      
+      if (!is.null(trace_str) && nchar(trace_str) > 0) {
+        tryCatch({
+          if (grepl(':', trace_str)) {
+            parts <- strsplit(trace_str, ':')[[1]]
+            start_val <- as.integer(parts[1])
+            end_val <- as.integer(parts[2])
+            
+            if (!is.na(start_val) && !is.na(end_val)) {
+              traces_list[[i]] <- start_val:end_val
+            } else {
+              traces_list[[i]] <- integer(0)
+            }
+          } else {
+            vals <- as.integer(strsplit(trace_str, ',')[[1]])
+            traces_list[[i]] <- vals[!is.na(vals)]
+          }
+        }, error = function(e) {
+          traces_list[[i]] <- integer(0)
+        })
+      } else {
+        traces_list[[i]] <- integer(0)
+      }
+    }
+    
+    traces_list
+  })
+
+    
+    # Trace selection output
+    output$tracesInfo <- renderPrint({
+      traces_list <- parseTraces2Average()
+      levels <- strsplit(input$levels, ',')[[1]]
+      levels <- trimws(levels)
+      
+      cat("Configured trace groups:\n\n")
+      for (i in seq_along(traces_list)) {
+        if (length(traces_list[[i]]) > 0) {
+          cat(levels[i], ": ", paste(traces_list[[i]], collapse = ", "), "\n")
+        }
+      }
+    })
+    
+    # Run analysis
+    observeEvent(input$runAnalysis, {
+      req(state$I_data2, state$summary)
+      
+      withProgress(message = 'Running analysis...', value = 0, {
+        
+        traces2average <- parseTraces2Average()
+        
+        # Validate traces
+        if (length(traces2average) == 0 || all(sapply(traces2average, length) == 0)) {
+          showNotification("Please specify traces to average in the Trace Selection tab", 
+                         type = "error", duration = 5)
+          return()
+        }
+        
+        levels <- strsplit(input$levels, ',')[[1]]
+        levels <- trimws(levels)
+        
+        incProgress(0.3, detail = "Averaging traces...")
+        
+        # Auto-include all traces
+        split_include <- lapply(traces2average, function(traces) {
+          rep(1, length(traces))
+        })
+        
+        # Calculate averages
+        result <- lapply(seq_along(split_include), function(iii) {
+          mask <- split_include[[iii]]
+          cols <- seq_along(mask)
+          state$I_data2[, traces2average[[iii]], drop = FALSE][, cols[mask == 1], drop = FALSE]
+        })
+        
+        state$average_traces <- sapply(result, function(mat) rowMeans(mat))
+        
+        time <- seq(nrow(state$I_data2)) * state$dt - state$dt
+        state$single_examples <- cbind(time, state$average_traces)
+        colnames(state$single_examples) <- c('time', levels)
+        
+        state$traces2average <- traces2average
+        state$split_include <- split_include
+        
+        incProgress(1.0, detail = "Done!")
+        
+        showNotification("Analysis complete!", type = "message", duration = 3)
+      })
+    })
+
+  # Auto-populate axis limits after analysis (common scale for all)
+  observeEvent(state$single_examples, {
+    req(state$single_examples)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    time <- state$single_examples[, 'time']
+    xlim_common <- c(min(time), max(time))
+    
+    # Calculate common y limits across all levels
+    all_y <- c()
+    for (level in levels) {
+      if (level %in% colnames(state$single_examples)) {
+        all_y <- c(all_y, state$single_examples[, level])
+      }
+    }
+    
+    max_abs_y <- max(abs(all_y), na.rm = TRUE)
+    ylim_common <- c(-max_abs_y * 1.1, 5)  # Negative-going trace, just +5 for noise
+    
+    # Round Y to nearest 10
+    ylim_common[1] <- floor(ylim_common[1] / 10) * 10
+    
+    # Round X max to nearest 100
+    xlim_common[2] <- ceiling(xlim_common[2] / 100) * 100
+    
+    updateNumericInput(session, 'xlim_min_all', value = round(xlim_common[1], 1))
+    updateNumericInput(session, 'xlim_max_all', value = xlim_common[2])
+    updateNumericInput(session, 'ylim_min_all', value = ylim_common[1])
+    updateNumericInput(session, 'ylim_max_all', value = ylim_common[2])
+  })
+
+    
+  # Update review level choices when analysis completes
+  observe({
+    req(state$traces2average)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    updateSelectInput(session, 'reviewLevelSelect', choices = levels, selected = levels[1])
+  })
+
+  # Start review
+  observeEvent(input$startReview, {
+    req(state$traces2average, state$split_include)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    level_idx <- which(levels == input$reviewLevelSelect)
+    
+    if (length(level_idx) == 0 || length(state$traces2average[[level_idx]]) == 0) {
+      showNotification("No traces selected for this level", type = "warning")
+      return()
+    }
+    
+    state$review_level <- level_idx
+    state$review_index <- 1
+    state$review_active <- TRUE
+    
+    showNotification(paste("Reviewing", input$reviewLevelSelect), type = "message")
+  })
+
+  # Accept trace
+  observeEvent(input$acceptTrace, {
+    req(state$review_active, state$review_level)
+    
+    level_idx <- state$review_level
+    trace_idx <- state$review_index
+    
+    state$split_include[[level_idx]][trace_idx] <- 1
+    
+    if (trace_idx < length(state$traces2average[[level_idx]])) {
+      state$review_index <- trace_idx + 1
+    } else {
+      state$review_active <- FALSE
+      recalculateAverages()
+      showNotification("Review complete! Averages updated.", type = "message", duration = 5)
+    }
+  })
+
+  # Reject trace
+  observeEvent(input$rejectTrace, {
+    req(state$review_active, state$review_level)
+    
+    level_idx <- state$review_level
+    trace_idx <- state$review_index
+    
+    state$split_include[[level_idx]][trace_idx] <- 0
+    
+    if (trace_idx < length(state$traces2average[[level_idx]])) {
+      state$review_index <- trace_idx + 1
+    } else {
+      state$review_active <- FALSE
+      recalculateAverages()
+      showNotification("Review complete! Averages updated.", type = "message", duration = 5)
+    }
+  })
+
+  # Recalculate averages after review
+  recalculateAverages <- function() {
+    req(state$I_data2, state$traces2average, state$split_include)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    result <- lapply(seq_along(state$split_include), function(iii) {
+      mask <- state$split_include[[iii]]
+      cols <- seq_along(mask)
+      accepted <- cols[mask == 1]
+      
+      if (length(accepted) > 0) {
+        state$I_data2[, state$traces2average[[iii]], drop = FALSE][, accepted, drop = FALSE]
+      } else {
+        NULL
+      }
+    })
+    
+    non_empty <- !sapply(result, is.null)
+    
+    if (!any(non_empty)) {
+      state$average_traces <- NULL
+      state$single_examples <- NULL
+      return(invisible(NULL))
+    }
+    
+    avg_mat <- sapply(result[non_empty], function(mat) rowMeans(mat))
+    if (is.null(dim(avg_mat))) {
+      avg_mat <- matrix(avg_mat, ncol = 1)
+    }
+    
+    time <- seq(nrow(state$I_data2)) * state$dt - state$dt
+    state$single_examples <- cbind(time, avg_mat)
+    
+    colnames(state$single_examples) <- c('time', levels[non_empty])
+    state$average_traces <- avg_mat
+  }
+
+  # Review progress output
+  output$reviewProgress <- renderPrint({
+    if (!state$review_active) {
+      cat("Click 'Start Review' to begin\n")
+      return()
+    }
+    
+    req(state$review_level, state$traces2average)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    level_name <- levels[state$review_level]
+    
+    total_traces <- length(state$traces2average[[state$review_level]])
+    current_trace <- state$traces2average[[state$review_level]][state$review_index]
+    
+    accepted <- sum(state$split_include[[state$review_level]] == 1)
+    rejected <- sum(state$split_include[[state$review_level]] == 0)
+    
+    cat("Reviewing:", level_name, "\n")
+    cat("Progress:", state$review_index, "/", total_traces, "\n")
+    cat("Current trace:", current_trace, "\n\n")
+    cat("Accepted:", accepted, "\n")
+    cat("Rejected:", rejected, "\n")
+  })
+
+  # Review plot
+  output$reviewPlot <- renderPlot({
+    req(state$review_active, state$review_level, state$I_data2, state$single_examples)
+    
+    level_idx <- state$review_level
+    trace_idx <- state$review_index
+    actual_trace_num <- state$traces2average[[level_idx]][trace_idx]
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    level_name <- levels[level_idx]
+    
+    time <- state$single_examples[, 'time']
+    avg_trace <- state$single_examples[, level_name]
+    individual_trace <- state$I_data2[, actual_trace_num]
+    
+    # Use the same limits as Single Examples plots
+    xlim_min <- input$xlim_min_all
+    xlim_max <- input$xlim_max_all
+    ylim_min <- input$ylim_min_all
+    ylim_max <- input$ylim_max_all
+    
+    # Calculate defaults if not set
+    if (is.null(xlim_min) || is.na(xlim_min)) xlim_min <- min(time)
+    if (is.null(xlim_max) || is.na(xlim_max)) xlim_max <- max(time)
+    
+    if (is.null(ylim_min) || is.na(ylim_min) || is.null(ylim_max) || is.na(ylim_max)) {
+      ylim_range <- range(c(avg_trace, individual_trace), na.rm = TRUE)
+      ylim_min <- ylim_range[1] * 1.1
+      ylim_max <- 5
+    }
+    
+    xlim <- c(xlim_min, xlim_max)
+    ylim <- c(ylim_min, ylim_max)
+    
+    # Get scale bar settings
+    xbar <- if (!is.null(input$xbar_length) && !is.na(input$xbar_length)) input$xbar_length else 50
+    ybar <- if (!is.null(input$ybar_length) && !is.na(input$ybar_length)) input$ybar_length else 50
+    bar_lwd <- if (!is.null(input$bar_lwd) && !is.na(input$bar_lwd)) input$bar_lwd else 2
+    
+    par(mar = c(2, 2, 3, 2))
+    
+    # Draw individual trace FIRST
+    plot(time, individual_trace, type = 'l', col = '#CD5C5C', lwd = 2,
+         ylim = ylim, xlim = xlim,
+         xlab = '', ylab = '',
+         main = paste(level_name, "- Trace", actual_trace_num),
+         bty = 'n', axes = FALSE,
+         cex.main = 1.3)
+    
+    abline(h = 0, lty = 2, col = 'grey70')
+    
+    # Draw average trace ON TOP
+    lines(time, avg_trace, col = 'darkgrey', lwd = 3)
+    
+    # Add scale bars (no labels)
+    usr <- par('usr')
+    x_range <- usr[1:2]
+    y_range <- usr[3:4]
+    
+    ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
+    x_start <- x_range[2] - xbar - (x_range[2] - x_range[1]) * 0.05
+    y_start <- ybar_start
+    x_end <- x_start + xbar
+    y_end <- y_start + ybar
+    
+    segments(x_start, y_start, x_end, y_start, lwd = bar_lwd, col = 'black')
+    segments(x_start, y_start, x_start, y_end, lwd = bar_lwd, col = 'black')
+    
+    legend('bottomleft', 
+           legend = c('Current Average', paste('Trace', actual_trace_num)),
+           col = c('darkgrey', '#CD5C5C'),
+           lwd = c(3, 2),
+           bty = 'n',
+           cex = 1.1)
+  })
+
+    # Summary output
+    output$summaryText <- renderPrint({
+      req(state$abf_dataset)
+      
+      cat("ABF Dataset Information\n")
+      cat("=======================\n\n")
+      cat("Sampling interval:", state$dt, "ms\n")
+      cat("Number of traces:", ncol(state$I_data), "\n")
+      cat("Trace length:", nrow(state$I_data), "samples\n")
+      cat("Duration:", round(nrow(state$I_data) * state$dt / 1000, 2), "seconds\n")
+      
+      if (!is.null(state$stimulation_time)) {
+        cat("Stimulation time:", state$stimulation_time, "ms\n")
+      }
+      
+      if (!is.null(state$summary)) {
+        cat("\nPeak amplitude range:", 
+            round(min(state$summary$peak_amplitude_pA, na.rm = TRUE), 2), "to",
+            round(max(state$summary$peak_amplitude_pA, na.rm = TRUE), 2), "pA\n")
+      }
+    })
+    
+    output$summaryTable <- renderTable({
+      req(state$summary)
+      head(state$summary, 20)
+    }, striped = TRUE, hover = TRUE, bordered = TRUE)
+   
+
+  output$timeSeriesPlot <- renderPlot({
+    req(state$summary)
+    
+    layout(matrix(1:3, ncol = 1), heights = c(3, 2, 2))
+    
+    tmax <- max(state$summary$time_minutes)
+    xlim <- c(0, 5 * ceiling(tmax / 5))
+    
+    lwd_axes <- input$lwd_graph
+    cex_lab <- input$cex_labels
+    cex_ax <- input$cex_axis
+    pt_size <- input$cex_points
+    
+    ylim1 <- c(0, ceiling(max(state$summary$peak_amplitude_pA, na.rm = TRUE) / 100) * 100)
+    if (ylim1[2] == 0) ylim1[2] <- 100
+    
+    par(mar = c(0.5, 6, 3, 1), mgp = c(3.5, 0.7, 0))
+    
+    plot(state$summary$time_minutes, state$summary$peak_amplitude_pA,
+         type = 'n', xlim = xlim, ylim = ylim1,
+         xlab = '', ylab = '', main = '',
+         axes = FALSE, xaxs = 'r', yaxs = 'r', cex.main = cex_lab)
+    
+    axis(2, at = seq(0, ylim1[2], by = input$ymajor_tick_amp),
+         labels = seq(0, ylim1[2], by = input$ymajor_tick_amp),
+         las = 1, tcl = -0.3, cex.axis = cex_ax, lwd = lwd_axes)
+    
+    mtext(input$ylab, side = 2, line = 4, cex = cex_lab)    
+    
+    points(state$summary$time_minutes, state$summary$peak_amplitude_pA,
+           pch = 16, col = input$color, cex = pt_size)
+    
+    if (length(state$traces2average) > 0) {
+      for (iii in seq_along(state$split_include)) {
+        mask <- state$split_include[[iii]]
+        cols <- which(mask == 1)
+        if (length(cols) > 0 && length(state$traces2average[[iii]]) > 0) {
+          exY <- state$summary$peak_amplitude_pA[state$traces2average[[iii]]][cols]
+          exX <- state$summary$time_minutes[state$traces2average[[iii]]][cols]
+          points(exX, exY, col = 'darkgrey', pch = 16, cex = pt_size * 1.2)
+        }
+      }
+    }
+    
+    if (!is.null(input$drugApplication) && nchar(input$drugApplication) > 0) {
+      drug_times <- as.numeric(strsplit(input$drugApplication, ',')[[1]])
+      for (i in seq_along(drug_times)) {
+        usr <- par('usr')
+        rect(xleft = drug_times[i], 
+             ybottom = usr[4] - (usr[4] - usr[3]) * 0.05,
+             xright = tmax,
+             ytop = usr[4],
+             col = if (i %% 2 == 1) rgb(0.5, 0.5, 0.5, 0.3) else rgb(0.7, 0.7, 0.7, 0.3),
+             border = NA)
+      }
+    }
+    
+    ylim2 <- c(floor(min(state$summary$holding_current_pA, na.rm = TRUE) / 100) * 100, 0)
+    
+    par(mar = c(0.5, 6, 0.5, 1), mgp = c(3.5, 0.7, 0))
+    
+    plot(state$summary$time_minutes, state$summary$holding_current_pA,
+         type = 'n', xlim = xlim, ylim = ylim2,
+         xlab = '', ylab = '', main = '',
+         axes = FALSE, xaxs = 'r', yaxs = 'r')
+    
+    axis(2, at = seq(ylim2[1], 0, by = input$ymajor_tick_hc),
+         labels = seq(ylim2[1], 0, by = input$ymajor_tick_hc),
+         las = 1, tcl = -0.3, cex.axis = cex_ax, lwd = lwd_axes)
+    
+    mtext('Holding Current (pA)', side = 2, line = 4, cex = cex_lab)    
+    
+    points(state$summary$time_minutes, state$summary$holding_current_pA,
+           pch = 16, col = input$color, cex = pt_size)
+    
+    if (length(state$traces2average) > 0) {
+      for (iii in seq_along(state$split_include)) {
+        mask <- state$split_include[[iii]]
+        cols <- which(mask == 1)
+        if (length(cols) > 0 && length(state$traces2average[[iii]]) > 0) {
+          exY <- state$summary$holding_current_pA[state$traces2average[[iii]]][cols]
+          exX <- state$summary$time_minutes[state$traces2average[[iii]]][cols]
+          points(exX, exY, col = 'darkgrey', pch = 16, cex = pt_size * 1.2)
+        }
+      }
+    }
+    
+    ylim3 <- range(state$summary$holding_potential_mV, na.rm = TRUE)
+    ylim3 <- c(floor(ylim3[1] / 10) * 10 - 10, ceiling(ylim3[2] / 10) * 10 + 10)
+    
+    par(mar = c(5, 6, 0.5, 1), mgp = c(3.5, 0.7, 0))
+    
+    plot(state$summary$time_minutes, state$summary$holding_potential_mV,
+         type = 'n', xlim = xlim, ylim = ylim3,
+         xlab = '', ylab = '', main = '',
+         axes = FALSE, xaxs = 'r', yaxs = 'r')
+    
+    axis(2, at = seq(ylim3[1], ylim3[2], by = input$ymajor_tick_hp),
+         labels = seq(ylim3[1], ylim3[2], by = input$ymajor_tick_hp),
+         las = 1, tcl = -0.3, cex.axis = cex_ax, lwd = lwd_axes)
+    
+    mtext('Holding Potential (mV)', side = 2, line = 4, cex = cex_lab)
+    
+    axis(1, at = seq(xlim[1], xlim[2], by = input$xmajor_tick_hp),
+         labels = seq(xlim[1], xlim[2], by = input$xmajor_tick_hp),
+         tcl = -0.3, cex.axis = cex_ax, lwd = lwd_axes)
+    
+    mtext(input$xlab, side = 1, line = 2.5, cex = cex_lab)
+    
+    points(state$summary$time_minutes, state$summary$holding_potential_mV,
+           pch = 16, col = input$color, cex = pt_size)
+    
+    if (length(state$traces2average) > 0) {
+      for (iii in seq_along(state$split_include)) {
+        mask <- state$split_include[[iii]]
+        cols <- which(mask == 1)
+        if (length(cols) > 0 && length(state$traces2average[[iii]]) > 0) {
+          exY <- state$summary$holding_potential_mV[state$traces2average[[iii]]][cols]
+          exX <- state$summary$time_minutes[state$traces2average[[iii]]][cols]
+          points(exX, exY, col = 'darkgrey', pch = 16, cex = pt_size * 1.2)
+        }
+      }
+    }
+    
+    layout(1)
+  })
+
+
+  output$examplePlotsUI <- renderUI({
+    req(state$single_examples)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    plot_outputs <- lapply(seq_along(levels), function(i) {
+      plotOutput(paste0('examplePlot_', i), height = '400px')
+    })
+    
+    do.call(fluidRow, lapply(plot_outputs, function(p) column(6, p)))
+  })
+
+  observe({
+    req(state$single_examples)
+    
+    levels <- strsplit(input$levels, ',')[[1]]
+    levels <- trimws(levels)
+    
+    x <- state$single_examples[, 'time']
+    
+    # Get common limits (same for all plots)
+    xlim_min <- input$xlim_min_all
+    xlim_max <- input$xlim_max_all
+    ylim_min <- input$ylim_min_all
+    ylim_max <- input$ylim_max_all
+    
+    # Calculate defaults if not set
+    if (is.null(xlim_min) || is.na(xlim_min)) xlim_min <- min(x)
+    if (is.null(xlim_max) || is.na(xlim_max)) xlim_max <- max(x)
+    
+    if (is.null(ylim_min) || is.na(ylim_min) || is.null(ylim_max) || is.na(ylim_max)) {
+      all_y <- c()
+      for (level in levels) {
+        if (level %in% colnames(state$single_examples)) {
+          all_y <- c(all_y, state$single_examples[, level])
+        }
+      }
+      max_abs_y <- max(abs(all_y), na.rm = TRUE)
+      ylim_min <- -max_abs_y * 1.1
+      ylim_max <- 5
+    }
+    
+    xlim <- c(xlim_min, xlim_max)
+    ylim <- c(ylim_min, ylim_max)
+    
+    # Get scale bar settings
+    xbar <- if (!is.null(input$xbar_length) && !is.na(input$xbar_length)) input$xbar_length else 50
+    ybar <- if (!is.null(input$ybar_length) && !is.na(input$ybar_length)) input$ybar_length else 50
+    bar_lwd <- if (!is.null(input$bar_lwd) && !is.na(input$bar_lwd)) input$bar_lwd else 2
+    
+    # Create a plot for each level (all with same scale)
+    for (i in seq_along(levels)) {
+      local({
+        my_i <- i
+        my_level <- levels[my_i]
+        
+        output[[paste0('examplePlot_', my_i)]] <- renderPlot({
+          if (my_level %in% colnames(state$single_examples)) {
+            y <- state$single_examples[, my_level]
+            
+            par(mar = c(2, 2, 3, 2))
+            
+            plot(x, y, type = 'l', col = 'darkgrey', lwd = 1.5,
+                 xlim = xlim, ylim = ylim,
+                 xlab = '', ylab = '',
+                 main = my_level,
+                 bty = 'n', axes = FALSE,
+                 cex.main = 1.3)
+            
+            abline(h = 0, lty = 2, col = 'grey')
+            
+            # Add scale bars (no labels)
+            usr <- par('usr')
+            x_range <- usr[1:2]
+            y_range <- usr[3:4]
+            
+            ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
+            x_start <- x_range[2] - xbar - (x_range[2] - x_range[1]) * 0.05
+            y_start <- ybar_start
+            x_end <- x_start + xbar
+            y_end <- y_start + ybar
+            
+            segments(x_start, y_start, x_end, y_start, lwd = bar_lwd, col = 'black')
+            segments(x_start, y_start, x_start, y_end, lwd = bar_lwd, col = 'black')
+          }
+        })
+      })
+    }
+  })
+   
+  # Download handlers
+  output$downloadExcel <- downloadHandler(
+    filename = function() {
+      # Generate filename based on loaded ABF files
+      if (!is.null(input$abfFiles)) {
+        file_names <- tools::file_path_sans_ext(input$abfFiles$name)
+        
+        if (length(file_names) == 1) {
+          # Single file
+          paste0(file_names[1], '_analysis.xlsx')
+        } else {
+          # Multiple files - use first and last
+          first_name <- file_names[1]
+          last_name <- file_names[length(file_names)]
+          paste0(first_name, '_', last_name, '_analysis.xlsx')
+        }
+      } else {
+        # Fallback if no files
+        paste0('ABF_analysis_', Sys.Date(), '.xlsx')
+      }
+    },
+    content = function(file) {
+      req(state$summary, state$I_data, state$I_data2)
+      
+      wb <- createWorkbook()
+      
+      addWorksheet(wb, "Summary")
+      writeData(wb, "Summary", state$summary)
+      
+      addWorksheet(wb, "Raw PSC Data")
+      writeData(wb, "Raw PSC Data", as.data.frame(state$I_data))
+      
+      addWorksheet(wb, "Baseline Corrected")
+      writeData(wb, "Baseline Corrected", as.data.frame(state$I_data2))
+      
+      if (!is.null(state$single_examples)) {
+        addWorksheet(wb, "Single Examples")
+        writeData(wb, "Single Examples", as.data.frame(state$single_examples))
+      }
+      
+      # Add trace selection worksheet
+      if (length(state$traces2average) > 0) {
+        levels <- strsplit(input$levels, ',')[[1]]
+        levels <- trimws(levels)
+        
+        trace_selection <- data.frame(
+          Level = character(),
+          Accepted = character(),
+          Rejected = character(),
+          stringsAsFactors = FALSE
+        )
+        
+        for (i in seq_along(levels)) {
+          if (length(state$traces2average[[i]]) > 0) {
+            accepted_str <- ""
+            rejected_str <- ""
+            
+            # Add accepted/rejected status if available
+            if (length(state$split_include) >= i) {
+              accepted <- state$traces2average[[i]][state$split_include[[i]] == 1]
+              rejected <- state$traces2average[[i]][state$split_include[[i]] == 0]
+              
+              if (length(accepted) > 0) {
+                accepted_str <- paste(accepted, collapse = ", ")
+              }
+              if (length(rejected) > 0) {
+                rejected_str <- paste(rejected, collapse = ", ")
+              }
+            } else {
+              # If no review done, all are accepted
+              accepted_str <- paste(state$traces2average[[i]], collapse = ", ")
+            }
+            
+            trace_selection <- rbind(trace_selection, 
+              data.frame(Level = levels[i], 
+                        Accepted = accepted_str,
+                        Rejected = rejected_str))
+          }
+        }
+        
+        addWorksheet(wb, "Trace Selection")
+        writeData(wb, "Trace Selection", trace_selection)
+      }
+      
+      metadata <- data.frame(
+        Parameter = c('dt (ms)', 'Stimulation Time (ms)', 'Baseline (ms)', 'N Traces'),
+        Value = c(state$dt, state$stimulation_time, input$baseline, ncol(state$I_data))
+      )
+      addWorksheet(wb, "Metadata")
+      writeData(wb, "Metadata", metadata)
+      
+      saveWorkbook(wb, file, overwrite = TRUE)
+    }
+  )
+    
+    output$downloadRData <- downloadHandler(
+      filename = function() {
+        paste0('ABF_analysis_', Sys.Date(), '.RData')
+      },
+      content = function(file) {
+        results <- list(
+          summary = state$summary,
+          raw_data = state$I_data,
+          baseline_corrected = state$I_data2,
+          single_examples = state$single_examples,
+          traces2average = state$traces2average,
+          split_include = state$split_include,
+          metadata = list(
+            dt = state$dt,
+            stimulation_time = state$stimulation_time,
+            baseline = input$baseline
+          )
+        )
+        save(results, file = file)
+      }
+    )
+
+    output$downloadSVG <- downloadHandler(
+      filename = function() {
+        # Generate filename based on loaded ABF files
+        if (!is.null(input$abfFiles)) {
+          file_names <- tools::file_path_sans_ext(input$abfFiles$name)
+          
+          if (length(file_names) == 1) {
+            paste0(file_names[1], '_plots.zip')
+          } else {
+            first_name <- file_names[1]
+            last_name <- file_names[length(file_names)]
+            paste0(first_name, '_', last_name, '_plots.zip')
+          }
+        } else {
+          paste0('ABF_plots_', Sys.Date(), '.zip')
+        }
+      },
+      content = function(file) {
+        req(state$single_examples)
+        
+        levels <- strsplit(input$levels, ',')[[1]]
+        levels <- trimws(levels)
+        
+        x <- state$single_examples[, 'time']
+        
+        # Get common limits
+        xlim_min <- input$xlim_min_all
+        xlim_max <- input$xlim_max_all
+        ylim_min <- input$ylim_min_all
+        ylim_max <- input$ylim_max_all
+        
+        if (is.null(xlim_min) || is.na(xlim_min)) xlim_min <- min(x)
+        if (is.null(xlim_max) || is.na(xlim_max)) xlim_max <- max(x)
+        
+        if (is.null(ylim_min) || is.na(ylim_min) || is.null(ylim_max) || is.na(ylim_max)) {
+          all_y <- c()
+          for (level in levels) {
+            if (level %in% colnames(state$single_examples)) {
+              all_y <- c(all_y, state$single_examples[, level])
+            }
+          }
+          max_abs_y <- max(abs(all_y), na.rm = TRUE)
+          ylim_min <- -max_abs_y * 1.1
+          ylim_max <- 5
+        }
+        
+        xlim <- c(xlim_min, xlim_max)
+        ylim <- c(ylim_min, ylim_max)
+        
+        # Get scale bar settings
+        xbar <- if (!is.null(input$xbar_length) && !is.na(input$xbar_length)) input$xbar_length else 50
+        ybar <- if (!is.null(input$ybar_length) && !is.na(input$ybar_length)) input$ybar_length else 50
+        bar_lwd <- if (!is.null(input$bar_lwd) && !is.na(input$bar_lwd)) input$bar_lwd else 2
+        
+        # Generate base filename
+        if (!is.null(input$abfFiles)) {
+          file_names <- tools::file_path_sans_ext(input$abfFiles$name)
+          
+          if (length(file_names) == 1) {
+            base_name <- file_names[1]
+          } else {
+            first_name <- file_names[1]
+            last_name <- file_names[length(file_names)]
+            base_name <- paste0(first_name, '_', last_name)
+          }
+        } else {
+          base_name <- paste0('ABF_', Sys.Date())
+        }
+        
+        # Create temp directory for SVG files
+        temp_dir <- tempdir()
+        svg_files <- c()
+        
+        # Create separate SVG for each level
+        for (level in levels) {
+          if (level %in% colnames(state$single_examples)) {
+            y <- state$single_examples[, level]
+            
+            svg_filename <- file.path(temp_dir, paste0(base_name, '_', level, '.svg'))
+            svg_files <- c(svg_files, svg_filename)
+            
+            svg(svg_filename, width = 7, height = 5)
+            par(mar = c(2, 2, 3, 2))
+            
+            plot(x, y, type = 'l', col = 'darkgrey', lwd = 1.5,
+                 xlim = xlim, ylim = ylim,
+                 xlab = '', ylab = '',
+                 main = level,
+                 bty = 'n', axes = FALSE,
+                 cex.main = 1.3)
+            
+            abline(h = 0, lty = 2, col = 'grey')
+            
+            # Add scale bars
+            usr <- par('usr')
+            x_range <- usr[1:2]
+            y_range <- usr[3:4]
+            
+            ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
+            x_start <- x_range[2] - xbar - (x_range[2] - x_range[1]) * 0.05
+            y_start <- ybar_start
+            x_end <- x_start + xbar
+            y_end <- y_start + ybar
+            
+            segments(x_start, y_start, x_end, y_start, lwd = bar_lwd, col = 'black')
+            segments(x_start, y_start, x_start, y_end, lwd = bar_lwd, col = 'black')
+            
+            dev.off()
+          }
+        }
+        
+        # Create zip file
+        zip(file, svg_files, flags = '-j')
+      }
+    )
+
+    output$exportInfo <- renderPrint({
+      if (is.null(state$summary)) {
+        cat("No data loaded yet.\n")
+        return()
+      }
+      
+      cat("Available data for export:\n\n")
+      cat("- Summary table (", nrow(state$summary), " rows)\n", sep = "")
+      cat("- Raw PSC data (", ncol(state$I_data), " traces)\n", sep = "")
+      cat("- Baseline corrected data\n")
+      if (!is.null(state$single_examples)) {
+        cat("- Single example traces (", ncol(state$single_examples) - 1, " levels)\n", sep = "")
+      }
+      cat("\nUse download buttons to export data.")
+    })
+    
+    output$rawDataPreview <- renderTable({
+      req(state$summary)
+      head(state$summary, 10)
+    }, striped = TRUE, hover = TRUE)
+    
+  }
+  
+  shinyApp(ui, server)
+}
+
+
+analyseABFshiny2 <- function() {
 
   # Increase max upload size (e.g., 100MB)
   options(shiny.maxRequestSize = 100*1024^2)  # 100MB in bytes
@@ -10294,76 +11731,55 @@ analyseABFshiny <- function() {
       updateTabsetPanel(session, "mainTabs", selected = "Review")
     })
 
-    output$reviewPlot <- renderPlot({
-      req(vals$mode, vals$datasets, input$column)
-      par(mar = c(6, 4, 2, 2)) 
-      colIdx <- as.integer(input$column)
-      if (vals$mode == "concat") {
-        mat <- vals$master$data[[vals$ct]]
-        dt  <- vals$master$samplingIntervalInSec * 1000
-        time <- seq(0, by = dt, length.out = nrow(mat))
-        trace <- mat[, colIdx]
-      } else {
-        ds   <- vals$datasets[[vals$curFile]]
-        mat  <- ds$data[[vals$ct]]
-        dt   <- ds$samplingIntervalInSec * 1000
-        time <- seq(0, by = dt, length.out = nrow(mat))
-        trace<- mat[, colIdx]
-      }
-      egs_plot(time, trace, show_bar = FALSE)
-      axis(1); axis(2)
-      # usr <- par("usr")
-      # y0  <- usr[3] + 0.05*(usr[4]-usr[3])
-      # text(input$stimTime, y0, "*", col = "black", cex = 2.5)
-    })
+    output$reviewPlot
 
-    observeEvent(input$accept, {
-      if (is.null(vals$mode)) {
-        showNotification(
-          "Error: No review in progress. Click 'Review Recordings' first.",
-          type = "error",
-          duration = 5
-        )
-        return()
-      }
-
-      if (vals$mode == "concat") {
-        # concatenated mode
-        vals$curGroup <- union(vals$curGroup, vals$ct)
-        vals$log <- paste0(vals$log, "Accepted trace ", vals$ct, "\n")
-
-        isolate({ input$nextReview })
-        if (vals$ct < vals$total) {
-          vals$ct <- vals$ct + 1
-        } else {
-          vals$log <- paste0(vals$log, "Review complete for all traces.\n")
+      observeEvent(input$accept, {
+        if (is.null(vals$mode)) {
+          showNotification(
+            "Error: No review in progress. Click 'Review Recordings' first.",
+            type = "error",
+            duration = 5
+          )
+          return()
         }
 
-      } else {
-        # separate mode
-        fidx <- vals$curFile
-        ds   <- vals$datasets[[fidx]]
-        fname <- names(vals$datasets)[fidx]
+        if (vals$mode == "concat") {
+          # concatenated mode
+          vals$curGroup <- union(vals$curGroup, vals$ct)
+          vals$log <- paste0(vals$log, "Accepted trace ", vals$ct, "\n")
 
-        # log the accept
-        vals$traces2avg[[fidx]] <- union(vals$traces2avg[[fidx]], vals$ct)
-        vals$log <- paste0(vals$log, "Accepted ", fname, " trace ", vals$ct, "\n")
+          isolate({ input$nextReview })
+          if (vals$ct < vals$total) {
+            vals$ct <- vals$ct + 1
+          } else {
+            vals$log <- paste0(vals$log, "Review complete for all traces.\n")
+          }
 
-        isolate({ input$nextReview })
-        if (vals$ct < length(ds$data)) {
-          vals$ct <- vals$ct + 1
-        } else if (vals$curFile < length(vals$datasets)) {
-          # finished this file (but not the last) → log and advance
-          vals$log <- paste0(vals$log, fname, " complete\n")
-          vals$curFile <- vals$curFile + 1
-          vals$ct      <- 1
         } else {
-          # last file → log complete and final message
-          vals$log <- paste0(vals$log, fname, " complete\n")
-          vals$log <- paste0(vals$log, "Review complete: Approved recordings stored.\n")
+          # separate mode
+          fidx <- vals$curFile
+          ds   <- vals$datasets[[fidx]]
+          fname <- names(vals$datasets)[fidx]
+
+          # log the accept
+          vals$traces2avg[[fidx]] <- union(vals$traces2avg[[fidx]], vals$ct)
+          vals$log <- paste0(vals$log, "Accepted ", fname, " trace ", vals$ct, "\n")
+
+          isolate({ input$nextReview })
+          if (vals$ct < length(ds$data)) {
+            vals$ct <- vals$ct + 1
+          } else if (vals$curFile < length(vals$datasets)) {
+            # finished this file (but not the last) → log and advance
+            vals$log <- paste0(vals$log, fname, " complete\n")
+            vals$curFile <- vals$curFile + 1
+            vals$ct      <- 1
+          } else {
+            # last file → log complete and final message
+            vals$log <- paste0(vals$log, fname, " complete\n")
+            vals$log <- paste0(vals$log, "Review complete: Approved recordings stored.\n")
+          }
         }
-      }
-    })
+      })
 
     observeEvent(input$reject, {
       if (is.null(vals$mode)) {
@@ -11182,7 +12598,7 @@ analysePSCtk <- function() {
 
 }
 
-analysePSCshiny <- function() {
+analysePSC <- function() {
 
   ui <- fluidPage(
     # Add dark mode CSS
@@ -12271,7 +13687,7 @@ widgetPSCtk <- function() {
 }
 
 
-widgetPSCshiny <- function() {
+widgetPSC <- function() {
 
   ui <- fluidPage(
     # Add dark mode CSS
