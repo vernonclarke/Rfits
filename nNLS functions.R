@@ -10005,7 +10005,7 @@ readABFs <- function(abf_files){
   out
 }
 
-analyseABF <- function() {
+analyseABF2 <- function() {
 
   # Increase max upload size (e.g., 100MB)
   options(shiny.maxRequestSize = 100*1024^2)  # 100MB in bytes
@@ -12598,7 +12598,2015 @@ analysePSCtk <- function() {
 
 }
 
+
+
+
+# FUNCTIONS FOR NWB EXPORT
+
+
+# Extract metadata from ABF dataset
+extract_metadata <- function(abf_dataset) {
+  list(
+    path                  = abf_dataset$path,
+    formatVersion         = abf_dataset$formatVersion,
+    channelNames          = abf_dataset$channelNames,
+    channelUnits          = abf_dataset$channelUnits,
+    samplingIntervalInSec = abf_dataset$samplingIntervalInSec,
+    header                = abf_dataset$header,
+    tags                  = abf_dataset$tags,
+    sections              = abf_dataset$sections
+  )
+}
+
+
+
+# MODULAR VERSION OF analyseABF() WITH NWB EXPORT
+# UI HELPER FUNCTIONS
+create_dark_mode_css <- function() {
+  tags$head(
+    tags$style(HTML("
+      @media (prefers-color-scheme: dark) {
+        body { background-color: #1e1e1e; color: #e0e0e0; }
+        .well { background-color: #2d2d2d; border-color: #444; }
+        .form-control { background-color: #2d2d2d; color: #c0c0c0 !important; border: 1px solid #555 !important; }
+        input[type='number'], input[type='text'] { background-color: #2d2d2d !important; color: #c0c0c0 !important; }
+        .selectize-input, .selectize-dropdown { background-color: #ffffff !important; color: #666666 !important; }
+        .btn { background-color: #3d3d3d; color: #ffffff; border-color: #555; }
+        .btn-primary, .action-button { background-color: #3c8dbc; color: #ffffff; }
+        pre, code { background-color: #1a1a1a; color: #f0f0f0; }
+      }
+    "))
+  )
+}
+
+create_main_settings_ui <- function() {
+  tabPanel("Main Settings",
+    numericInput('baseline', 'Baseline (ms):', 100, min = 0),
+    numericInput('stimulation', 'Stimulation Time (ms):', value = 150),
+    checkboxInput('autoDetectStim', 'Auto-detect from TTL', TRUE),
+    hr(),
+    textInput('levels', 'Levels (comma-separated):', 'control,drug'),
+    textInput('drugApplication', 'Drug Application Times (comma-separated):', ''),
+    hr(),
+    numericInput('pscChannel', 'PSC Channel:', 1, min = 1, max = 10),
+    numericInput('hpChannel', 'Holding Potential Channel:', 2, min = 1, max = 10),
+    numericInput('ttlChannel', 'TTL Channel (optional):', 3, min = 1, max = 10),
+    hr(),
+    verbatimTextOutput('fileInfo')
+  )
+}
+
+create_trace_selection_ui <- function() {
+  tabPanel("Trace Selection",
+    helpText("Define traces to average for each level"),
+    uiOutput('traceSelectionUI'),
+    hr(),
+    verbatimTextOutput('tracesInfo')
+  )
+}
+
+create_graph_settings_ui <- function() {
+  tabPanel("Graph Settings",
+    numericInput('width', 'Plot Width:', 6, min = 1, max = 20),
+    numericInput('height', 'Plot Height:', 8, min = 1, max = 20),
+    hr(),
+    h5("Peak Amplitude Plot"),
+    numericInput('xmajor_tick_amp', 'X Tick:', 5, min = 1),
+    numericInput('ymajor_tick_amp', 'Y Tick:', 100, min = 1),
+    hr(),
+    h5("Holding Current Plot"),
+    numericInput('ymajor_tick_hc', 'Y Tick:', 100, min = 1),
+    hr(),
+    h5("Holding Potential Plot"),
+    numericInput('xmajor_tick_hp', 'X Tick:', 5, min = 1),
+    numericInput('ymajor_tick_hp', 'Y Tick:', 10, min = 1),
+    hr(),
+    h5("Appearance"),
+    numericInput('cex_points', 'Point Size:', 1.5, min = 0.1, max = 3, step = 0.1),
+    numericInput('lwd_graph', 'Line Thickness:', 1.5, min = 0.5, max = 5, step = 0.1),
+    numericInput('cex_labels', 'Label Size:', 1.2, min = 0.5, max = 3, step = 0.1),
+    numericInput('cex_axis', 'Axis Text Size:', 1.6, min = 0.5, max = 3, step = 0.1),
+    hr(),
+    textInput('xlab', 'X Label:', 'time (minutes)'),
+    textInput('ylab', 'Y Label:', '|PSC| (pA)'),
+    textInput('color', 'Plot Color:', '#CD5C5C')
+  )
+}
+
+create_nwb_settings_ui <- function() {
+  tabPanel("NWB Export",
+    h5("Subject Information"),
+    textInput('nwb_subject_id', 'Subject ID:', 'Mouse001'),
+    textInput('nwb_species', 'Species:', 'Mus musculus'),
+    textInput('nwb_age', 'Age:', 'P30'),
+    selectInput('nwb_sex', 'Sex:', choices = c('M', 'F', 'U'), selected = 'M'),
+    textInput('nwb_genotype', 'Genotype:', 'WT'),
+    textInput('nwb_cross', 'Cross:', ''),
+    textInput('nwb_virus', 'Virus:', ''),
+    textInput('nwb_virus_injection_site', 'Virus Injection Site:', ''),
+    hr(),
+    h5("Session Information"),
+    textInput('nwb_session_id', 'Session ID:', 's01'),
+    textInput('nwb_task', 'Task:', 'whc'),
+    hr(),
+    h5("Experimental Details"),    textInput('nwb_location', 'Recording Location:', 'Striatum'),
+    textInput('nwb_electrode_resistance', 'Electrode Resistance:', '3-5 MOhm'),
+    hr(),
+    h5("Lab Information"),
+    textInput('nwb_experimenter', 'Experimenter:', 'YourName'),
+    textInput('nwb_institution', 'Institution:', 'YourInstitution'),
+    textInput('nwb_lab', 'Lab:', 'YourLab'),
+    hr(),
+    h5("Device"),
+    textInput('nwb_device_name', 'Device:', 'Multiclamp 700B'),
+    hr(),
+    h5("Export Options"),
+    radioButtons('nwb_trace_selection', 'Traces to export:',
+      choices = c('All traces' = 'all', 'Selected traces only' = 'selected'),
+      selected = 'selected'
+    ),
+    verbatimTextOutput('tracesInfoNWB'),
+    hr(),
+    helpText("Filename: sub-{subject_id}_ses-{session_id}_icephys.nwb")
+  )
+}
+
+create_sidebar_panel <- function() {
+  sidebarPanel(
+    width = 3,
+    fileInput('abfFiles', 'Upload ABF Files', multiple = TRUE, accept = '.abf'),
+    tabsetPanel(
+      id = "settingsTabs",
+      create_main_settings_ui(),
+      create_trace_selection_ui(),
+      create_graph_settings_ui(),
+      create_nwb_settings_ui()
+    ),
+    hr(),
+    actionButton('loadData', 'Load ABF Data', class = 'btn-primary'),
+    actionButton('runAnalysis', 'Run Analysis', class = 'btn-primary'),
+    hr(),
+    downloadButton('downloadExcel', 'Download Excel'),
+    downloadButton('downloadRData', 'Download RData'),
+    downloadButton('downloadNWB', 'Download NWB'),
+    actionButton('clearAll', 'Clear All', class = 'btn-default')
+  )
+}
+
+create_main_panel <- function() {
+  mainPanel(
+    width = 9,
+    tabsetPanel(
+      id = "mainTabs",
+      tabPanel("Summary",
+        h4("Data Summary"),
+        verbatimTextOutput('summaryText'),
+        hr(),
+        tableOutput('summaryTable')
+      ),
+      tabPanel("Time Series Plot",
+        plotOutput('timeSeriesPlot', height = '800px')
+      ),
+      tabPanel("Single Examples",
+        fluidRow(column(12, downloadButton('downloadSVG', 'Download SVG Plots', class = 'btn-default'))),
+        hr(),
+        uiOutput('examplePlotsUI')
+      ),
+      tabPanel("Review Traces",
+        fluidRow(
+          column(12,
+            h4("Review Individual Traces"),
+            helpText("Review and accept/reject individual traces for each level")
+          )
+        ),
+        hr(),
+        fluidRow(
+          column(4,
+            selectInput('reviewLevelSelect', 'Select Level to Review:', choices = NULL),
+            actionButton('startReview', 'Start Review', class = 'btn-primary'),
+            hr(),
+            verbatimTextOutput('reviewProgress')
+          ),
+          column(8,
+            plotOutput('reviewPlot', height = '500px'),
+            hr(),
+            fluidRow(
+              column(6, actionButton('acceptTrace', 'Accept', class = 'btn-success', style = 'width: 100%;')),
+              column(6, actionButton('rejectTrace', 'Reject', class = 'btn-danger', style = 'width: 100%;'))
+            )
+          )
+        )
+      ),
+      tabPanel("Data Export",
+        h4("Available Data"),
+        verbatimTextOutput('exportInfo'),
+        hr(),
+        h5("Raw Data Preview"),
+        tableOutput('rawDataPreview')
+      )
+    )
+  )
+}
+
+
+# DATA PROCESSING HELPER FUNCTIONS
+
+
+load_abf_files <- function(paths, names) {
+  if (length(paths) == 1) {
+    readABF(paths[1])
+  } else {
+    old_wd <- getwd()
+    temp_dir <- dirname(paths[1])
+    setwd(temp_dir)
+    for (i in seq_along(paths)) {
+      file.copy(paths[i], names[i], overwrite = TRUE)
+    }
+    abf_data <- readABFs(names)
+    setwd(old_wd)
+    abf_data
+  }
+}
+
+validate_channels <- function(psc_ch, hp_ch, n_channels) {
+  if (is.na(psc_ch) || psc_ch < 1 || psc_ch > n_channels) {
+    stop(paste("PSC channel", psc_ch, "is invalid. Available channels: 1 to", n_channels))
+  }
+  if (is.na(hp_ch) || hp_ch < 1 || hp_ch > n_channels) {
+    stop(paste("HP channel", hp_ch, "is invalid. Available channels: 1 to", n_channels))
+  }
+  TRUE
+}
+
+extract_channel_data <- function(abf_dataset, channel) {
+  data_matrix <- sapply(1:length(abf_dataset$data), function(ii) {
+    abf_dataset$data[[ii]][, channel]
+  })
+  colnames(data_matrix) <- seq(ncol(data_matrix))
+  rownames(data_matrix) <- seq(nrow(data_matrix))
+  data_matrix
+}
+
+detect_stimulation_from_ttl <- function(abf_dataset, ttl_ch, dt, threshold = 0.5) {
+  tryCatch({
+    TTL_pulse <- sapply(1:length(abf_dataset$data), function(ii) {
+      abf_dataset$data[[ii]][, ttl_ch]
+    })
+    pulse_on <- which(TTL_pulse[, 1] > threshold)
+    if (length(pulse_on) > 0) {
+      idx2 <- pulse_on[1]
+      stim_time <- idx2 * dt - dt
+      return(list(success = TRUE, time = stim_time))
+    } else {
+      return(list(success = FALSE, message = "No TTL pulse detected"))
+    }
+  }, error = function(e) {
+    return(list(success = FALSE, message = e$message))
+  })
+}
+
+process_traces <- function(data_matrix, dt, stimulation_time, baseline, smooth = 5) {
+  out <- lapply(1:ncol(data_matrix), function(ii) {
+    peak.fun2(data_matrix[, ii], dt = dt, stimulation_time = stimulation_time, 
+             baseline = baseline, smooth = smooth)
+  })
+  list(
+    peak = sapply(out, function(x) x$peak),
+    charge = sapply(out, function(x) x$charge),
+    response = sapply(out, function(x) x$response),
+    baseline = sapply(out, function(x) x$baseline)
+  )
+}
+
+create_summary_table <- function(Apeak, charge, holding_potential, holding_current) {
+  data.frame(
+    'time_minutes' = 1:length(Apeak),
+    'holding_potential_mV' = holding_potential,
+    'holding_current_pA' = holding_current,
+    'peak_amplitude_pA' = -Apeak,
+    'charge_transfer_pC' = -charge,
+    check.names = FALSE
+  )
+}
+
+
+# TRACE PARSING AND AVERAGING FUNCTIONS
+
+
+parse_trace_string <- function(trace_str) {
+  if (is.null(trace_str) || nchar(trace_str) == 0) return(integer(0))
+  tryCatch({
+    if (grepl(':', trace_str)) {
+      parts <- strsplit(trace_str, ':')[[1]]
+      start_val <- as.integer(parts[1])
+      end_val <- as.integer(parts[2])
+      if (!is.na(start_val) && !is.na(end_val)) return(start_val:end_val)
+    } else {
+      vals <- as.integer(strsplit(trace_str, ',')[[1]])
+      return(vals[!is.na(vals)])
+    }
+    integer(0)
+  }, error = function(e) integer(0))
+}
+
+parse_all_traces <- function(levels, input) {
+  traces_list <- list()
+  for (i in seq_along(levels)) {
+    input_id <- paste0('traces_level_', i)
+    traces_list[[i]] <- parse_trace_string(input[[input_id]])
+  }
+  traces_list
+}
+
+calculate_average_traces <- function(I_data2, traces2average, split_include, dt) {
+  result <- lapply(seq_along(split_include), function(iii) {
+    mask <- split_include[[iii]]
+    cols <- seq_along(mask)
+    accepted <- cols[mask == 1]
+    if (length(accepted) > 0) {
+      I_data2[, traces2average[[iii]], drop = FALSE][, accepted, drop = FALSE]
+    } else {
+      NULL
+    }
+  })
+  non_empty <- !sapply(result, is.null)
+  if (!any(non_empty)) return(NULL)
+  avg_mat <- sapply(result[non_empty], function(mat) rowMeans(mat))
+  if (is.null(dim(avg_mat))) avg_mat <- matrix(avg_mat, ncol = 1)
+  avg_mat
+}
+
+auto_calculate_limits <- function(single_examples, levels) {
+  time <- single_examples[, 'time']
+  xlim_common <- c(min(time), max(time))
+  all_y <- c()
+  for (level in levels) {
+    if (level %in% colnames(single_examples)) {
+      all_y <- c(all_y, single_examples[, level])
+    }
+  }
+  max_abs_y <- max(abs(all_y), na.rm = TRUE)
+  ylim_common <- c(-max_abs_y * 1.1, 5)
+  ylim_common[1] <- floor(ylim_common[1] / 10) * 10
+  xlim_common[2] <- ceiling(xlim_common[2] / 100) * 100
+  list(xlim = xlim_common, ylim = ylim_common)
+}
+
+
+# PLOTTING HELPER FUNCTIONS
+
+
+plot_peak_amplitude_panel <- function(summary, input, traces2average, split_include) {
+  tmax <- max(summary$time_minutes)
+  xlim <- c(0, 5 * ceiling(tmax / 5))
+  ylim1 <- c(0, ceiling(max(summary$peak_amplitude_pA, na.rm = TRUE) / 100) * 100)
+  if (ylim1[2] == 0) ylim1[2] <- 100
+  
+  par(mar = c(0.5, 6, 3, 1), mgp = c(3.5, 0.7, 0))
+  plot(summary$time_minutes, summary$peak_amplitude_pA, type = 'n', xlim = xlim, ylim = ylim1,
+       xlab = '', ylab = '', main = '', axes = FALSE, xaxs = 'r', yaxs = 'r', cex.main = input$cex_labels)
+  axis(2, at = seq(0, ylim1[2], by = input$ymajor_tick_amp), las = 1, tcl = -0.3, 
+       cex.axis = input$cex_axis, lwd = input$lwd_graph)
+  mtext(input$ylab, side = 2, line = 4, cex = input$cex_labels)
+  points(summary$time_minutes, summary$peak_amplitude_pA, pch = 16, col = input$color, cex = input$cex_points)
+  
+  if (length(traces2average) > 0) {
+    for (iii in seq_along(split_include)) {
+      mask <- split_include[[iii]]
+      cols <- which(mask == 1)
+      if (length(cols) > 0 && length(traces2average[[iii]]) > 0) {
+        exY <- summary$peak_amplitude_pA[traces2average[[iii]]][cols]
+        exX <- summary$time_minutes[traces2average[[iii]]][cols]
+        points(exX, exY, col = 'darkgrey', pch = 16, cex = input$cex_points * 1.2)
+      }
+    }
+  }
+  
+  if (!is.null(input$drugApplication) && nchar(input$drugApplication) > 0) {
+    drug_times <- as.numeric(strsplit(input$drugApplication, ',')[[1]])
+    for (i in seq_along(drug_times)) {
+      usr <- par('usr')
+      rect(xleft = drug_times[i], ybottom = usr[4] - (usr[4] - usr[3]) * 0.05, xright = tmax, ytop = usr[4],
+           col = if (i %% 2 == 1) rgb(0.5, 0.5, 0.5, 0.3) else rgb(0.7, 0.7, 0.7, 0.3), border = NA)
+    }
+  }
+}
+
+plot_holding_current_panel <- function(summary, input, traces2average, split_include) {
+  tmax <- max(summary$time_minutes)
+  xlim <- c(0, 5 * ceiling(tmax / 5))
+  ylim2 <- c(floor(min(summary$holding_current_pA, na.rm = TRUE) / 100) * 100, 0)
+  
+  par(mar = c(0.5, 6, 0.5, 1), mgp = c(3.5, 0.7, 0))
+  plot(summary$time_minutes, summary$holding_current_pA, type = 'n', xlim = xlim, ylim = ylim2,
+       xlab = '', ylab = '', main = '', axes = FALSE, xaxs = 'r', yaxs = 'r')
+  axis(2, at = seq(ylim2[1], 0, by = input$ymajor_tick_hc), las = 1, tcl = -0.3, 
+       cex.axis = input$cex_axis, lwd = input$lwd_graph)
+  mtext('Holding Current (pA)', side = 2, line = 4, cex = input$cex_labels)
+  points(summary$time_minutes, summary$holding_current_pA, pch = 16, col = input$color, cex = input$cex_points)
+  
+  if (length(traces2average) > 0) {
+    for (iii in seq_along(split_include)) {
+      mask <- split_include[[iii]]
+      cols <- which(mask == 1)
+      if (length(cols) > 0 && length(traces2average[[iii]]) > 0) {
+        exY <- summary$holding_current_pA[traces2average[[iii]]][cols]
+        exX <- summary$time_minutes[traces2average[[iii]]][cols]
+        points(exX, exY, col = 'darkgrey', pch = 16, cex = input$cex_points * 1.2)
+      }
+    }
+  }
+}
+
+plot_holding_potential_panel <- function(summary, input, traces2average, split_include) {
+  tmax <- max(summary$time_minutes)
+  xlim <- c(0, 5 * ceiling(tmax / 5))
+  ylim3 <- range(summary$holding_potential_mV, na.rm = TRUE)
+  ylim3 <- c(floor(ylim3[1] / 10) * 10 - 10, ceiling(ylim3[2] / 10) * 10 + 10)
+  
+  par(mar = c(5, 6, 0.5, 1), mgp = c(3.5, 0.7, 0))
+  plot(summary$time_minutes, summary$holding_potential_mV, type = 'n', xlim = xlim, ylim = ylim3,
+       xlab = '', ylab = '', main = '', axes = FALSE, xaxs = 'r', yaxs = 'r')
+  axis(2, at = seq(ylim3[1], ylim3[2], by = input$ymajor_tick_hp), las = 1, tcl = -0.3, 
+       cex.axis = input$cex_axis, lwd = input$lwd_graph)
+  mtext('Holding Potential (mV)', side = 2, line = 4, cex = input$cex_labels)
+  axis(1, at = seq(xlim[1], xlim[2], by = input$xmajor_tick_hp), tcl = -0.3, 
+       cex.axis = input$cex_axis, lwd = input$lwd_graph)
+  mtext(input$xlab, side = 1, line = 2.5, cex = input$cex_labels)
+  points(summary$time_minutes, summary$holding_potential_mV, pch = 16, col = input$color, cex = input$cex_points)
+  
+  if (length(traces2average) > 0) {
+    for (iii in seq_along(split_include)) {
+      mask <- split_include[[iii]]
+      cols <- which(mask == 1)
+      if (length(cols) > 0 && length(traces2average[[iii]]) > 0) {
+        exY <- summary$holding_potential_mV[traces2average[[iii]]][cols]
+        exX <- summary$time_minutes[traces2average[[iii]]][cols]
+        points(exX, exY, col = 'darkgrey', pch = 16, cex = input$cex_points * 1.2)
+      }
+    }
+  }
+}
+
+draw_scale_bars <- function(xbar, ybar, bar_lwd) {
+  usr <- par('usr')
+  x_range <- usr[1:2]
+  y_range <- usr[3:4]
+  ybar_start <- y_range[1] + (y_range[2] - y_range[1]) / 20
+  x_start <- x_range[2] - xbar - (x_range[2] - x_range[1]) * 0.05
+  y_start <- ybar_start
+  x_end <- x_start + xbar
+  y_end <- y_start + ybar
+  segments(x_start, y_start, x_end, y_start, lwd = bar_lwd, col = 'black')
+  segments(x_start, y_start, x_start, y_end, lwd = bar_lwd, col = 'black')
+}
+
+plot_single_example <- function(x, y, title, xlim, ylim, xbar, ybar, bar_lwd) {
+  par(mar = c(2, 2, 3, 2))
+  plot(x, y, type = 'l', col = 'darkgrey', lwd = 1.5, xlim = xlim, ylim = ylim,
+       xlab = '', ylab = '', main = title, bty = 'n', axes = FALSE, cex.main = 1.3)
+  abline(h = 0, lty = 2, col = 'grey')
+  draw_scale_bars(xbar, ybar, bar_lwd)
+}
+
+
+# DOWNLOAD HELPER FUNCTIONS
+
+
+generate_base_filename <- function(abfFiles) {
+  if (!is.null(abfFiles)) {
+    file_names <- tools::file_path_sans_ext(abfFiles$name)
+    if (length(file_names) == 1) {
+      return(file_names[1])
+    } else {
+      return(paste0(file_names[1], '_', file_names[length(file_names)]))
+    }
+  } else {
+    return(paste0('ABF_', Sys.Date()))
+  }
+}
+
+create_excel_workbook <- function(state, input) {
+  wb <- createWorkbook()
+  addWorksheet(wb, "Summary")
+  writeData(wb, "Summary", state$summary)
+  addWorksheet(wb, "Raw PSC Data")
+  writeData(wb, "Raw PSC Data", as.data.frame(state$I_data))
+  addWorksheet(wb, "Baseline Corrected")
+  writeData(wb, "Baseline Corrected", as.data.frame(state$I_data2))
+  
+  if (!is.null(state$single_examples)) {
+    addWorksheet(wb, "Single Examples")
+    writeData(wb, "Single Examples", as.data.frame(state$single_examples))
+  }
+  
+  if (length(state$traces2average) > 0) {
+    levels <- trimws(strsplit(input$levels, ',')[[1]])
+    trace_selection <- data.frame(Level = character(), Accepted = character(), 
+                                  Rejected = character(), stringsAsFactors = FALSE)
+    for (i in seq_along(levels)) {
+      if (length(state$traces2average[[i]]) > 0) {
+        accepted_str <- rejected_str <- ""
+        if (length(state$split_include) >= i) {
+          accepted <- state$traces2average[[i]][state$split_include[[i]] == 1]
+          rejected <- state$traces2average[[i]][state$split_include[[i]] == 0]
+          if (length(accepted) > 0) accepted_str <- paste(accepted, collapse = ", ")
+          if (length(rejected) > 0) rejected_str <- paste(rejected, collapse = ", ")
+        } else {
+          accepted_str <- paste(state$traces2average[[i]], collapse = ", ")
+        }
+        trace_selection <- rbind(trace_selection, 
+          data.frame(Level = levels[i], Accepted = accepted_str, Rejected = rejected_str))
+      }
+    }
+    addWorksheet(wb, "Trace Selection")
+    writeData(wb, "Trace Selection", trace_selection)
+  }
+  
+  metadata <- data.frame(
+    Parameter = c('dt (ms)', 'Stimulation Time (ms)', 'Baseline (ms)', 'N Traces'),
+    Value = c(state$dt, state$stimulation_time, input$baseline, ncol(state$I_data))
+  )
+  addWorksheet(wb, "Metadata")
+  writeData(wb, "Metadata", metadata)
+  wb
+}
+
+
+# NWB EXPORT HELPER FUNCTIONS
+
+
+generate_dandi_nwb_filename <- function(subject_id, session_id = NULL, modality = 'icephys') {
+  if (missing(subject_id) || !nzchar(subject_id)) {
+    stop('Subject ID required')
+  }
+  filename <- paste0('sub-', subject_id)
+  if (!is.null(session_id) && nzchar(session_id)) {
+    filename <- paste0(filename, '_ses-', session_id)
+  }
+  filename <- paste0(filename, '_', modality, '.nwb')
+  return(filename)
+}
+
+
+prepare_nwb_metadata <- function(abf_dataset, channel_index = 1, 
+                                 electrode_resistance = '3-5 MOhm',
+                                 traces2save = NULL, levs = NULL) {
+  metadata <- extract_metadata(abf_dataset)
+  unit <- metadata$channelUnits[channel_index]
+  gain_headstage <- metadata$header$fInstrumentScaleFactor[channel_index]
+  gain_additional <- metadata$header$fTelegraphAdditGain[channel_index]
+  gain_total <- gain_headstage * gain_additional * 1000
+  filtering <- metadata$sections$ADCsec[[channel_index]]$fSignalLowpassFilter
+  resistance_comp <- metadata$sections$ADCsec[[channel_index]]$fTelegraphAccessResistance
+  capacitance_comp <- metadata$sections$ADCsec[[channel_index]]$fTelegraphMembraneCap
+  rate <- 1 / metadata$samplingIntervalInSec
+  
+  trace_data <- abf_dataset$data
+  all_traces <- lapply(trace_data, function(mat) mat[, channel_index])
+  all_traces <- unname(all_traces)  # ← ADD THIS LINE - removes names so Python gets a list
+  
+  list(
+    data = all_traces,
+    unit = unit,
+    gain_headstage = gain_headstage,
+    gain_additional = gain_additional,
+    gain_total_mV_per_unit = gain_total,
+    filtering = filtering,
+    electrode_resistance = electrode_resistance,
+    resistance_comp = resistance_comp,
+    capacitance_comp = capacitance_comp,
+    rate = rate,
+    traces2save = traces2save,
+    levs = levs
+  )
+}
+
+create_nwb_file <- function(abf_dataset, nwb_filepath, metadata, 
+                            channel_index = 1, traces2save = NULL, levs = NULL) {
+  nwb_data <- prepare_nwb_metadata(abf_dataset, channel_index, 
+                                    metadata$electrode_resistance, traces2save, levs)
+  
+  reticulate::py_run_string('
+import numpy as np
+from pynwb import NWBFile, NWBHDF5IO, TimeSeries, ProcessingModule
+from pynwb.file import Subject
+from pynwb.icephys import IntracellularElectrode, VoltageClampSeries
+from datetime import datetime
+
+def create_nwb(data_dict, path, meta):
+    rate = float(data_dict["rate"])
+    unit = data_dict["unit"]
+    gain_total = float(data_dict["gain_total_mV_per_unit"])
+    gain_headstage = float(data_dict["gain_headstage"])
+    gain_additional = float(data_dict["gain_additional"])
+    filtering = str(data_dict["filtering"]) + " Hz low-pass"
+    resistance = data_dict["electrode_resistance"]
+    all_data = data_dict["data"]
+    
+    n_traces = len(all_data)
+    traces = range(n_traces) if data_dict["traces2save"] is None else data_dict["traces2save"]
+    
+    # Create NWB file
+    nwbfile = NWBFile(
+        session_description=meta.get("session_description", "Whole-cell voltage clamp"),
+        identifier="NWB_" + meta["subject_id"],
+        session_start_time=datetime.now(),
+        experimenter=[meta["experimenter"]],
+        institution=meta["institution"],
+        lab=meta["lab"]
+    )
+    
+    # Add subject
+    # Build subject description
+    subject_desc_parts = []
+    if meta.get("cross"):
+        subject_desc_parts.append("Cross: " + meta["cross"])
+    if meta.get("virus"):
+        subject_desc_parts.append("Virus: " + meta["virus"])
+    if meta.get("virus_injection_site"):
+        subject_desc_parts.append("Injection site: " + meta["virus_injection_site"])
+    subject_description = " | ".join(subject_desc_parts) if subject_desc_parts else "Whole-cell patch clamp recording"
+    
+    # Add subject
+    subject = Subject(
+        subject_id=meta["subject_id"],
+        species=meta["species"],
+        age=meta["age"],
+        sex=meta["sex"],
+        genotype=meta["genotype"],
+        description=subject_description
+    )
+    nwbfile.subject = subject
+    
+    # Add device
+    device = nwbfile.create_device(name=meta["device_name"])
+    
+    # Add electrode with detailed description
+    electrode = IntracellularElectrode(
+        name="elec0",
+        device=device,
+        description="Whole-cell patch-clamp electrode | Unit: {} | Headstage gain: {:.5g} V/{} | Additional gain: {:.2f}× | Total gain: {:.2f} mV/{}".format(
+            unit, gain_headstage, unit, gain_additional, gain_total, unit),
+        filtering=filtering,
+        location=meta["location"],
+        resistance=resistance
+    )
+    nwbfile.add_icephys_electrode(electrode)
+    
+    # Add voltage clamp series for each trace
+    for j, i in enumerate(traces):
+        trace = all_data[i]
+        series = VoltageClampSeries(
+            name="response_{}".format(j),
+            data=trace,
+            rate=rate,
+            starting_time=0.0,
+            electrode=electrode,
+            gain=gain_total,
+            capacitance_slow=data_dict["capacitance_comp"],
+            resistance_comp_correction=data_dict["resistance_comp"],
+            stimulus_description="",
+            sweep_number=int(i),
+            unit=unit
+        )
+        nwbfile.add_acquisition(series)
+    
+    # Add processing module for metadata
+    sweep_module = ProcessingModule(
+        name="sweep_info", 
+        description="Sweep metadata from ABF header"
+    )
+    
+    # Add sweep start points (if available from prepare_nwb_metadata)
+    # Note: This would need sweep_starts, sweep_length, num_sweeps added to data_dict
+    
+    # Add experimental levels if provided
+    if data_dict.get("levs") is not None:
+        levs_series = TimeSeries(
+            name="levels",
+            data=np.array(data_dict["levs"], dtype=np.int64),
+            unit="none",
+            rate=1.0,
+            starting_time=0.0,
+            description="Experimental level for each trace"
+        )
+        sweep_module.add_data_interface(levs_series)
+    
+    # Add traces2save if provided
+    if data_dict.get("traces2save") is not None:
+        traces_series = TimeSeries(
+            name="traces2save",
+            data=np.array(data_dict["traces2save"], dtype=np.int64),
+            unit="none",
+            rate=1.0,
+            starting_time=0.0,
+            description="Indices of traces exported to NWB (0-indexed)"
+        )
+        sweep_module.add_data_interface(traces_series)
+    
+    nwbfile.add_processing_module(sweep_module)
+    
+    # Write to file
+    with NWBHDF5IO(path, "w") as io:
+        io.write(nwbfile)
+    return True
+')
+  
+  py_meta <- list(
+    subject_id = metadata$subject_id,
+    species = metadata$species,
+    age = metadata$age,
+    sex = metadata$sex,
+    genotype = metadata$genotype,
+    cross = metadata$cross,
+    virus = metadata$virus,
+    virus_injection_site = metadata$virus_injection_site,
+    experimenter = metadata$experimenter,
+    institution = metadata$institution,
+    lab = metadata$lab,
+    session_description = "Whole-cell voltage clamp recording",
+    device_name = metadata$device_name,
+    location = metadata$location
+  )
+  
+  reticulate::py$create_nwb(nwb_data, nwb_filepath, py_meta)
+}
+
+
+# STATE MANAGEMENT FUNCTIONS
+
+
+clear_state <- function(state) {
+  state$abf_dataset <- NULL
+  state$I_data <- NULL
+  state$I_data2 <- NULL
+  state$holding_potential <- NULL
+  state$holding_current <- NULL
+  state$stimulation_time <- NULL
+  state$dt <- NULL
+  state$summary <- NULL
+  state$Apeak <- NULL
+  state$charge <- NULL
+  state$traces2average <- list()
+  state$split_include <- list()
+  state$single_examples <- NULL
+  state$review_level <- NULL
+  state$review_index <- 1
+  state$review_active <- FALSE
+}
+
+reset_inputs <- function(session) {
+  updateTextInput(session, 'levels', value = 'control,drug')
+  updateTextInput(session, 'drugApplication', value = '')
+  updateNumericInput(session, 'baseline', value = 100)
+  updateNumericInput(session, 'stimulation', value = 150)
+  updateCheckboxInput(session, 'autoDetectStim', value = TRUE)
+  updateNumericInput(session, 'pscChannel', value = 1)
+  updateNumericInput(session, 'hpChannel', value = 2)
+  updateNumericInput(session, 'ttlChannel', value = 3)
+  for (i in 1:10) updateTextInput(session, paste0('traces_level_', i), value = '')
+}
+
+
+# MAIN FUNCTION - analyseABF (Modular Version with NWB)
+
+
+analyseABF <- function() {
+  options(shiny.maxRequestSize = 100*1024^2)
+  
+  ui <- fluidPage(
+    create_dark_mode_css(),
+    titlePanel("ABF Analysis"),
+    sidebarLayout(create_sidebar_panel(), create_main_panel())
+  )
+  
+  server <- function(input, output, session) {
+    state <- reactiveValues(
+      abf_dataset = NULL, I_data = NULL, I_data2 = NULL,
+      holding_potential = NULL, holding_current = NULL,
+      stimulation_time = NULL, dt = NULL, summary = NULL,
+      Apeak = NULL, charge = NULL, traces2average = list(),
+      split_include = list(), single_examples = NULL,
+      review_level = NULL, review_index = 1, review_active = FALSE
+    )
+    
+    observeEvent(input$abfFiles, {
+      clear_state(state)
+      if (!is.null(input$abfFiles)) {
+        first_file <- input$abfFiles$name[1]
+        base_id <- sub('\\.abf$', '', first_file)
+        subject_id <- paste0('m', base_id)
+        updateTextInput(session, 'nwb_subject_id', value = subject_id)
+      }
+    })
+    
+    observeEvent(input$clearAll, {
+      clear_state(state)
+      reset_inputs(session)
+      showNotification("All data cleared", type = "message", duration = 2)
+    })
+    
+    observeEvent(input$loadData, {
+      req(input$abfFiles)
+      withProgress(message = 'Loading ABF files...', value = 0, {
+        paths <- input$abfFiles$datapath
+        names(paths) <- input$abfFiles$name
+        incProgress(0.2, detail = "Reading files...")
+        
+        tryCatch({
+          state$abf_dataset <- load_abf_files(paths, input$abfFiles$name)
+          incProgress(0.4, detail = "Extracting data...")
+          
+          state$dt <- state$abf_dataset$samplingIntervalInSec * 1000
+          n_channels <- ncol(state$abf_dataset$data[[1]])
+          psc_ch <- as.integer(input$pscChannel)
+          hp_ch <- as.integer(input$hpChannel)
+          ttl_ch <- as.integer(input$ttlChannel)
+          
+          validate_channels(psc_ch, hp_ch, n_channels)
+          state$I_data <- extract_channel_data(state$abf_dataset, psc_ch)
+          state$holding_potential <- extract_channel_data(state$abf_dataset, hp_ch)
+          
+          incProgress(0.6, detail = "Detecting stimulation...")
+          
+          if (input$autoDetectStim && !is.na(ttl_ch) && ttl_ch > 0 && ttl_ch <= n_channels) {
+            result <- detect_stimulation_from_ttl(state$abf_dataset, ttl_ch, state$dt)
+            if (result$success) {
+              state$stimulation_time <- result$time
+              updateNumericInput(session, 'stimulation', value = round(state$stimulation_time, 2))
+              showNotification(paste("Auto-detected stimulation at", round(state$stimulation_time, 2), "ms"), type = "message")
+            } else {
+              state$stimulation_time <- input$stimulation
+              showNotification(result$message, type = "warning")
+            }
+          } else {
+            state$stimulation_time <- input$stimulation
+          }
+          
+          if (is.null(state$stimulation_time) || is.na(state$stimulation_time)) {
+            stop("Stimulation time must be specified")
+          }
+          
+          incProgress(0.8, detail = "Processing traces...")
+          
+          psc_processed <- process_traces(state$I_data, state$dt, state$stimulation_time, input$baseline, smooth = 5)
+          state$Apeak <- psc_processed$peak
+          state$charge <- psc_processed$charge
+          state$I_data2 <- psc_processed$response
+          rownames(state$I_data2) <- seq(nrow(state$I_data2))
+          colnames(state$I_data2) <- seq(ncol(state$I_data2))
+          state$holding_current <- psc_processed$baseline
+          
+          hp_processed <- process_traces(state$holding_potential, state$dt, state$stimulation_time, input$baseline, smooth = 5)
+          state$holding_potential <- hp_processed$baseline
+          
+          state$summary <- create_summary_table(state$Apeak, state$charge, state$holding_potential, state$holding_current)
+          incProgress(1.0, detail = "Done!")
+          showNotification("ABF data loaded successfully!", type = "message", duration = 5)
+          
+        }, error = function(e) {
+          showNotification(paste("Error loading ABF:", e$message), type = "error", duration = 10)
+        })
+      })
+    })
+    
+    observeEvent(input$runAnalysis, {
+      req(state$I_data2, state$summary)
+      withProgress(message = 'Running analysis...', value = 0, {
+        levels <- trimws(strsplit(input$levels, ',')[[1]])
+        traces2average <- parse_all_traces(levels, input)
+        
+        if (length(traces2average) == 0 || all(sapply(traces2average, length) == 0)) {
+          showNotification("Please specify traces to average in the Trace Selection tab", type = "error", duration = 5)
+          return()
+        }
+        
+        incProgress(0.3, detail = "Averaging traces...")
+        split_include <- lapply(traces2average, function(traces) rep(1, length(traces)))
+        avg_mat <- calculate_average_traces(state$I_data2, traces2average, split_include, state$dt)
+        
+        if (is.null(avg_mat)) {
+          showNotification("No valid traces to average", type = "error", duration = 5)
+          return()
+        }
+        
+        time <- seq(nrow(state$I_data2)) * state$dt - state$dt
+        state$single_examples <- cbind(time, avg_mat)
+        colnames(state$single_examples) <- c('time', levels)
+        state$traces2average <- traces2average
+        state$split_include <- split_include
+        
+        incProgress(1.0, detail = "Done!")
+        showNotification("Analysis complete!", type = "message", duration = 3)
+      })
+    })
+    
+    observeEvent(state$single_examples, {
+      req(state$single_examples)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      limits <- auto_calculate_limits(state$single_examples, levels)
+      updateNumericInput(session, 'xlim_min_all', value = round(limits$xlim[1], 1))
+      updateNumericInput(session, 'xlim_max_all', value = limits$xlim[2])
+      updateNumericInput(session, 'ylim_min_all', value = limits$ylim[1])
+      updateNumericInput(session, 'ylim_max_all', value = limits$ylim[2])
+    })
+    
+    observe({
+      req(state$traces2average)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      updateSelectInput(session, 'reviewLevelSelect', choices = levels, selected = levels[1])
+    })
+    
+    observeEvent(input$startReview, {
+      req(state$traces2average, state$split_include)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      level_idx <- which(levels == input$reviewLevelSelect)
+      if (length(level_idx) == 0 || length(state$traces2average[[level_idx]]) == 0) {
+        showNotification("No traces selected for this level", type = "warning")
+        return()
+      }
+      state$review_level <- level_idx
+      state$review_index <- 1
+      state$review_active <- TRUE
+      showNotification(paste("Reviewing", input$reviewLevelSelect), type = "message")
+    })
+    
+    observeEvent(input$acceptTrace, {
+      req(state$review_active, state$review_level)
+      level_idx <- state$review_level
+      trace_idx <- state$review_index
+      state$split_include[[level_idx]][trace_idx] <- 1
+      if (trace_idx < length(state$traces2average[[level_idx]])) {
+        state$review_index <- trace_idx + 1
+      } else {
+        state$review_active <- FALSE
+        recalculate_averages()
+        showNotification("Review complete! Averages updated.", type = "message", duration = 5)
+      }
+    })
+    
+    observeEvent(input$rejectTrace, {
+      req(state$review_active, state$review_level)
+      level_idx <- state$review_level
+      trace_idx <- state$review_index
+      state$split_include[[level_idx]][trace_idx] <- 0
+      if (trace_idx < length(state$traces2average[[level_idx]])) {
+        state$review_index <- trace_idx + 1
+      } else {
+        state$review_active <- FALSE
+        recalculate_averages()
+        showNotification("Review complete! Averages updated.", type = "message", duration = 5)
+      }
+    })
+    
+    recalculate_averages <- function() {
+      req(state$I_data2, state$traces2average, state$split_include)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      avg_mat <- calculate_average_traces(state$I_data2, state$traces2average, state$split_include, state$dt)
+      if (is.null(avg_mat)) {
+        state$single_examples <- NULL
+        return(invisible(NULL))
+      }
+      time <- seq(nrow(state$I_data2)) * state$dt - state$dt
+      state$single_examples <- cbind(time, avg_mat)
+      non_empty <- !sapply(state$split_include, function(mask) all(mask == 0))
+      colnames(state$single_examples) <- c('time', levels[non_empty])
+    }
+    
+    output$fileInfo <- renderPrint({
+      req(state$abf_dataset)
+      cat("Channels available:", ncol(state$abf_dataset$data[[1]]), "\n")
+      cat("Traces:", length(state$abf_dataset$data), "\n")
+      cat("Channel names:", paste(state$abf_dataset$channelNames, collapse = ", "), "\n")
+      cat("Channel units:", paste(state$abf_dataset$channelUnits, collapse = ", "), "\n")
+    })
+    
+    output$traceSelectionUI <- renderUI({
+      req(state$I_data)
+      tagList(helpText(paste("Total traces available:", ncol(state$I_data))), uiOutput('dynamicTraceInputs'))
+    })
+    
+    output$dynamicTraceInputs <- renderUI({
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      tagList(
+        h5("Plot Axis Limits (applies to all Single Examples)"),
+        fluidRow(
+          column(6, numericInput('xlim_min_all', 'X min:', value = NULL, step = 10)),
+          column(6, numericInput('xlim_max_all', 'X max:', value = NULL, step = 10))
+        ),
+        fluidRow(
+          column(6, numericInput('ylim_min_all', 'Y min:', value = NULL, step = 10)),
+          column(6, numericInput('ylim_max_all', 'Y max:', value = NULL, step = 10))
+        ),
+        hr(),
+        h5("Scale Bar Settings"),
+        fluidRow(
+          column(6, numericInput('xbar_length', 'X bar:', value = 50, min = 1, step = 10)),
+          column(6, numericInput('ybar_length', 'Y bar:', value = 50, min = 1, step = 10))
+        ),
+        fluidRow(column(6, numericInput('bar_lwd', 'Bar thickness:', value = 2, min = 0.5, max = 5, step = 0.5))),
+        hr(),
+        h5("Trace Selection"),
+        lapply(seq_along(levels), function(i) {
+          textInput(paste0('traces_level_', i), paste0('Traces for ', levels[i], ':'), placeholder = 'e.g., 1,2,3,4,5 or 1:5')
+        })
+      )
+    })
+    
+    output$tracesInfo <- renderPrint({
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      traces_list <- parse_all_traces(levels, input)
+      cat("Configured trace groups:\n\n")
+      for (i in seq_along(traces_list)) {
+        if (length(traces_list[[i]]) > 0) {
+          cat(levels[i], ": ", paste(traces_list[[i]], collapse = ", "), "\n")
+        }
+      }
+    })
+    
+    output$tracesInfoNWB <- renderPrint({
+      if (input$nwb_trace_selection == 'all') {
+        req(state$I_data)
+        cat("Exporting ALL", ncol(state$I_data), "traces\n")
+      } else {
+        req(state$traces2average, state$split_include)
+        levels <- trimws(strsplit(input$levels, ',')[[1]])
+        cat("Exporting SELECTED traces:\n\n")
+        total <- 0
+        for (i in seq_along(state$traces2average)) {
+          if (length(state$traces2average[[i]]) > 0) {
+            mask <- state$split_include[[i]]
+            accepted <- state$traces2average[[i]][mask == 1]
+            if (length(accepted) > 0) {
+              cat(levels[i], ":", paste(accepted, collapse = ", "), "\n")
+              total <- total + length(accepted)
+            }
+          }
+        }
+        cat("\nTotal:", total, "traces\n")
+      }
+    })
+    
+    output$summaryText <- renderPrint({
+      req(state$abf_dataset)
+      cat("ABF Dataset Information\n=======================\n\n")
+      cat("Sampling interval:", state$dt, "ms\n")
+      cat("Number of traces:", ncol(state$I_data), "\n")
+      cat("Trace length:", nrow(state$I_data), "samples\n")
+      cat("Duration:", round(nrow(state$I_data) * state$dt / 1000, 2), "seconds\n")
+      if (!is.null(state$stimulation_time)) cat("Stimulation time:", state$stimulation_time, "ms\n")
+      if (!is.null(state$summary)) {
+        cat("\nPeak amplitude range:", round(min(state$summary$peak_amplitude_pA, na.rm = TRUE), 2), 
+            "to", round(max(state$summary$peak_amplitude_pA, na.rm = TRUE), 2), "pA\n")
+      }
+    })
+    
+    output$summaryTable <- renderTable({
+      req(state$summary)
+      head(state$summary, 20)
+    }, striped = TRUE, hover = TRUE, bordered = TRUE)
+    
+    output$timeSeriesPlot <- renderPlot({
+      req(state$summary)
+      layout(matrix(1:3, ncol = 1), heights = c(3, 2, 2))
+      plot_peak_amplitude_panel(state$summary, input, state$traces2average, state$split_include)
+      plot_holding_current_panel(state$summary, input, state$traces2average, state$split_include)
+      plot_holding_potential_panel(state$summary, input, state$traces2average, state$split_include)
+      layout(1)
+    })
+    
+    output$examplePlotsUI <- renderUI({
+      req(state$single_examples)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      plot_outputs <- lapply(seq_along(levels), function(i) plotOutput(paste0('examplePlot_', i), height = '400px'))
+      do.call(fluidRow, lapply(plot_outputs, function(p) column(6, p)))
+    })
+    
+    observe({
+      req(state$single_examples)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      x <- state$single_examples[, 'time']
+      xlim_min <- if (!is.null(input$xlim_min_all) && !is.na(input$xlim_min_all)) input$xlim_min_all else min(x)
+      xlim_max <- if (!is.null(input$xlim_max_all) && !is.na(input$xlim_max_all)) input$xlim_max_all else max(x)
+      
+      if (is.null(input$ylim_min_all) || is.na(input$ylim_min_all) || is.null(input$ylim_max_all) || is.na(input$ylim_max_all)) {
+        limits <- auto_calculate_limits(state$single_examples, levels)
+        ylim_min <- limits$ylim[1]
+        ylim_max <- limits$ylim[2]
+      } else {
+        ylim_min <- input$ylim_min_all
+        ylim_max <- input$ylim_max_all
+      }
+      
+      xlim <- c(xlim_min, xlim_max)
+      ylim <- c(ylim_min, ylim_max)
+      xbar <- if (!is.null(input$xbar_length) && !is.na(input$xbar_length)) input$xbar_length else 50
+      ybar <- if (!is.null(input$ybar_length) && !is.na(input$ybar_length)) input$ybar_length else 50
+      bar_lwd <- if (!is.null(input$bar_lwd) && !is.na(input$bar_lwd)) input$bar_lwd else 2
+      
+      for (i in seq_along(levels)) {
+        local({
+          my_i <- i
+          my_level <- levels[my_i]
+          output[[paste0('examplePlot_', my_i)]] <- renderPlot({
+            if (my_level %in% colnames(state$single_examples)) {
+              y <- state$single_examples[, my_level]
+              plot_single_example(x, y, my_level, xlim, ylim, xbar, ybar, bar_lwd)
+            }
+          })
+        })
+      }
+    })
+    
+    output$reviewProgress <- renderPrint({
+      if (!state$review_active) {
+        cat("Click 'Start Review' to begin\n")
+        return()
+      }
+      req(state$review_level, state$traces2average)
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      level_name <- levels[state$review_level]
+      total_traces <- length(state$traces2average[[state$review_level]])
+      current_trace <- state$traces2average[[state$review_level]][state$review_index]
+      accepted <- sum(state$split_include[[state$review_level]] == 1)
+      rejected <- sum(state$split_include[[state$review_level]] == 0)
+      cat("Reviewing:", level_name, "\n")
+      cat("Progress:", state$review_index, "/", total_traces, "\n")
+      cat("Current trace:", current_trace, "\n\n")
+      cat("Accepted:", accepted, "\n")
+      cat("Rejected:", rejected, "\n")
+    })
+    
+    output$reviewPlot <- renderPlot({
+      req(state$review_active, state$review_level, state$I_data2, state$single_examples)
+      level_idx <- state$review_level
+      trace_idx <- state$review_index
+      actual_trace_num <- state$traces2average[[level_idx]][trace_idx]
+      levels <- trimws(strsplit(input$levels, ',')[[1]])
+      level_name <- levels[level_idx]
+      time <- state$single_examples[, 'time']
+      avg_trace <- state$single_examples[, level_name]
+      individual_trace <- state$I_data2[, actual_trace_num]
+      
+      xlim_min <- if (!is.null(input$xlim_min_all) && !is.na(input$xlim_min_all)) input$xlim_min_all else min(time)
+      xlim_max <- if (!is.null(input$xlim_max_all) && !is.na(input$xlim_max_all)) input$xlim_max_all else max(time)
+      
+      if (is.null(input$ylim_min_all) || is.na(input$ylim_min_all) || is.null(input$ylim_max_all) || is.na(input$ylim_max_all)) {
+        ylim_range <- range(c(avg_trace, individual_trace), na.rm = TRUE)
+        ylim_min <- ylim_range[1] * 1.1
+        ylim_max <- 5
+      } else {
+        ylim_min <- input$ylim_min_all
+        ylim_max <- input$ylim_max_all
+      }
+      
+      xlim <- c(xlim_min, xlim_max)
+      ylim <- c(ylim_min, ylim_max)
+      xbar <- if (!is.null(input$xbar_length) && !is.na(input$xbar_length)) input$xbar_length else 50
+      ybar <- if (!is.null(input$ybar_length) && !is.na(input$ybar_length)) input$ybar_length else 50
+      bar_lwd <- if (!is.null(input$bar_lwd) && !is.na(input$bar_lwd)) input$bar_lwd else 2
+      
+      par(mar = c(2, 2, 3, 2))
+      plot(time, individual_trace, type = 'l', col = '#CD5C5C', lwd = 2, ylim = ylim, xlim = xlim,
+           xlab = '', ylab = '', main = paste(level_name, "- Trace", actual_trace_num),
+           bty = 'n', axes = FALSE, cex.main = 1.3)
+      abline(h = 0, lty = 2, col = 'grey70')
+      lines(time, avg_trace, col = 'darkgrey', lwd = 3)
+      draw_scale_bars(xbar, ybar, bar_lwd)
+      legend('bottomleft', legend = c('Current Average', paste('Trace', actual_trace_num)),
+             col = c('darkgrey', '#CD5C5C'), lwd = c(3, 2), bty = 'n', cex = 1.1)
+    })
+    
+    output$exportInfo <- renderPrint({
+      if (is.null(state$summary)) {
+        cat("No data loaded yet.\n")
+        return()
+      }
+      cat("Available data for export:\n\n")
+      cat("- Summary table (", nrow(state$summary), " rows)\n", sep = "")
+      cat("- Raw PSC data (", ncol(state$I_data), " traces)\n", sep = "")
+      cat("- Baseline corrected data\n")
+      if (!is.null(state$single_examples)) {
+        cat("- Single example traces (", ncol(state$single_examples) - 1, " levels)\n", sep = "")
+      }
+      cat("\nUse download buttons to export data.")
+    })
+    
+    output$rawDataPreview <- renderTable({
+      req(state$summary)
+      head(state$summary, 10)
+    }, striped = TRUE, hover = TRUE)
+    
+    output$downloadExcel <- downloadHandler(
+      filename = function() paste0(generate_base_filename(input$abfFiles), '_analysis.xlsx'),
+      content = function(file) {
+        req(state$summary, state$I_data, state$I_data2)
+        wb <- create_excel_workbook(state, input)
+        saveWorkbook(wb, file, overwrite = TRUE)
+      }
+    )
+    
+    output$downloadRData <- downloadHandler(
+      filename = function() paste0('ABF_analysis_', Sys.Date(), '.RData'),
+      content = function(file) {
+        results <- list(
+          summary = state$summary, raw_data = state$I_data, baseline_corrected = state$I_data2,
+          single_examples = state$single_examples, traces2average = state$traces2average,
+          split_include = state$split_include,
+          metadata = list(dt = state$dt, stimulation_time = state$stimulation_time, baseline = input$baseline)
+        )
+        save(results, file = file)
+      }
+    )
+    
+    output$downloadNWB <- downloadHandler(
+    filename = function() {
+        generate_dandi_nwb_filename(
+          subject_id = input$nwb_subject_id,
+          session_id = input$nwb_session_id,
+          modality = 'icephys'
+        )
+      },
+    content = function(file) {
+      req(state$abf_dataset, state$I_data)
+      
+      traces2save <- NULL
+      levs <- NULL
+      
+      if (input$nwb_trace_selection == 'selected') {
+        req(state$traces2average, state$split_include)
+        all_selected <- c()
+        all_levels <- c()
+        for (i in seq_along(state$traces2average)) {
+          if (length(state$traces2average[[i]]) > 0) {
+            mask <- state$split_include[[i]]
+            accepted_idx <- which(mask == 1)
+            if (length(accepted_idx) > 0) {
+              all_selected <- c(all_selected, state$traces2average[[i]][accepted_idx])
+              all_levels <- c(all_levels, rep(i, length(accepted_idx)))
+            }
+          }
+        }
+        if (length(all_selected) > 0) {
+          traces2save <- as.integer(all_selected - 1)  # Ensure integers for Python
+          levs <- as.integer(all_levels)
+          cat("DEBUG: traces2save =", traces2save, "\n")  # Can remove after testing
+        }
+      }
+          
+        nwb_metadata <- list(
+          subject_id = input$nwb_subject_id,
+          species = input$nwb_species,
+          age = input$nwb_age,
+          sex = input$nwb_sex,
+          genotype = input$nwb_genotype,
+          cross = input$nwb_cross,
+          virus = input$nwb_virus,
+          virus_injection_site = input$nwb_virus_injection_site,
+          experimenter = input$nwb_experimenter,
+          institution = input$nwb_institution,
+          lab = input$nwb_lab,
+          device_name = input$nwb_device_name,
+          electrode_resistance = input$nwb_electrode_resistance,
+          location = input$nwb_location
+        )
+
+        tryCatch({
+          withProgress(message = 'Creating NWB file...', {
+            incProgress(0.5)
+            create_nwb_file(state$abf_dataset, file, nwb_metadata,
+                           as.integer(input$pscChannel), traces2save, levs)
+          })
+          showNotification("NWB file created successfully!", type = "message", duration = 5)
+        }, error = function(e) {
+          showNotification(paste("NWB Error:", e$message), type = "error", duration = 10)
+        })
+      }
+    )
+    
+    output$downloadSVG <- downloadHandler(
+      filename = function() paste0(generate_base_filename(input$abfFiles), '_plots.zip'),
+      content = function(file) {
+        req(state$single_examples)
+        levels <- trimws(strsplit(input$levels, ',')[[1]])
+        x <- state$single_examples[, 'time']
+        xlim_min <- if (!is.null(input$xlim_min_all) && !is.na(input$xlim_min_all)) input$xlim_min_all else min(x)
+        xlim_max <- if (!is.null(input$xlim_max_all) && !is.na(input$xlim_max_all)) input$xlim_max_all else max(x)
+        
+        if (is.null(input$ylim_min_all) || is.na(input$ylim_min_all) || is.null(input$ylim_max_all) || is.na(input$ylim_max_all)) {
+          limits <- auto_calculate_limits(state$single_examples, levels)
+          ylim_min <- limits$ylim[1]
+          ylim_max <- limits$ylim[2]
+        } else {
+          ylim_min <- input$ylim_min_all
+          ylim_max <- input$ylim_max_all
+        }
+        
+        xlim <- c(xlim_min, xlim_max)
+        ylim <- c(ylim_min, ylim_max)
+        xbar <- if (!is.null(input$xbar_length) && !is.na(input$xbar_length)) input$xbar_length else 50
+        ybar <- if (!is.null(input$ybar_length) && !is.na(input$ybar_length)) input$ybar_length else 50
+        bar_lwd <- if (!is.null(input$bar_lwd) && !is.na(input$bar_lwd)) input$bar_lwd else 2
+        base_name <- generate_base_filename(input$abfFiles)
+        temp_dir <- tempdir()
+        svg_files <- c()
+        
+        for (level in levels) {
+          if (level %in% colnames(state$single_examples)) {
+            y <- state$single_examples[, level]
+            svg_filename <- file.path(temp_dir, paste0(base_name, '_', level, '.svg'))
+            svg_files <- c(svg_files, svg_filename)
+            svg(svg_filename, width = 7, height = 5)
+            plot_single_example(x, y, level, xlim, ylim, xbar, ybar, bar_lwd)
+            dev.off()
+          }
+        }
+        zip(file, svg_files, flags = '-j')
+      }
+    )
+  }
+  
+  shinyApp(ui, server)
+}
+
+
+
+# MODULAR VERSION OF analysePSC()
+
+
+
+# UI HELPER FUNCTIONS
+
+
+create_dark_mode_css_psc <- function() {
+  tags$head(
+    tags$style(HTML("
+      @media (prefers-color-scheme: dark) {
+        body { background-color: #1e1e1e; color: #e0e0e0; }
+        .well { background-color: #2d2d2d; border-color: #444; }
+        .form-control { background-color: #2d2d2d; color: #c0c0c0 !important; border: 1px solid #555 !important; }
+        input[type='number'], input[type='text'] { background-color: #2d2d2d !important; color: #c0c0c0 !important; }
+        .selectize-input, .selectize-dropdown { background-color: #ffffff !important; color: #666666 !important; }
+        .btn { background-color: #3d3d3d; color: #ffffff; border-color: #555; }
+        .btn-primary, .action-button { background-color: #3c8dbc; color: #ffffff; }
+        pre, code { background-color: #1a1a1a; color: #f0f0f0; }
+      }
+    "))
+  )
+}
+
+create_main_options_ui <- function() {
+  tabPanel('Main Options',
+    numericInput('dt', 'dt (ms):', 0.1),
+    numericInput('stimulation_time', 'Stimulation Time:', 100),
+    numericInput('baseline', 'Baseline:', 50),
+    numericInput('n', 'n:', 30),
+    numericInput('y_abline', 'Fit Cutoff:', 0.1),
+    selectInput('func', 'Function:', choices=c('product1N', 'product2N', 'product3N')),
+    numericInput('ds', 'Downsample Factor:', 1, min=1)
+  )
+}
+
+create_fit_options_ui <- function() {
+  tabPanel('Fit Options',
+    numericInput('N', 'N:', 1),
+    numericInput('IEI', 'IEI:', 50),
+    numericInput('smooth', 'Smooth:', 5),
+    selectInput('method', 'Method:', choices=c('BF.LM', 'LM', 'GN', 'port', 'robust', 'MLE')),
+    selectInput('weight_method', 'Weighting:', choices=c('none', '~y_sqrt', '~y')),
+    checkboxInput('sequential_fit', 'Sequential Fit', FALSE),
+    numericInput('interval_min', 'Min Interval:', 0.1),
+    numericInput('interval_max', 'Max Interval:', 0.9),
+    textInput('lower', 'Lower Bounds (comma-separated):', ''),
+    textInput('upper', 'Upper Bounds (comma-separated):', ''),
+    textInput('latency_limit', 'Latency Limit:', '')
+  )
+}
+
+create_mle_settings_ui <- function() {
+  tabPanel('MLE Settings',
+    numericInput('iter', 'MLE Iterations:', 1000),
+    numericInput('metropolis_scale', 'Metropolis Scale:', 1.5),
+    numericInput('fit_attempts', 'Fit Attempts:', 10),
+    checkboxInput('RWm', 'Random Walk Metropolis', FALSE)
+  )
+}
+
+create_advanced_ui <- function() {
+  tabPanel('Advanced',
+    checkboxInput('filter', 'Filter', FALSE),
+    numericInput('fc', 'Filter Cutoff (Hz):', 1000),
+    numericInput('half_width_fit_limit', 'Half-width Fit Limit:', 500),
+    numericInput('seed', 'Seed:', 42),
+    numericInput('dp', 'Decimal Points:', 3),
+    checkboxInput('fast_constraint', 'Fast Constraint', FALSE),
+    selectInput('fast_constraint_method', 'Fast Constraint Method:', choices=c('rise', 'peak')),
+    textInput('fast_decay_limit', 'Fast Decay Limit(s) (comma-separated):', ''),
+    checkboxInput('first_delay_constraint', 'First Delay Constraint', FALSE)
+  )
+}
+
+create_plot_settings_ui <- function() {
+  tabPanel('Plot Settings',
+    numericInput('lwd', 'Line Width:', 1.2),
+    numericInput('xbar', 'x-bar Length:', 50),
+    numericInput('ybar', 'y-bar Length:', 50),
+    textInput('xbar_lab', 'x-axis Units:', 'ms'),
+    textInput('ybar_lab', 'y-axis Units:', 'pA'),
+    textInput('xlim', 'x limits (e.g., 0,400):', '')
+  )
+}
+
+create_sidebar_panel_psc <- function() {
+  sidebarPanel(
+    fileInput('file', 'Upload csv or xlsx', accept=c('.csv', '.xlsx')),
+    uiOutput('column_selector'),
+    tabsetPanel(
+      create_main_options_ui(),
+      create_fit_options_ui(),
+      create_mle_settings_ui(),
+      create_advanced_ui(),
+      create_plot_settings_ui()
+    ),
+    numericInput('userTmax', 'User Maximum Time for Fit:', NA),
+    actionButton('run_initial', 'Run Initial Analysis'),
+    actionButton('run_main', 'Run Main Analysis'),
+    actionButton('add_result', 'Add to Results'),
+    actionButton('clear_results', 'Clear Results'), 
+    downloadButton('download_xlsx',  'Download Output (*.xlsx)'),
+    downloadButton('download_output', 'Download RData'),
+    downloadButton('download_svg', 'Download SVG Plot'),
+    actionButton('clear_output', 'Clear Output')
+  )
+}
+
+create_main_panel_psc <- function() {
+  mainPanel(
+    plotOutput('plot', height='500px'),
+    verbatimTextOutput('console'),
+    hr(),
+    h4("Summary"),
+    verbatimTextOutput('accumulated_summary')
+  )
+}
+
+
+# DATA PROCESSING HELPER FUNCTIONS
+
+
+load_uploaded_data <- function(file_path, file_ext) {
+  if (tolower(file_ext) == 'csv') {
+    read.csv(file_path)
+  } else {
+    readxl::read_excel(file_path)
+  }
+}
+
+downsample_data <- function(data_col, ds) {
+  if (ds > 1) {
+    data_col[seq(1, length(data_col), by=ds)]
+  } else {
+    data_col
+  }
+}
+
+clean_column_names <- function(df) {
+  names(df) <- gsub('^A\\d+$', 'A', names(df))
+  names(df) <- gsub('^area\\d+$', 'area', names(df))
+  names(df) <- gsub("^r(\\d+)[_-](\\d+)$", "r\\1-\\2", names(df))
+  names(df) <- gsub("^d(\\d+)[_-](\\d+)$", "d\\1-\\2", names(df))
+  names(df) <- gsub('half_width', 'half width', names(df))
+  df
+}
+
+parse_comma_separated <- function(text_input) {
+  if (nchar(text_input) > 0) {
+    as.numeric(unlist(strsplit(text_input, ',')))
+  } else {
+    NULL
+  }
+}
+
+
+# ANALYSIS HELPER FUNCTIONS
+
+
+calculate_tmax <- function(y, N, dt, stim_time, baseline, smooth, user_tmax, y_abline, xbar, ybar, xbar_lab, ybar_lab) {
+  png(tempfile())
+  tmax_value <- determine_tmax2(
+    y = y, N = N, dt = dt, 
+    stimulation_time = stim_time, 
+    baseline = baseline, smooth = smooth,
+    tmax = if (!is.na(user_tmax)) user_tmax else NULL,
+    y_abline = y_abline, xbar = xbar, ybar = ybar,
+    xbar_lab = xbar_lab, ybar_lab = ybar_lab
+  )
+  dev.off()
+  tmax_value
+}
+
+run_psc_analysis <- function(y, input, tmax_value) {
+  dt <- as.numeric(input$dt) * as.numeric(input$ds)
+  x <- seq(0, (length(y) - 1) * dt, by=dt)
+  x_limit <- tmax_value
+  adjusted_response <- y[x < x_limit]
+  
+  func <- switch(input$func,
+    'product1N'=product1N, 'product2N'=product2N, 
+    'product3N'=product3N, product1N)
+  
+  if (!input$sequential_fit) {
+    result <- nFIT(
+      response=adjusted_response, n=as.numeric(input$n), 
+      N=as.numeric(input$N), IEI=as.numeric(input$IEI), 
+      dt=dt, func=func, method=input$method, 
+      weight_method=input$weight_method,
+      MLEsettings=list(
+        iter=as.numeric(input$iter), 
+        metropolis.scale=as.numeric(input$metropolis_scale), 
+        fit.attempts=as.numeric(input$fit_attempts), 
+        RWm=input$RWm
+      ),
+      stimulation_time=as.numeric(input$stimulation_time), 
+      baseline=as.numeric(input$baseline), 
+      filter=input$filter, fc=as.numeric(input$fc),
+      interval=c(as.numeric(input$interval_min), as.numeric(input$interval_max)),
+      fast.decay.limit=parse_comma_separated(input$fast_decay_limit), 
+      fast.constraint=input$fast_constraint,
+      fast.constraint.method=input$fast_constraint_method, 
+      first.delay.constraint=input$first_delay_constraint,
+      lower=parse_comma_separated(input$lower), 
+      upper=parse_comma_separated(input$upper), 
+      latency.limit=parse_comma_separated(input$latency_limit),
+      return.output=TRUE, show.plot=FALSE, 
+      half_width_fit_limit=as.numeric(input$half_width_fit_limit),
+      dp=as.numeric(input$dp), height=5, width=5, 
+      seed=as.numeric(input$seed)
+    )
+    result$traces <- traces_fun2(
+      y=y, fits=result$fits, dt=dt, 
+      N=as.numeric(input$N), IEI=as.numeric(input$IEI),
+      stimulation_time=as.numeric(input$stimulation_time), 
+      baseline=as.numeric(input$baseline), func=func,
+      filter=input$filter, fc=as.numeric(input$fc)
+    )
+  } else {
+    result <- nFIT_sequential(
+      response=y, n=as.numeric(input$n), dt=dt, func=func, 
+      method=input$method, weight_method=input$weight_method,
+      stimulation_time=as.numeric(input$stimulation_time), 
+      baseline=as.numeric(input$baseline), 
+      fit.limits=as.numeric(input$userTmax),
+      fast.decay.limit=parse_comma_separated(input$fast_decay_limit), 
+      fast.constraint=input$fast_constraint,
+      fast.constraint.method=input$fast_constraint_method, 
+      first.delay.constraint=input$first_delay_constraint,
+      latency.limit=parse_comma_separated(input$latency_limit), 
+      lower=parse_comma_separated(input$lower), 
+      upper=parse_comma_separated(input$upper), 
+      filter=input$filter, fc=as.numeric(input$fc), 
+      interval=c(as.numeric(input$interval_min), as.numeric(input$interval_max)),
+      MLEsettings=list(
+        iter=as.numeric(input$iter), 
+        metropolis.scale=as.numeric(input$metropolis_scale), 
+        fit.attempts=as.numeric(input$fit_attempts), 
+        RWm=input$RWm
+      ),
+      MLE.method=input$method, 
+      half_width_fit_limit=as.numeric(input$half_width_fit_limit),
+      dp=as.numeric(input$dp), lwd=as.numeric(input$lwd), 
+      xlab='', ylab='', width=5, height=5,
+      return.output=TRUE, show.output=TRUE, show.plot=TRUE, 
+      seed=as.numeric(input$seed)
+    )
+  }
+  result
+}
+
+
+# DOWNLOAD HELPER FUNCTIONS
+
+
+create_summary_dataframe <- function(accumulated_results) {
+  all_cols <- list()
+  
+  for (result in accumulated_results) {
+    col_name <- result$column
+    df <- result$output
+    
+    for (row_idx in 1:nrow(df)) {
+      row_data <- df[row_idx, , drop = FALSE]
+      component <- if (!is.null(rownames(row_data)) && rownames(row_data)[1] != as.character(row_idx)) {
+        rownames(row_data)[1]
+      } else {
+        row_idx
+      }
+      
+      for (col_idx in 1:ncol(row_data)) {
+        col_label <- names(row_data)[col_idx]
+        value <- row_data[1, col_idx]
+        new_col_name <- paste0(col_label, component)
+        
+        if (is.null(all_cols[[col_name]])) {
+          all_cols[[col_name]] <- list(Experiment = col_name)
+        }
+        all_cols[[col_name]][[new_col_name]] <- value
+      }
+    }
+  }
+  
+  summary_df <- do.call(rbind, lapply(all_cols, function(x) as.data.frame(x, stringsAsFactors = FALSE)))
+  rownames(summary_df) <- NULL
+  clean_column_names(summary_df)
+}
+
+create_metadata_list <- function(input, col_name=NULL) {
+  list(
+    data_col=if (!is.null(col_name)) col_name else input$data_col,
+    dt=input$dt, stimulation_time=input$stimulation_time,
+    baseline=input$baseline, n=input$n, y_abline=input$y_abline,
+    func=input$func, ds=input$ds, userTmax=input$userTmax,
+    fast_constraint=input$fast_constraint, N=input$N, IEI=input$IEI,
+    smooth=input$smooth, method=input$method, 
+    weight_method=input$weight_method, sequential_fit=input$sequential_fit,
+    interval_min=input$interval_min, interval_max=input$interval_max,
+    lower=input$lower, upper=input$upper, latency_limit=input$latency_limit,
+    iter=input$iter, metropolis_scale=input$metropolis_scale,
+    fit_attempts=input$fit_attempts, RWm=input$RWm,
+    filter=input$filter, fc=input$fc, 
+    half_width_fit_limit=input$half_width_fit_limit,
+    seed=input$seed, dp=input$dp,
+    fast_constraint_method=input$fast_constraint_method,
+    fast_decay_limit=input$fast_decay_limit,
+    first_delay_constraint=input$first_delay_constraint
+  )
+}
+
+write_metadata_sheet <- function(wb, sheet_name, metadata, col_name) {
+  metadata_labels <- c(
+    'Data column:', 'dt (ms):', 'Stimulation Time:', 'Baseline:', 'n:', 
+    'Fit cutoff:', 'Function:', 'Downsample Factor:', 
+    'User maximum time for fit:', 'Add fast constraint:', 'N:', 'IEI:', 
+    'Smooth:', 'Method:', 'Weighting:', 'Sequential Fit:', 'Min interval:', 
+    'Max interval:', 'Lower bounds (comma-separated):', 
+    'Upper bounds (comma-separated):', 'Latency limit:', 'MLE Iterations:', 
+    'Metropolis Scale:', 'Fit Attempts:', 'Random Walk Metropolis:', 
+    'Filter:', 'Filter cutoff (Hz):', 'Half-width fit limit:', 'Seed:', 
+    'Decimal points:', 'Fast constraint method:', 'Fast decay limit(s):', 
+    'First delay constraint:'
+  )
+  
+  metadata_values <- list(
+    col_name, metadata$dt, metadata$stimulation_time, metadata$baseline,
+    metadata$n, metadata$y_abline, metadata$func, metadata$ds, 
+    metadata$userTmax, metadata$fast_constraint, metadata$N, metadata$IEI,
+    metadata$smooth, metadata$method, metadata$weight_method, 
+    metadata$sequential_fit, metadata$interval_min, metadata$interval_max,
+    metadata$lower, metadata$upper, metadata$latency_limit, metadata$iter,
+    metadata$metropolis_scale, metadata$fit_attempts, metadata$RWm,
+    metadata$filter, metadata$fc, NA, metadata$seed, metadata$dp,
+    metadata$fast_constraint_method, metadata$fast_decay_limit,
+    metadata$first_delay_constraint
+  )
+  
+  numeric_labels <- c(
+    'dt (ms):', 'Stimulation Time:', 'Baseline:', 'n:', 'Fit cutoff:',
+    'Downsample Factor:', 'User maximum time for fit:', 'N:', 'IEI:', 
+    'Smooth:', 'Min interval:', 'Max interval:', 'Latency limit:', 
+    'MLE Iterations:', 'Metropolis Scale:', 'Fit Attempts:', 
+    'Filter cutoff (Hz):', 'Half-width fit limit:', 'Seed:', 'Decimal points:'
+  )
+  
+  logical_labels <- c(
+    'Add fast constraint:', 'Sequential Fit:', 'Random Walk Metropolis:', 
+    'Filter:', 'First delay constraint:'
+  )
+  
+  openxlsx::addWorksheet(wb, sheet_name)
+  openxlsx::writeData(wb, sheet_name, c("Parameter", "Value"), 
+                     startRow = 1, startCol = 1, colNames = FALSE)
+  
+  for (i in seq_along(metadata_labels)) {
+    lbl <- metadata_labels[i]
+    val <- metadata_values[[i]]
+    openxlsx::writeData(wb, sheet_name, lbl, 
+                       startRow = i+1, startCol = 1, colNames = FALSE)
+    if (lbl %in% numeric_labels) {
+      openxlsx::writeData(wb, sheet_name, as.numeric(val), 
+                         startRow = i+1, startCol = 2, colNames = FALSE)
+    } else if (lbl %in% logical_labels) {
+      openxlsx::writeData(wb, sheet_name, as.logical(val), 
+                         startRow = i+1, startCol = 2, colNames = FALSE)
+    } else {
+      openxlsx::writeData(wb, sheet_name, val, 
+                         startRow = i+1, startCol = 2, colNames = FALSE)
+    }
+  }
+}
+
+
+# STATE MANAGEMENT FUNCTIONS
+
+
+clear_psc_state <- function(state) {
+  state$response <- NULL
+  state$analysis <- NULL
+}
+
+
+# MAIN FUNCTION - analysePSC (Modular Version)
+
+
 analysePSC <- function() {
+  ui <- fluidPage(
+    create_dark_mode_css_psc(),
+    add_busy_spinner(spin = "fading-circle", position = "top-right", 
+                    color = "#3c8dbc", height = "60px", width = "60px"),
+    titlePanel('PSC Analysis'),
+    sidebarLayout(create_sidebar_panel_psc(), create_main_panel_psc())
+  )
+
+  server <- function(input, output, session) {
+    state <- reactiveValues(
+      response=NULL, analysis=NULL, accumulated_results=list()
+    )
+    
+    uploaded_data <- reactive({
+      req(input$file)
+      ext <- tools::file_ext(input$file$name)
+      load_uploaded_data(input$file$datapath, ext)
+    })
+    
+    output$column_selector <- renderUI({
+      req(uploaded_data())
+      selectInput('data_col', 'Select Column to Analyse', choices=names(uploaded_data()))
+    })
+    
+    observeEvent(input$run_initial, {
+      req(uploaded_data(), input$data_col)
+      clear_psc_state(state)
+      
+      data_col <- uploaded_data()[[input$data_col]]
+      ds <- as.numeric(input$ds)
+      state$response <- downsample_data(data_col, ds)
+      
+      dt <- as.numeric(input$dt) * ds
+      adjusted_tmax <- calculate_tmax(
+        state$response, as.numeric(input$N), dt, 
+        as.numeric(input$stimulation_time), as.numeric(input$baseline),
+        as.numeric(input$smooth), NULL, as.numeric(input$y_abline),
+        as.numeric(input$xbar), as.numeric(input$ybar),
+        input$xbar_lab, input$ybar_lab
+      )
+      
+      displayed_tmax <- adjusted_tmax - as.numeric(input$stimulation_time) + as.numeric(input$baseline)
+      updateNumericInput(session, "userTmax", value = displayed_tmax)
+    })
+    
+    output$accumulated_summary <- renderPrint({
+      if (length(state$accumulated_results) == 0) {
+        cat("No accumulated results yet. Analyze columns and click 'Add to Results'.\n")
+      } else {
+        cat(paste("Analysed:", length(state$accumulated_results), "\n\n"))
+        for (result in state$accumulated_results) {
+          cat("Experiment:", result$column, "\n")
+          print(clean_column_names(result$output))
+          cat("\n")
+        }
+      }
+    })
+
+    observeEvent(input$add_result, {
+      req(state$analysis)
+      col_name <- req(input$data_col)
+      
+      column_result <- list(
+        column = col_name,
+        output = state$analysis$output,
+        traces = state$analysis$traces,
+        AIC = state$analysis$AIC,
+        BIC = state$analysis$BIC,
+        model_message = state$analysis$model.message,
+        metadata = create_metadata_list(input, col_name)
+      )
+      
+      existing_cols <- sapply(state$accumulated_results, function(x) x$column)
+      existing_idx <- which(existing_cols == col_name)
+      
+      if (length(existing_idx) > 0) {
+        state$accumulated_results[[existing_idx[1]]] <- column_result
+        showNotification(paste0("Updated: ", col_name), type = "message", duration = 3)
+      } else {
+        state$accumulated_results[[length(state$accumulated_results) + 1]] <- column_result
+        showNotification(paste0("Added: ", col_name, " (Total: ", length(state$accumulated_results), ")"), 
+                        type = "message", duration = 3)
+      }
+    })
+
+    observeEvent(input$clear_results, {
+      state$accumulated_results <- list()
+      showNotification("All accumulated results cleared", type = "warning", duration = 3)
+    })
+
+    observeEvent(input$ds, {
+      req(uploaded_data(), input$data_col)
+      if (!is.null(state$response)) {
+        data_col <- uploaded_data()[[input$data_col]]
+        state$response <- downsample_data(data_col, as.numeric(input$ds))
+        state$analysis <- NULL
+      }
+    }, ignoreInit=TRUE)
+    
+    observeEvent(list(input$func, input$N, input$IEI), {
+      if (!is.null(state$analysis) && !is.null(state$response)) {
+        state$analysis <- NULL
+        showNotification("Model changed. Please re-run analysis.", type = "warning", duration = 3)
+      }
+    }, ignoreInit = TRUE)
+
+    output$plot <- renderPlot({
+      req(state$response)
+      dt <- as.numeric(input$dt) * as.numeric(input$ds)
+      
+      if (is.null(state$analysis)) {
+        determine_tmax2(
+          y=state$response, N=as.numeric(input$N), dt=dt, 
+          stimulation_time=as.numeric(input$stimulation_time),
+          baseline=as.numeric(input$baseline), 
+          smooth=as.numeric(input$smooth),
+          lwd=as.numeric(input$lwd), cex=1, tmax=NULL, 
+          y_abline=as.numeric(input$y_abline),
+          xbar=as.numeric(input$xbar), ybar=as.numeric(input$ybar),
+          xbar_lab=input$xbar_lab, ybar_lab=input$ybar_lab
+        )
+      } else {
+        req(state$analysis$traces)
+        func <- switch(input$func, 'product1N'=product1N, 
+                      'product2N'=product2N, 'product3N'=product3N, product1N)
+        xlim_vals <- parse_comma_separated(input$xlim)
+        traces <- state$analysis$traces
+        
+        if (!is.null(xlim_vals) && length(xlim_vals) == 2) {
+          traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+        }
+        
+        drawPlot2(traces=traces, func=func, lwd=as.numeric(input$lwd),
+                 filter=input$filter, xbar=as.numeric(input$xbar), 
+                 ybar=as.numeric(input$ybar),
+                 xbar_lab=input$xbar_lab, ybar_lab=input$ybar_lab)
+      }
+    })
+    
+    observeEvent(input$run_main, {
+      req(state$response)
+      dt <- as.numeric(input$dt) * as.numeric(input$ds)
+      
+      y <- state$response
+      if (any(is.na(y))) y <- y[!is.na(y)]
+      
+      tmax_value <- calculate_tmax(
+        y, as.numeric(input$N), dt, 
+        as.numeric(input$stimulation_time), as.numeric(input$baseline),
+        as.numeric(input$smooth), 
+        if (!is.na(as.numeric(input$userTmax))) as.numeric(input$userTmax) else NULL,
+        as.numeric(input$y_abline), as.numeric(input$xbar), 
+        as.numeric(input$ybar), input$xbar_lab, input$ybar_lab
+      )
+      
+      state$analysis <- run_psc_analysis(y, input, tmax_value)
+    })
+    
+    observeEvent(input$clear_output, { state$analysis <- NULL })
+    
+    output$console <- renderPrint({
+      if (!is.null(state$analysis)) {
+        print(clean_column_names(state$analysis$output))
+      } else {
+        cat('No analysis output performed')
+      }
+    })
+    
+    output$download_output <- downloadHandler(
+      filename=function() {
+        req(input$file)
+        paste0(tools::file_path_sans_ext(basename(input$file$name)),
+              "_", input$data_col, "_PSC_analysis.RData")
+      },
+      content=function(file) {
+        results <- list(
+          analysis=state$analysis,
+          metadata=create_metadata_list(input)
+        )
+        save(results, file=file)
+      }
+    )
+
+    output$download_svg <- downloadHandler(
+      filename = function() paste0('PSC_plot_', Sys.Date(), '.svg'),
+      content = function(file) {
+        req(state$analysis)
+        func <- switch(input$func, 'product1N'=product1N, 
+                      'product2N'=product2N, 'product3N'=product3N, product1N)
+        traces <- state$analysis$traces
+        xlim_vals <- parse_comma_separated(input$xlim)
+        
+        if (!is.null(xlim_vals) && length(xlim_vals) == 2) {
+          traces <- traces[traces$x >= xlim_vals[1] & traces$x <= xlim_vals[2], ]
+        }
+        
+        svg(filename = file, width = 7, height = 5)
+        drawPlot2(traces=traces, func=func, lwd=as.numeric(input$lwd),
+                 filter=input$filter, xbar=as.numeric(input$xbar), 
+                 ybar=as.numeric(input$ybar),
+                 xbar_lab=input$xbar_lab, ybar_lab=input$ybar_lab)
+        dev.off()
+      }
+    )
+
+    output$download_xlsx <- downloadHandler(
+      filename = function() {
+        if (length(state$accumulated_results) > 0) {
+          paste0(tools::file_path_sans_ext(basename(input$file$name)), "_PSC_analyses.zip")
+        } else {
+          paste0(tools::file_path_sans_ext(basename(input$file$name)), 
+                "_", input$data_col, "_PSC_analysis.xlsx")
+        }
+      },
+      content = function(file) {
+        if (length(state$accumulated_results) > 0) {
+          temp_dir <- tempdir()
+          files_to_zip <- c()
+          
+          # Summary file
+          summary_file <- file.path(temp_dir, "summary.xlsx")
+          wb_summary <- openxlsx::createWorkbook()
+          summary_df <- create_summary_dataframe(state$accumulated_results)
+          openxlsx::addWorksheet(wb_summary, "summary")
+          openxlsx::writeData(wb_summary, "summary", summary_df)
+          openxlsx::saveWorkbook(wb_summary, summary_file, overwrite = TRUE)
+          files_to_zip <- c(files_to_zip, summary_file)
+          
+          # Individual files
+          for (result in state$accumulated_results) {
+            col_name <- result$column
+            safe_name <- gsub("[:\\\\/?*\\[\\]]", "_", col_name)
+            individual_file <- file.path(temp_dir, paste0(safe_name, "_PSC_analysis.xlsx"))
+            wb_individual <- openxlsx::createWorkbook()
+            
+            openxlsx::addWorksheet(wb_individual, "output")
+            openxlsx::writeData(wb_individual, "output", result$output)
+            
+            openxlsx::addWorksheet(wb_individual, "traces")
+            openxlsx::writeData(wb_individual, "traces", result$traces)
+            
+            openxlsx::addWorksheet(wb_individual, "fit criterion")
+            openxlsx::writeData(wb_individual, "fit criterion", 
+                               data.frame(AIC = result$AIC, BIC = result$BIC))
+            
+            openxlsx::addWorksheet(wb_individual, "model message")
+            openxlsx::writeData(wb_individual, "model message", 
+                               data.frame(message = result$model_message))
+            
+            write_metadata_sheet(wb_individual, "metadata", result$metadata, col_name)
+            openxlsx::saveWorkbook(wb_individual, individual_file, overwrite = TRUE)
+            files_to_zip <- c(files_to_zip, individual_file)
+          }
+          
+          oldwd <- getwd()
+          setwd(temp_dir)
+          zip::zip(zipfile = file, files = basename(files_to_zip))
+          setwd(oldwd)
+          
+        } else {
+          req(state$analysis)
+          wb <- openxlsx::createWorkbook()
+          
+          openxlsx::addWorksheet(wb, "output")
+          openxlsx::writeData(wb, "output", state$analysis$output)
+          
+          openxlsx::addWorksheet(wb, "traces")
+          openxlsx::writeData(wb, "traces", state$analysis$traces)
+          
+          openxlsx::addWorksheet(wb, "fit criterion")
+          openxlsx::writeData(wb, "fit criterion", 
+                             data.frame(AIC = state$analysis$AIC, BIC = state$analysis$BIC))
+          
+          openxlsx::addWorksheet(wb, "model message")
+          openxlsx::writeData(wb, "model message", 
+                             data.frame(message = state$analysis$model.message))
+          
+          write_metadata_sheet(wb, "metadata", create_metadata_list(input), input$data_col)
+          openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+        }
+      }
+    )
+  }
+
+  shinyApp(ui=ui, server=server)
+}
+
+analysePSC2 <- function() {
 
   ui <- fluidPage(
     # Add dark mode CSS
