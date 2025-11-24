@@ -13291,7 +13291,7 @@ def create_nwb(data_dict, path, meta, baseline_duration_ms=None, stimulation_tim
             unit_nwb = unit
 
         series = VoltageClampSeries(
-            name="response_{}".format(j),
+            name="{}".format(j),
             data=trace_converted,
             rate=rate,
             starting_time=0.0,
