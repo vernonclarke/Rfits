@@ -13162,8 +13162,8 @@ generate_dandi_nwb_filename <- function(subject_id, session_id = NULL, modality 
 
 
 prepare_nwb_metadata <- function(abf_dataset, channel_index = 1, 
-                                 electrode_resistance = '3-5 MOhm',
-                                 traces2save = NULL, level_column_mapping = NULL) {
+                                 electrode_resistance = '3-5 MOhm', baseline = NULL, stimulation_time = NULL,
+                                 traces2save = NULL, level_column_mapping = NULL, notes = NULL) {
   metadata <- extract_metadata(abf_dataset)
   unit <- metadata$channelUnits[channel_index]
   gain_headstage <- metadata$header$fInstrumentScaleFactor[channel_index]
@@ -13198,9 +13198,11 @@ prepare_nwb_metadata <- function(abf_dataset, channel_index = 1,
 }
 
 create_nwb_file <- function(abf_dataset, nwb_filepath, metadata, 
-                            channel_index = 1, traces2save = NULL, level_column_mapping = NULL) {
-  nwb_data <- prepare_nwb_metadata(abf_dataset, channel_index, 
-                                    metadata$electrode_resistance, traces2save, level_column_mapping)
+                            channel_index = 1, traces2save = NULL, 
+                            baseline = NULL, stimulation_time = NULL,
+                            level_column_mapping = NULL, notes = NULL) {
+  nwb_data <- prepare_nwb_metadata(abf_dataset, channel_index, metadata$electrode_resistance, 
+                                    baseline, stimulation_time, traces2save, level_column_mapping, notes)
   
   reticulate::py_run_string('
 import numpy as np
@@ -13209,7 +13211,7 @@ from pynwb.file import Subject
 from pynwb.icephys import IntracellularElectrode, VoltageClampSeries
 from datetime import datetime, timezone
 
-def create_nwb(data_dict, path, meta):
+def create_nwb(data_dict, path, meta, baseline_duration_ms=None, stimulation_time_ms=None, traces2average=None, notes=None):
     rate = float(data_dict["rate"])
     unit = data_dict["unit"]
     gain_total = float(data_dict["gain_total_mV_per_unit"])
@@ -13222,9 +13224,14 @@ def create_nwb(data_dict, path, meta):
     n_traces = len(all_data)
     traces = range(n_traces) if data_dict["traces2save"] is None else data_dict["traces2save"]
     
+    # Build session description with notes if provided
+    session_desc = meta.get("session_description", "Whole-cell voltage clamp")
+    if notes:
+        session_desc = session_desc + ". Notes: " + notes
+
     # Create NWB file
     nwbfile = NWBFile(
-        session_description=meta.get("session_description", "Whole-cell voltage clamp"),
+        session_description=session_desc,
         identifier="NWB_" + meta["subject_id"],
         session_start_time=datetime.now(timezone.utc),
         experimenter=[meta["experimenter"]],
@@ -13232,7 +13239,6 @@ def create_nwb(data_dict, path, meta):
         lab=meta["lab"]
     )
     
-    # Add subject
     # Build subject description
     subject_desc_parts = []
     if meta.get("cross"):
@@ -13293,7 +13299,7 @@ def create_nwb(data_dict, path, meta):
             gain=gain_total,
             capacitance_slow=data_dict["capacitance_comp"],
             resistance_comp_correction=data_dict["resistance_comp"],
-            stimulus_description="",
+            stimulus_description=f"Stimulation time: {stimulation_time_ms} ms; Baseline period: {baseline_duration_ms} ms" if stimulation_time_ms and baseline_duration_ms else "",
             sweep_number=np.uint32(i),
             unit=unit_nwb
         )
@@ -13304,9 +13310,6 @@ def create_nwb(data_dict, path, meta):
         name="sweep_info", 
         description="Sweep metadata from ABF header"
     )
-    
-    # Add sweep start points (if available from prepare_nwb_metadata)
-    # Note: This would need sweep_starts, sweep_length, num_sweeps added to data_dict
     
     # Add level column mapping if provided
     if data_dict.get("level_column_mapping") is not None:
@@ -13335,12 +13338,60 @@ def create_nwb(data_dict, path, meta):
         sweep_module.add_data_interface(traces_series)
     
     nwbfile.add_processing_module(sweep_module)
+
+    # Create analysis parameters processing module
+    if baseline_duration_ms is not None or stimulation_time_ms is not None or traces2average is not None:
+        analysis_module = ProcessingModule(
+            name="analysis_parameters",
+            description="Parameters used for trace analysis and averaging"
+        )
+        
+        if baseline_duration_ms is not None:
+            baseline_ts = TimeSeries(
+                name="baseline_duration",
+                data=[baseline_duration_ms],
+                unit="milliseconds",
+                timestamps=[0.0],
+                description="Duration of baseline period used for analysis"
+            )
+            analysis_module.add_data_interface(baseline_ts)
+        
+        if stimulation_time_ms is not None:
+            stim_ts = TimeSeries(
+                name="stimulation_time",
+                data=[stimulation_time_ms],
+                unit="milliseconds",
+                timestamps=[0.0],
+                description="Time of stimulus onset relative to sweep start"
+            )
+            analysis_module.add_data_interface(stim_ts)
+        
+        if traces2average is not None and len(traces2average) > 0:
+            avg_info = []
+            level_info = []
+            for level_idx, trace_list in enumerate(traces2average):
+                if trace_list:
+                    for trace_idx in trace_list:
+                        avg_info.append(trace_idx)
+                        level_info.append(level_idx)
+            
+            if len(avg_info) > 0:
+                traces_avg_ts = TimeSeries(
+                    name="traces_for_averaging",
+                    data=np.array(avg_info, dtype=np.int64),
+                    unit="trace_index",
+                    timestamps=np.array(level_info, dtype=np.float64),
+                    description="Trace indices for averaging. Timestamps indicate level number."
+                )
+                analysis_module.add_data_interface(traces_avg_ts)
+        
+        nwbfile.add_processing_module(analysis_module)
     
     # Write to file
     with NWBHDF5IO(path, "w") as io:
         io.write(nwbfile)
     return True
-')
+')  # ← ADD THIS CLOSING QUOTE AND PARENTHESIS!
   
   py_meta <- list(
     subject_id = metadata$subject_id,
@@ -13359,7 +13410,10 @@ def create_nwb(data_dict, path, meta):
     location = metadata$location
   )
   
-  reticulate::py$create_nwb(nwb_data, nwb_filepath, py_meta)
+  reticulate::py$create_nwb(nwb_data, nwb_filepath, py_meta,
+                           baseline_duration_ms = baseline,
+                           stimulation_time_ms = stimulation_time,
+                           notes = notes)
 }
 
 
@@ -13849,24 +13903,28 @@ analyseABF <- function() {
       }
     )
     
-    output$downloadNWB <- downloadHandler(
+  output$downloadNWB <- downloadHandler(
     filename = function() {
-        generate_dandi_nwb_filename(
-          subject_id = input$nwb_subject_id,
-          session_id = input$nwb_session_id,
-          modality = 'icephys'
-        )
-      },
+      generate_dandi_nwb_filename(
+        subject_id = input$nwb_subject_id,
+        session_id = input$nwb_session_id,
+        modality = 'icephys'
+      )
+    },
     content = function(file) {
       req(state$abf_dataset, state$I_data)
       
+      # Step 1: Initialize variables
       traces2save <- NULL
       levs <- NULL
+      level_column_mapping <- NULL  # ← FIXED: Initialize here
       
+      # Step 2: Handle trace selection
       if (input$nwb_trace_selection == 'selected') {
         req(state$traces2average, state$split_include)
         all_selected <- c()
         all_levels <- c()
+        
         for (i in seq_along(state$traces2average)) {
           if (length(state$traces2average[[i]]) > 0) {
             mask <- state$split_include[[i]]
@@ -13877,12 +13935,13 @@ analyseABF <- function() {
             }
           }
         }
+        
         if (length(all_selected) > 0) {
           traces2save <- as.integer(all_selected - 1)  # Convert to 0-based for Python
           
           # Calculate column indices for each level
           level_names <- trimws(strsplit(input$levels, ',')[[1]])
-          level_column_mapping <- list()
+          level_column_mapping <- list()  # Now safe to create
           col_start <- 0
           for (i in seq_along(level_names)) {
             num_traces_in_level <- sum(all_levels == i)
@@ -13895,37 +13954,52 @@ analyseABF <- function() {
           cat("DEBUG: traces2save =", traces2save, "\n")
         }
       }
-
-          
-        nwb_metadata <- list(
-          subject_id = input$nwb_subject_id,
-          species = input$nwb_species,
-          age = input$nwb_age,
-          sex = input$nwb_sex,
-          genotype = input$nwb_genotype,
-          cross = input$nwb_cross,
-          virus = input$nwb_virus,
-          virus_injection_site = input$nwb_virus_injection_site,
-          experimenter = input$nwb_experimenter,
-          institution = input$nwb_institution,
-          lab = input$nwb_lab,
-          device_name = input$nwb_device_name,
-          electrode_resistance = input$nwb_electrode_resistance,
-          location = input$nwb_location
-        )
-
-        tryCatch({
-          withProgress(message = 'Creating NWB file...', {
-            incProgress(0.5)
-            create_nwb_file(state$abf_dataset, file, nwb_metadata,
-                           as.integer(input$pscChannel), traces2save, level_column_mapping)
-          })
-          showNotification("NWB file created successfully!", type = "message", duration = 5)
-        }, error = function(e) {
-          showNotification(paste("NWB Error:", e$message), type = "error", duration = 10)
+      
+      # Step 3: Build NWB metadata
+      nwb_metadata <- list(
+        subject_id = input$nwb_subject_id,
+        species = input$nwb_species,
+        age = input$nwb_age,
+        sex = input$nwb_sex,
+        genotype = input$nwb_genotype,
+        cross = input$nwb_cross,
+        virus = input$nwb_virus,
+        virus_injection_site = input$nwb_virus_injection_site,
+        experimenter = input$nwb_experimenter,
+        institution = input$nwb_institution,
+        lab = input$nwb_lab,
+        device_name = input$nwb_device_name,
+        electrode_resistance = input$nwb_electrode_resistance,
+        location = input$nwb_location
+      )
+      
+      # Step 4: Collect analysis parameters
+      baseline <- isolate(input$baseline)
+      stimulation_time <- isolate(state$stimulation_time)
+      notes <- isolate(input$nwb_notes)
+      
+      # Step 5: Create NWB file with error handling
+      tryCatch({
+        withProgress(message = 'Creating NWB file...', {
+          incProgress(0.5)
+          create_nwb_file(
+            state$abf_dataset, 
+            file, 
+            nwb_metadata,
+            as.integer(input$pscChannel), 
+            traces2save, 
+            baseline, 
+            stimulation_time, 
+            level_column_mapping,  # ← Now always defined (NULL or list)
+            notes
+          )
         })
-      }
-    )
+        showNotification("NWB file created successfully!", type = "message", duration = 5)
+      }, error = function(e) {
+        showNotification(paste("NWB Error:", e$message), type = "error", duration = 10)
+      })
+    }
+  )
     
     output$downloadSVG <- downloadHandler(
       filename = function() paste0(generate_base_filename(input$abfFiles), '_plots.zip'),
