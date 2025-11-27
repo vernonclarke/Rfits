@@ -12765,7 +12765,8 @@ calculate_tmax <- function(y, N, dt, stim_time, baseline, smooth, user_tmax, y_a
     y = y, N = N, dt = dt, 
     stimulation_time = stim_time, 
     baseline = baseline, smooth = smooth,
-    tmax = if (!is.na(user_tmax)) user_tmax else NULL,
+    # tmax = if (!is.na(user_tmax)) user_tmax else NULL,
+    tmax = if (length(user_tmax) > 0 && !is.na(user_tmax)) user_tmax else NULL,
     y_abline = y_abline, xbar = xbar, ybar = ybar,
     xbar_lab = xbar_lab, ybar_lab = ybar_lab
   )
