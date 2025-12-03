@@ -13142,7 +13142,18 @@ analysePSC <- function() {
         as.numeric(input$ybar), input$xbar_lab, input$ybar_lab
       )
       
-      state$analysis <- run_psc_analysis(y, input, tmax_value)
+      # tryCatch to handle fit failures
+      tryCatch({
+        state$analysis <- run_psc_analysis(y, input, tmax_value)
+        showNotification("Analysis complete!", type = "message", duration = 3)
+      }, error = function(e) {
+        # Don't update state$analysis if error to preserve previous results
+        showNotification(
+          paste("Analysis failed:", e$message, "- Try adjusting fit parameters or constraints"),
+          type = "error",
+          duration = 10
+        )
+      })
     })
     
     observeEvent(input$clear_output, { state$analysis <- NULL })
