@@ -526,31 +526,35 @@ These responses with only differ by added gaussian noise.
  # open R from terminal:
  # open -n -a R
 
-  # open R from terminal
-  # R --no-save
- 
- rm(list = ls(all = TRUE))
- graphics.off()
- 
- # load and install necessary packages
- load_required_packages <- function(packages) {
-   new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-   if (length(new.packages)) install.packages(new.packages)
-   invisible(lapply(packages, library, character.only = TRUE))
- }
- 
- required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-   'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
- load_required_packages(required.packages)
-
-  # insert your username and repository path
-  UserName <- 'YourUserName' # substitute your UserName here
-  path_repository <- '/Documents/Repositories/Rfits'
+  R --no-save
+  rm(list = ls(all = TRUE))
+  graphics.off()
+  
+  # Load and install necessary packages
+  load_required_packages <- function(packages) {
+    new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+    if (length(new.packages)) install.packages(new.packages)
+    invisible(lapply(packages, library, character.only = TRUE))
+  }
+  required.packages <- c('shiny', 'shinybusy', 'readABF', 'openxlsx', 'reticulate')
+  load_required_packages(required.packages)
+  
+  # Setup Python environment (creates if doesn't exist)
+  env_name <- "NWBenv"
+  if (!env_name %in% conda_list()$name) {
+    conda_create(env_name)
+    conda_install(env_name, packages = "pynwb")
+  }
+  use_condaenv(env_name, required = TRUE)
+  
+  # Insert your username and repository path
+  UserName <- 'euo9382'
+  path_repository <- '/Documents/Repositories/ABF2NWB'
   file_path <- paste0('/Users/', UserName, path_repository)
-  source(paste0(file_path, '/nNLS functions.R'))
-
-  # launch UI
-  analyseABFtk()
+  source(paste0(file_path, '/ABF2NWB_functions.R'))
+  
+  # Launch UI
+  analyseABF()
  ```
 
 <img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
@@ -649,34 +653,37 @@ These responses with only differ by added gaussian noise.
   # open -n -a R
 
   # open R from terminal
-  # R --no-save
+  R --no-save
 
-  # clear R session
   rm(list = ls(all = TRUE))
   graphics.off()
-
+  
   # load and install necessary packages
   load_required_packages <- function(packages) {
     new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
     if (length(new.packages)) install.packages(new.packages)
     invisible(lapply(packages, library, character.only = TRUE))
   }
-
+  
   required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
     'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
   load_required_packages(required.packages)
+  
+   # insert your username and repository path
+   UserName <- 'euo9382' # substitute your UserName here
+   path_repository <- '/Documents/Repositories/Rfits'
+   file_path <- paste0('/Users/', UserName, path_repository)
+   source(paste0(file_path, '/nNLS functions.R'))
+  
+   # launch UI
+   analysePSC()
 
-  # insert your username and repository path
-  UserName <- 'YourUserName' # substitute your UserName here
-  path_repository <- '/Documents/Repositories/Rfits'
-  file_path <- paste0('/Users/', UserName, path_repository)
-  source(paste0(file_path, '/nNLS functions.R'))
   ```
 
   a. **Launch the User Interface**  
 
   ```R
-  analysePSCtk()
+  analysePSC()
   ```
 
   The `UI` should open:
