@@ -502,7 +502,7 @@ The simulated data is saved in the folder `examples` in the main repository. The
  ```
  The generated output looks like this:
 
- ![trace1](./images/trace1.svg)
+ ![trace1](./images/trace2.svg)
 
 
  By setting fit.limits to 510, the output is generated automatically without the need for any user input:
