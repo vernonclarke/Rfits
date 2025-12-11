@@ -219,7 +219,8 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
  std.dev <- 10
 
  ysignal <- product1N(params=params1_, x=x, N=N, IEI=IEI)
- y <- ysignal + rnorm(length(x),sd=std.dev)
+ set.seed(42)
+y <- ysignal + rnorm(length(x),sd=std.dev)
 
  # quick plot if necessary
  # plot(x, y, type='l')
@@ -229,19 +230,21 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
     baseline=150, func=product1N, return.output=FALSE) 
  ```
  
- When executing the code, graph will appear and a user prompt in `Rgui`:
+ When executing the code, graph will appear with dropdown axes to show when the final response has decayed to 10% of its respective peak value. 
+ 
+ A user prompt will appear in `Rgui`:
 
  'Enter the upper limit for time to use in nFIT (e.g., 400 ms):'
 
- This represents the cut-off timepoint in the illustrated graph that curve fitting is performed.
+ The entered value represents the cut-off timepoint in the illustrated graph that curve fitting will be performed.
 
- On entering a suitable variable (for example 600 ms), the initial graph will disappear and, after a short period of time, a new graph will appear with the best fit superimposed on the original signal. The output should look something like this:
+ On entering a suitable variable (for example enter 330 ms), the initial graph will disappear and, after a short period of time, a new graph will appear with the best fit superimposed on the original signal. The output should look something like this:
 
  ```
  Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
  330
          A1       A2       A3 τrise τdecay tpeak r10_90 d90_10 delay half_width    area1    area2    area3
- 1 -150.324 -251.108 -301.651 0.923 29.975 3.314  1.576 65.874 4.019     24.473 5032.721 8406.901 10099.04
+ 1 -148.293 -249.447 -299.051 0.969 30.078  3.44  1.643 66.104 3.978     24.693 5000.808 8411.965 10084.72
  
  Do you want to repeat with "fast constraint" turned on? 
  This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
