@@ -893,7 +893,7 @@ The simulated data is saved in the folder `examples` in the main repository. The
       The function `BoxPlot` can be used on the data frame A to generate a box plot:
 
       ```R
-      BoxPlot(formula=y ~ x + Error(s), data=A, yrange=c(-120, 0), wid=0.3, cap=0.1, y_tick_interval=20,
+      BoxPlot(formula = y ~ x + Error(s), data=A, yrange=c(-120, 0), wid=0.3, cap=0.1, y_tick_interval=20,
         width=3, height=5, tick_length=0.2, lwd=1.25, amount=0.1, p.cex=0.6)
       ```
 
@@ -901,9 +901,8 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
       ![boxplot](./images/boxplot.svg)
 
-      If data is unpaired, then simply create a data frame omitting the subject column 's'.
+      If data is unpaired, then simply create a data frame omitting the subject column 's' and use `formula = y ~ x` in place of `formula = y ~ x + Error(s)`.
 
-      The function will automatically generate the unpaired box plot (because it assumes 'paired' connections do not exist without a subjects identifier).
 
    - **`ScatterPlot`**
 
