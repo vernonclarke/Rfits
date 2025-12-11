@@ -221,7 +221,8 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
  std.dev <- 10
 
  ysignal <- product1N(params=params1_, x=x, N=N, IEI=IEI)
- y <- ysignal + rnorm(length(x),sd=std.dev)
+ set.seed(42)
+y <- ysignal + rnorm(length(x),sd=std.dev)
 
  # quick plot if necessary
  # plot(x, y, type='l')
