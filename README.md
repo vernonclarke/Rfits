@@ -1000,7 +1000,7 @@ The simulated data is saved in the folder `examples` in the main repository. The
    To access any object related to the fitting of any response:
    
    ```R
-   ii <- 3 # trace 3 
+   ii <- 2 # trace 3 
    out_list[[ii]]$output
    out_list[[ii]]$fits
    out_list[[ii]]$fits.se
@@ -1026,9 +1026,9 @@ The simulated data is saved in the folder `examples` in the main repository. The
    ```
    out_list[[ii]]$output
 
-              A1 τrise  τdecay  tpeak r10_90  d90_10 delay     area1
-   fast  -45.767 2.330  34.295  6.722  3.438  75.585  2.12  1909.475
-   slow -100.059 8.737 201.290 28.653 14.091 442.614  5.00 23221.901
+             A1  τrise  τdecay  tpeak r10_90  d90_10 delay half_width     area1
+   fast -51.892  3.627  28.474  8.564  4.582  63.431 1.900     30.420  1996.093
+   slow -98.424 10.979 198.659 33.650 16.913 437.231 4.674    176.486 23161.722
    ```   
 
    b. **fits**
@@ -1043,8 +1043,7 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
    ```
    out_list[[ii]]$fits
-
-      [1]  -45.766852    2.499803   34.295357    2.119823 -100.058593    9.133552  201.289836    5.000004 
+   [1] -51.892398   4.156136  28.474188   1.900023 -98.423523  11.620837 198.659484   4.673744 
    ```   
 
    c. **fits.se**
@@ -1052,9 +1051,8 @@ The simulated data is saved in the folder `examples` in the main repository. The
    `out_list[[ii]]$fits.se` gives the corresponding standard errors for the parameter fits of (b) above.
 
    ```
-      out_list[[ii]]$fits.se
-
-      [1] 3.2102291 0.5732768 3.8924653 0.1114609 1.1145327 0.8882041 1.9851276 0.1399083
+   out_list[[ii]]$fits.se
+   [1] 9.6612406 2.0297427 4.4693011 0.1205750 4.0362026 3.1603258 1.5978233 0.2221259
    ```  
 
    d. **gof**
@@ -1066,9 +1064,8 @@ The simulated data is saved in the folder `examples` in the main repository. The
    It quantifies the precision of the model’s fit to the data, accounting for the degrees of freedom  df = n - k , where  n is the number of data points and k is the number of estimated parameters in the model.
 
    ```
-      out_list[[ii]]$gof
-
-      [1] 5.037325
+   out_list[[ii]]$gof
+   [1] 5.08363
    ```
 
    e. **AIC**
@@ -1076,10 +1073,9 @@ The simulated data is saved in the folder `examples` in the main repository. The
    `out_list[[ii]]$AIC` gives the Akaike Information Criterion (AIC) of the fit.
 
    ```
-      out_list[[ii]]$AIC
-
-           AIC 
-      27979.98
+   out_list[[ii]]$AIC
+        AIC 
+   27899.86
    ```      
       
    f. **BIC**
@@ -1087,10 +1083,9 @@ The simulated data is saved in the folder `examples` in the main repository. The
    `out_list[[ii]]$BIC` gives the Bayesian Information Criterion (BIC) of the fit.
 
    ```
-      out_list[[ii]]$BIC
-
-           BIC 
-      28031.46 
+   out_list[[ii]]$BIC
+       BIC 
+   27951.3 
    ```
    
    - **Penalization of Model Complexity:**
@@ -1125,7 +1120,6 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
    ```
    out_list[[ii]]$model.message
-
    [1] "Relative error in the sum of squares is at most `ftol'." 
    ```     
 
@@ -1192,18 +1186,17 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
    ```
    out_list[[ii]]$traces[1:10,] # gives the first 10 rows of the matrix
-
-        x           y     yfilter yfit yfit1 yfit2
-   1  0.0  -0.9678148  -0.9678148    0     0     0
-   2  0.1  -5.3168041  -5.3168041    0     0     0
-   3  0.2   6.7819927   6.7819927    0     0     0
-   4  0.3  -2.8813810  -2.8813810    0     0     0
-   5  0.4 -12.1282867 -12.1282867    0     0     0
-   6  0.5  -1.9281931  -1.9281931    0     0     0
-   7  0.6  -9.1073180  -9.1073180    0     0     0
-   8  0.7  -6.1522675  -6.1522675    0     0     0
-   9  0.8  -4.2402492  -4.2402492    0     0     0
-   10 0.9   3.6795872   3.6795872    0     0     0
+        x          y    yfilter yfit yfit1 yfit2
+   1  0.0   1.782863   1.782863    0     0     0
+   2  0.1   2.811094   2.811094    0     0     0
+   3  0.2  -5.735019  -5.735019    0     0     0
+   4  0.3   4.626624   4.626624    0     0     0
+   5  0.4   4.254660   4.254660    0     0     0
+   6  0.5   1.697930   1.697930    0     0     0
+   7  0.6  -1.810642  -1.810642    0     0     0
+   8  0.7  10.046896  10.046896    0     0     0
+   9  0.8  -1.029358  -1.029358    0     0     0
+   10 0.9 -10.866937 -10.866937    0     0     0
    ```
 
    j. **fit_results**
@@ -1221,13 +1214,13 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
    ```R
    # The standard error for the best fit for the 3rd response to be fitted is given by:
-   gof.se <- sapply(1:length(out_list[[3]]$fit_results), function(ii) out_list[[3]]$fit_results[[ii]]$gof)
+   gof.se <- sapply(1:length(out_list[[ii]]$fit_results), function(iii) out_list[[ii]]$fit_results[[iii]]$gof)
 
    # Find the indices of the minimum value(s)
    min_idx <- which(gof.se == min(gof.se))
    
    # the best fit is therefore given by the output of the min_idx th fit
-   out_list[[3]]$fit_results[[min_idx]]$output
+   out_list[[ii]]$fit_results[[min_idx]]$output
    ```
 
    This gives:
@@ -1247,9 +1240,9 @@ The simulated data is saved in the folder `examples` in the main repository. The
    The result is identical (as expected):
 
    ```
-              A1 τrise  τdecay  tpeak r10_90  d90_10 delay     area1
-   fast  -45.767 2.330  34.295  6.722  3.438  75.585  2.12  1909.475
-   slow -100.059 8.737 201.290 28.653 14.091 442.614  5.00 23221.901
+               A1     τrise    τdecay     tpeak    r10_90    d90_10    delay     area1
+   fast -51.89240  3.626768  28.47419  8.564368  4.582163  63.43073 1.900023  1996.093
+   slow -98.42352 10.978628 198.65948 33.649780 16.913054 437.23132 4.673744 23161.722
    ```
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
@@ -1707,11 +1700,6 @@ The lowest AIC (or BIC) represents the model that best fits the data. When compa
 
 
 
-
-
-
-
-
 # <center>Code guide</center>
 
 
@@ -1722,358 +1710,6 @@ For queries related to this repository, please [open an issue](https://github.co
 
 
 
-
-## Settings
-
-- **Series resistance (Rs)**: \(20 \times 10^6\) ohms
-- **Membrane resistance (Rm)**: \(100 \times 10^6\) ohms
-- **Leak resistance (Rl)**: \(1 \times 10^9\) ohms
-- **Capacitor in parallel (Cm)**: \(150 \times 10^{-12}\) farads
-- **Membrane reversal equilibrium potential (Em)**: \(-80 \times 10^{-3}\) V
-- **Command or holding potential (Vc)**: \(-80 \times 10^{-3}\) V
-- **Sampling frequency (fs)**: 100,000 Hz (increased to 100 kHz for smaller time steps)
-- **Stimulus time (stim_time)**: 100 ms
-- **Baseline time (baseline)**: 50 ms
-- **Simulation time (sim_time)**: 400 ms
-
-To estimate the synaptic current (PSC) from the clamp current (\(I_c\)), we can rearrange the following equation:
-
-$$
-I_c = \frac{V_m - V_c}{R_s}
-$$
-
-Solving for \(V_m\):
-
-$$
-V_m = I_c R_s + V_c
-$$
-
-Next, we use the differential equation for the RC circuit to express \(I_{PSC}\) as a function of known quantities.
-
-Given the differential equation:
-
-$$
-\frac{dV_m}{dt} = \frac{V_c - V_m}{R_s C_m} - \frac{V_m - E_m}{R_m C_m} - \frac{V_m}{R_l C_m} + \frac{I_{PSC}}{C_m}
-$$
-
-Rearranging to solve for $$ I_{PSC} $$:
-
-$$
-I_{PSC} = C_m \left( \frac{dV_m}{dt} + \frac{V_m - V_c}{R_s C_m} + \frac{V_m - E_m}{R_m C_m} + \frac{V_m}{R_l C_m} \right)
-$$
-
-In practice, we can approximate the derivative \(\frac{dV_m}{dt}\) numerically using the finite difference method.
-
-```r
-# Load and install necessary packages
-load_required_packages <- function(packages) {
-  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-  if (length(new.packages)) install.packages(new.packages)
-  invisible(lapply(packages, library, character.only = TRUE))
-}
-
-required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal', 'splines')
-load_required_packages(required.packages)
-
-source('/Users/euo9382/Documents/Repositories/Rfits//NLS functions.R')
-
-# Settings
-Rs <- 20e6      # Series resistance (ohms)
-Rm <- 100e6     # Membrane resistance (ohms)
-Rl <- 1e9       # Leak resistance
-Cm <- 150e-12   # Capacitor in parallel (farads)
-Em <- -80e-3    # membrane reversal eqm potential (V)
-Vc <- -80e-3    # command or holding potential (V)
-
-fs = 100000   # sampling frequency (Hz); increased to 100KHz for smaller time steps
-
-stim_time <- 100e-3
-baseline <- 50e-3
-sim_time <- 400e-3  
-
-dt <- 1/fs
-t <- seq(0, sim_time, by=dt)  
-
-# generate a synaptic current
-model = 'product'     
-# model = 'product2'
-if (model == 'product') { 
-  fun.2.fit <- product1 
-}else if (model == 'product2') {
-  fun.2.fit <- product2
-} 
-
-a1 <- 50e-12; a2 = 100e-12
-tau_rise1 <- 3e-3; tau_decay1 <- 30e-3
-tau2.1 <- 10e-3; tau_decay2 <- 200e-3
-d1 <- 2e-3; d2 <- 5e-3; 
-std.dev <- 2e-12
-
-## parameter values used to simulate data
-if (model == 'product') { 
-  params = c(a=a1,b=tau_rise1,c=tau_decay1,d=d1+stim_time)
-}else if (model == 'product2') {
-    params = c(a=a1,b=tau_rise1,c=tau_decay1,d=d1+stim_time,e=a2,f=tau2.1,g=tau_decay2,h=d2+stim_time)
-}
-
-ysignal <- fun.2.fit (params,t)
-set.seed(1)
-y = ysignal + rnorm(length(t),sd=std.dev)
-PSC <- -y #  plot(x,PSC, type='l')
-
-# Define the differential equations for the RC circuit with synaptic current and battery Em
-# check sign
-
-rc_circuit <- function(t, y, Rs, Rm, Rl, Cm, Vc, Em, I_PSC){
-    Vm <- y
-    dVm_dt = (Vc - Vm) / (Rs * Cm) - (Vm - Em) / (Rm * Cm) - Vm / (Rl * Cm) + I_PSC / Cm
-    return(c(dVm_dt))
-}
-
-# Runge-Kutta 4th order method
-runge_kutta <- function(f, y0, t, Rs, Rm, Rl, Cm, Vc, Em, PSC) {
-  n <- length(t)
-  y <- numeric(n)
-  y[1] <- y0
-  for (i in 1:(n - 1)) {
-    dt <- t[i + 1] - t[i]
-    k1 <- dt * f(t[i], y[i], Rs, Rm, Rl, Cm, Vc, Em, PSC[i])
-    k2 <- dt * f(t[i] + dt / 2, y[i] + k1 / 2, Rs, Rm, Rl, Cm, Vc, Em, PSC[i])
-    k3 <- dt * f(t[i] + dt / 2, y[i] + k2 / 2, Rs, Rm, Rl, Cm, Vc, Em, PSC[i])
-    k4 <- dt * f(t[i] + dt, y[i] + k3, Rs, Rm, Rl, Cm, Vc, Em, PSC[i])
-    y[i + 1] <- y[i] + (k1 + 2 * k2 + 2 * k3 + k4) / 6
-  }
-  return(y)
-}
-
-calculate_Vm_eqm <- function(Vc, Rs, Rm, Rl, Em) (Vc + (Rs / Rm) * Em) / (1 + (Rs / Rm) + (Rs / Rl))
-
-Vm_initial <- calculate_Vm_eqm(Vc=Vc, Rs=Rs, Rm=Rm, Rl=Rl, Em=Em)
-
-# solve the differential equation using Runge-Kutta method
-
-Vm <- runge_kutta(rc_circuit, Vm_initial, t, Rs, Rm, Rl, Cm, Vc, Em, PSC)
-plot(t,Vm, type='l')
-
-Ic = (Vm - Vc) / Rs
-
-Ic_offset <- Ic - mean(Ic[1:(stim_time/dt)])
-```
-
-
-## Estimating Synaptic Current (PSC) from Clamp Current (Ic)
-
-To estimate the synaptic current (PSC) from the clamp current (\(I_c\)), we can rearrange the following equation:
-
-$$
-I_c = \frac{V_m - V_c}{R_s}
-$$
-
-Solving for \(V_m\):
-
-$$
-V_m = I_c R_s + V_c
-$$
-
-Next, we use the differential equation for the RC circuit to express \(I_{PSC}\) as a function of known quantities.
-
-Given the differential equation:
-
-$$
-\frac{dV_m}{dt} = \frac{V_c - V_m}{R_s C_m} - \frac{V_m - E_m}{R_m C_m} - \frac{V_m}{R_l C_m} + \frac{I_{PSC}}{C_m}
-$$
-
-Rearranging to solve for \(I_{PSC}\):
-
-$$
-I_{PSC} = C_m \left( \frac{dV_m}{dt} + \frac{V_m - V_c}{R_s C_m} + \frac{V_m - E_m}{R_m C_m} + \frac{V_m}{R_l C_m} \right)
-$$
-
-In practice, we can approximate the derivative \(\frac{dV_m}{dt}\) numerically using the finite difference method.
-
-Here is a complete R function to estimate \(I_{PSC}\) given \(I_c\):
-
-```R
-estimate_psc <- function(Ic, t, Rs, Rm, Rl, Cm, Vc, Em) {
-  Vm <- Ic * Rs + Vc
-  dVm_dt <- c(0, diff(Vm) / diff(t)) # Numerical derivative of Vm
-  I_PSC <- Cm * (dVm_dt + (Vm - Vc) / (Rs * Cm) + (Vm - Em) / (Rm * Cm) + Vm / (Rl * Cm))
-  return(I_PSC)
-}
-
-# Given values for Ic
-Ic <- (Vm - Vc) / Rs
-
-# Estimate PSC
-PSC_estimated <- estimate_psc(Ic, t, Rs, Rm, Rl, Cm, Vc, Em)
-
-# Plot the estimated PSC
-plot(t*1e3, PSC*1e12, col='darkgray', xlab='time (ms)', ylab='I (pA)', ylim=c(50*round(min(PSC*1e12)/50), 10), type='l', bty='l', las=1, lwd=lwd, main='')
-
-lines(t*1e3, PSC_estimated*1e12, col = 'slateblue')
-
-cbind(PSC, PSC_estimated)[1:10,]
-```
-
-
-
-
-
-
-
-
-
-
-
-   **Inputs:**
-    - `wd`: working directory (if ignored then function assumes data is located within the current working directory)
-    - `folder`: name of folder within main working directory that contains filename
-    - `filename`: with extension (can be *.xlsx or *.csv file)
-    - `dt`: If time=True then dt is ignored. If time=False, then uses dt to create time vector 
-    - `stim_time`: must be relative to the start time if time column is not provided. Returned output removes all baselines
-    - `baseline`: if True then uses all values are zeroed to the baseline (average of all given values before stim_time)
-    - `time`: if True then takes first column as time. Stim_time must be the time in this column that stimulation occurs. If this column is present and starts at t = 200 ms and stim occurs 100 ms after this then stim_time = 300. If time is False then program will create a time vector based on number of samples and dt and will assume time starts at t = 0. In this example stim_time is relative to t[0] i.e. stim_time = 100 ms
-   
-   **Outputs:**
-    - `x`: i.e. time
-    - `df`: i.e. a dataframe that contains the processed traces: baseline is removed and traces are relative to baseline if baseline = True. If input file is negative going, output is positive (to simplify fitting routines). If the absolute maximum values of different traces have different signs then function returns an error (i.e. the assumption is all responses are either negative or positive going)
-
-
-2. **Analyse one trace using function `FITproduct2`**
-
-   ```python
-   x, df = load_data(wd=None, folder='data', filename='your_file.xlsx', dt=0.1, 
-       stim_time=100, baseline=True, time=True)
-   
-   fits, start, fit = FITproduct2(x=x, y=df.iloc[:, 0].values, criterion=None, 
-       plot=True, initial_guess=None, start_method='LS', percent=80, dp=3,
-       maxfev=100000, p0_algorithm='trf', cv=0.4, N=30, slow_rise_constraint=True, 
-       rise=[0.2, 0.8], decay=[0.8, 0.2], kinetics='solve')
-    
-   fits, start, fit, BIC = FITproduct2(x, y, criterion='BIC', 
-       plot=True, initial_guess=None, start_method='LS', percent=80, dp=3, 
-       maxfev=100000, p0_algorithm='trf', cv=0.4, N=30, slow_rise_constraint=True, 
-       rise=[0.2, 0.8], decay=[0.8, 0.2], kinetics='solve')
-   ```   
-   **Inputs:**
-    - `x`: array represents time
-    - `y`: array represents response obtained from df above; for nth column in df y = df.iloc[:, n-1].values
-    - `criterion`: defaults to None, If criterion = 'BIC' or 'AIC' then returns Bayesian Information Criterion (BIC) or Akaike Information Criterion (AIC), respectively. In a similar manner to the sum of the squares of the residuals ('sum of squares'), lower values indicate a better fit. Has the advantage over 'sum of squares' that it can be used to compare fits that arise from models with different numbers of fitted parameters (e.g. one or sum of two product fits)
-    - `plot`: if True (default) then returns a plot showing original response in grey with fits superimposed 
-    - `initial_guess`: defaults to None. If None then function should calculate appropriate starting values; if provided, only useful if start_method='LS'. Use in form initial_guess=[70, 3, 7, 70, 6, 100] where values are estimates for [ $A_1$, $\tau_1$, $\tau_2$, $A_2$, $\tau_3$, $\tau_4$ ]. In general the solution is usually better if set to None.
-    - `start_method`: can be set to 'LS' for least squares. This option can be further altered by changing p0_algorithm. Other options are 'DE' for differential evolution and None. If None then takes initial random starting values and does 'MLE' without the intermediate step to refine the starting values. The latter can be considered a pure MLE method whereas setting start_method to either 'LS' or 'DE' is a hybrid. Obviously, if do not want MLE, this function also provides the (start) values obtained for this fitting provided start_method is either 'LS' or 'DE'. 
-    - `percent`: default set to 80%. If start_method='DE' or 'LS' + initial_guess = None then if percent = 80, function calculates 'rough' initial starting values based on the amplitude and the 20-80% rise and 80-20% decay times. These are then fed into a separate function to calculate 'good' starting values using 'LS' or "DE' curve fitting.
-    - `dp`: number of decimal results are returned to; default is 3
-    - `maxfev`: default is 100000; maximum number of iterations that the algorithm should run to try and find the parameter values that minimize the difference between the predicted and actual values (i.e., that best fits the data)
-    - `p0_algorithm`: by default set to 'trf'. When using least_squares to get starting values (i.e. start_method='LS'), least_squares will use the Trust Region Reflective algorithm, which is a derivative-free algorithm designed for solving nonlinear least squares problems. This algorithm combines the trust region method with a reflective strategy to handle both bound and unbound constraints on the variables. Other options include 'lm' and 'dogbox'
-    - `cv`: the cv or coefficient of variation is defined as the ratio of the standard deviation ($\sigma$) to the mean ($\mu$). The initial estimate for the starting values is based on response amplitude, 20-80% rise and 80-20% decay times. These values are used to create a lognormal distribution of starting values $\sigma = \sqrt{ \log(1 + (\text{cv}^2)) }$ and $\mu = \log(x) - 0.5\sigma^2$ where x is the parameter being randomized. A lognormal distribution was chosen because it ensures starting values cannot be negative. 
-    - `N`: by default set to 30. N is the number of randomized starting values that are used to initialize the fits. if N > 1 then the function will compare solutions to determine the fit with minimised sum of squares. The greater N, then the higher the probability that the presented solution represents the best solution and not just a local minimum. With randomized starting values, the optimization algorithm may find different local minima in different runs. Setting N in the range 10 to 30 represents a good comprise between finding the best fit and function efficiency.
-    - `slow_rise_contraint`:  default is True. If True then MLE rejects any solutions with underlying fits can comprise the fastest rise combined with the slowest decay and vice versa. If True then guarantees the 'fast' fittted response will have the faster rise AND decay and the slow component the slower rise AND decay
-    - `rise`: The function is designed to return time constants related to exponential rise and decay (either as ${\tau}rise$ and ${\tau}decay$ or ${\tau}1$ and ${\tau}2$; nb ${\tau}decay = {\tau}2)$. Neither ${\tau}rise$ or ${\tau}1$ truly define rise time and both require careful interpretation. As an alternative, the function will also return the % rise and decay times. Default setting is $\text{rise} = [0.2, 0.8]$ which will determine the 20 - 80% rise time.
-    - `decay`: Similarly to rise above, the default for this input is $\text{default} = [0.8, 0.2]$ which returns the 80 - 20 % decay time
-    - `kinetics`: Default for kinetics is 'solve'. If using 'solve', the function solves an equation iteratively to determine rise, decay time constants;  area under the fit is calculated using the exact form of the equation given above. In practice, calculating rise and decay uses 'fsolve' from 'scipy.optimize' a numerical root-finding algorithm with estimated starting values. If set to 'fit', the function determines rise, decay and area from the underlying fits. If one fit is especially slow, 'solve' method will be more accurate. The 'fit' method is limited by the time axis (i.e. if response hasn't decayed sufficiently to 20% of peak then 80-20% decay cannot be determined and, instead' the time from 80% peak to the end is returned. 
-
-   **Algorithms in `least_squares` method:** (i.e. start_method='LS')
-    - **Trust Region Reflective ('trf')**
-       - **Applicability:** Suitable for both bound and unbound problems. Especially powerful when the variables have constraints.
-       - **Method:** Uses a trust-region algorithm. It can handle large-scale problems efficiently.
-       - **Robustness:** It is quite robust and capable of handling sparse Jacobians, making it suitable for problems with a large number of variables.
-    - **Levenberg-Marquardt ('lm')**
-       - **Applicability:** Best used when there are no bounds on the variables. It’s more traditional and well-established.
-       - **Method:** A combination of the gradient descent and Gauss-Newton methods. It doesn’t handle bound constraints inherently.
-       - **Robustness:** It’s less robust compared to 'trf' when dealing with constraints but is powerful for smooth, unconstrained problems.
-    - **Dogleg ('dogbox')**
-       - **Applicability:** Suitable for smaller-scale problems with bound constraints.
-       - **Method:** A trust-region algorithm that works efficiently when the number of observations is much greater than the number of variables.
-       - **Robustness:** It’s versatile and can be more efficient than 'trf' for some specific small-scale problems.
-
-
-
-
-j. **gof, AIC, and BIC with Weighted Fits**
-
-   Understanding how gof, AIC, and BIC behave with weighted fits is important for proper model selection.
-
-   `out_list[[ii]]$gof` gives the standard error or 'RMSE' of the residuals:
-
-$$\boldsymbol{ gof = \sqrt{\frac{\sum (y_i - \hat{y}_i)^2}{n - k}} }$$
-
-   It quantifies the precision of the model's fit to the data, accounting for the degrees of freedom df = n - k, where n is the number of data points and k is the number of estimated parameters in the model.
-
-   When using weight_method (e.g., '~y_sqrt' or '~y'), gof uses the same weighted residuals that were minimized during fitting:
-
-$$\boldsymbol{ gof_{weighted} = \sqrt{\frac{\sum [w_i(y_i - \hat{y}_i)]^2}{n - k}} }$$
-
-   where $w_i$ are the weights applied to each residual.
-
-   ```
-   out_list[[ii]]$gof
-
-   [1] 5.037325
-   ```
-
-   `out_list[[ii]]$AIC` gives the Akaike Information Criterion of the fit. AIC is always calculated using unweighted residuals:
-
-$$\boldsymbol{ AIC = 2k + n \cdot \log(RSS/n) + n \cdot \log(2\pi) + n }$$
-
-   where $RSS = \sum (y_i - \hat{y}_i)^2$ is the unweighted residual sum of squares.
-
-   ```
-   out_list[[ii]]$AIC
-
-        AIC 
-   27979.98
-   ```
-
-   `out_list[[ii]]$BIC` gives the Bayesian Information Criterion of the fit. BIC is always calculated using unweighted residuals:
-
-$$\boldsymbol{ BIC = k \cdot \log(n) + n \cdot \log(RSS/n) + n \cdot \log(2\pi) + n }$$
-
-   ```
-   out_list[[ii]]$BIC
-
-        BIC 
-   28031.46 
-   ```
-
-   **Design Rationale:**
-
-   | Metric | Residuals Used | Purpose |
-   |--------|----------------|---------|
-   | gof | Weighted (if weight_method specified) | Select best iteration within same model |
-   | AIC | Always unweighted | Compare different models |
-   | BIC | Always unweighted | Compare different models |
-
-   - **gof with weights:**
-     - Allows you to emphasize peak fitting during the iterative optimization (n=100 fits)
-     - If weight_method='~y_sqrt', fits that better match peaks will have lower gof
-     - This guides the selection toward biologically relevant features
-
-   - **AIC/BIC without weights:**
-     - Ensures valid statistical model comparison
-     - Unweighted likelihood is the true data likelihood
-     - Allows fair comparison between product1N and product2N
-
-   **Weighting Methods:**
-
-   - **weight_method='none' (Default):** Standard least squares, all data points weighted equally. gof, AIC, and BIC all use the same unweighted residuals.
-
-   - **weight_method='~y_sqrt':** Weights residuals by $\sqrt{|y|}$ during fitting and gof calculation only. Emphasizes regions with larger signals (peaks). gof reflects this weighting; AIC/BIC do not.
-
-   - **weight_method='~y':** Weights residuals by $|y|$ during fitting and gof calculation only. Stronger emphasis on peaks than '~y_sqrt'.
-
-   For selecting the best iteration among n=100 fits, the function automatically uses gof. For comparing different models (product1N vs product2N vs product3N), use BIC with the same weight_method when fitting all models.
-
-   **BIC Interpretation (Kass & Raftery, 1995):**
-
-   | ΔBIC | Evidence Against Higher BIC Model |
-   |------|-----------------------------------|
-   | 0-2 | Not worth more than a bare mention |
-   | 2-6 | Positive |
-   | 6-10 | Strong |
-   | >10 | Very strong |
-
-   **Summary:** gof uses weighted residuals (if weight_method specified) to select the best iteration. AIC and BIC always use unweighted residuals for valid model comparison. Lower values are always better for gof, AIC, and BIC.
 
    **References:**
 
