@@ -1,10 +1,12 @@
-# <center>R code to perform non-linear squares fitting of functions used to describe signal waveforms 
+# <center>Rfits: Non-Linear Curve Fitting for Postsynaptic Current Analysis
+
+An R-based Shiny application (`analysePSC()`) for analyzing postsynaptic current (PSC) waveforms using non-linear least squares fitting.
 
 ## Table of Contents
 - [Initial Set Up](#initial-set-up)
 - [Setting up](#setting-up)
 - [Known set-up issues](#known-set-up-issues)
-- [Initial Guide](#initial-guide)
+- [Quick Start Guide](#quick-start-guide)
 - [Step-by-Step Guide](#step-by-step-guide)
   - [Setting the environment](#setting-the-environment)
   - [Simulated example](#simulated-example)
@@ -12,32 +14,31 @@
   - [Load data](#load-data)
   - [View imported data](#view-imported-data)
   - [Analyse in R GUI using analyse_PSC](#analyse-in-r-gui-using-analyse_psc)
-  - [Average and save ABF data using the UI interface](#average-and-save-abf-data-using-the-ui-interface)
-  - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
-  - [Clickable App to launch R based UI](#clickable-app-to-launch-R-based-UI)
-  - [Analysing an entire data set](#analysing-an-entire-data-set)
-  - [Retrieving analysed data](#retrieving-analysed-data)
-  - [Examining analysed data](#examining-analysed-data)
-  - [Useful functions](#useful-functions)
-  - [Output file structure](#output-file-structure)
-- [Definitions and Formulae](#definitions-and-formulae)
+ 
 
+- [Using the analysePSC Shiny Interface](#using-the-analysepsc-shiny-interface)
+- [Programmatic Analysis with analyse_PSC](#programmatic-analysis-with-analyse_psc)
+  - [Setting the environment](#setting-the-environment)
+  - [Simple fitting example](#simple-fitting-example)
+  - [Batch processing multiple traces](#batch-processing-multiple-traces)
+- [Output Structure](#output-structure)
+- [Definitions and Formulae](#definitions-and-formulae)
 
 ## Initial Set Up
 
-All analysis was performed using the R graphical user interface (GUI) and tested on R version 4.4.1 "Race for Your Life" through to 4.5.0 "How About a Twenty-Six".
-
+All analysis was performed using the R graphical user interface (GUI) and tested on R version 4.4.1 'Race for Your Life' through to 4.5.1 'Great Square Root'.
 
 - [`R` Statistical Software](https://www.R-project.org/)
 - [`XQuartz`](https://www.xquartz.org/) required for graphical output on MacOS
-- [`Sublime text`](https://www.sublimetext.com/) or, if you prefer, simply use the the default R text editor
-- This code uses the package `Rcpp` to compile  C++ code.
+- [`Sublime text`](https://www.sublimetext.com/) or, if you prefer, simply use the default R text editor
+- This code uses the package `Rcpp` to compile C++ code.
 
   On `MacOS`, `R` requires the Xcode Command Line Tools to compile C++ code. To install the tools, open the Terminal and run:
   
   ```bash
   xcode-select --install
   ```
+
   On a `Windows` PC,  `R` requires `Rtools` instead. The latest version of [`Rtools`](https://cran.r-project.org/bin/windows/Rtools/). After installing Rtools, ensure that the installation path is added to your system's environment variables if `R` does not detect it automatically.
 
   On Linux (Debian/Ubuntu), R requires development tools to compile packages from source:
@@ -48,7 +49,6 @@ All analysis was performed using the R graphical user interface (GUI) and tested
 
 At the least, both `R` and `XQuartz` are essential to install for this code to work.
 
-Note: the use of X11 (including tcltk) requires XQuartz (version 2.8.5 or later). 
 Always re-install XQuartz when upgrading your macOS to a new major version. 
 
 
@@ -59,7 +59,7 @@ Only the R console was used for analysis.
 
 If you prefer to work with [`RStudio`](https://posit.co/products/open-source/rstudio/), why? 
 
-The provided code should work in `RStudio` although this has not explicitly been tested. 
+That said, the provided code should work in `RStudio` although this has not explicitly been tested. 
 
 Download the code in this directory using the green <span style="background-color:#00FF00; color:white; padding:4px 8px; border-radius:6px; font-family:monospace; display: inline-flex; align-items: center;"> &lt;&gt; Code <span style="margin-left: 4px;">&#9660;</span> </span>
 dropdown menu followed by `Download Zip`
@@ -67,9 +67,6 @@ dropdown menu followed by `Download Zip`
 Unpack and create directory e.g. `/Users/UserName/Documents/Rfits` replacing `UserName` with your actual `UserName` (!). 
 
 In order for the provided R code to work, it is necessary to load various packages within the R environment.
-
-The following code should be executed in R prior to running any of the analysis functions. 
-It checks if the required packages are present and, if they are not, it will install them.
 
 Any code preceded by # is `commented out` and is provided in `*.R` files for instructional/informational purposes.
 
@@ -109,7 +106,7 @@ e. Set the DISPLAY environment variable so X clients know where to connect
   export DISPLAY=:0
  ```
 
-f. Allow connections from localhost (needed for calls from `R` / `tcltk`)
+f. Allow connections from localhost (needed for calls from `R`)
 
  ```bash
   xhost +localhost
@@ -169,10 +166,10 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
 
-## Initial Guide  
+## Quick Start Guide  
  
-1. **Open R gui**
-2. **Run this code once**
+1. **Open R GUI and run this code once**
+
  ```R
  # Remove all objects from the environment
  rm(list = ls(all = TRUE))
@@ -189,7 +186,7 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
  ```
  Once this code is run, it should perform all necessary installations and load the necessary packages for the analysis
 
-3. **load all necessary custom-written functions**
+2. **Load all necessary custom-written functions**
 
    **These functions are included in an `R` file named `nNLS functions.R`**
 
@@ -201,7 +198,7 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
  source(path)
  ```
 
-4. **Fitting example**
+3. **Fitting example**
 
  The following code generates a noisy signal that comprises a single train of responses.
 
@@ -279,7 +276,7 @@ xterm   # if an xterm window appears, your XQuartz setup is correct
 -----------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------
 
-## Step-by-Step Guide
+## Step-by-step guide to analyse a dataset
 
 The following code will simulate a set of data that is generated as the sum of underlying responses.
 
@@ -347,7 +344,7 @@ These responses with only differ by added gaussian noise.
  return(y)
  })
 
- # save as spreadsheeta
+ # save as spreadsheets
 
  # first create the examples directory in the toot directory (root_dir) if it doesn't exist
  dir.create(file.path(root_dir, 'examples'), showWarnings = FALSE)
