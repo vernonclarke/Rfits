@@ -540,44 +540,45 @@ The simulated data is saved in the folder `examples` in the main repository. The
  ### Fitting data using the UI interface
 
  The following instructions are provided for using the Shiny-based UI interface i.e. by running the function `analysePSC()`.
-
- Open `Terminal`
-
+ 
+ a. **Open `Terminal` and launch `R`**
+ 
  ```
  # open R from Terminal
  R --no-save
  ```
 
-Once `R` has lauched then enter the following code into the `Terminal`:
+ b. **Clear environment, load packages and set paths**
 
-```
-rm(list = ls(all = TRUE))
-graphics.off()
-
-# load and install necessary packages
-load_required_packages <- function(packages) {
-  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-  if (length(new.packages)) install.packages(new.packages)
-  invisible(lapply(packages, library, character.only = TRUE))
-}
-
-required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-  'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
-load_required_packages(required.packages)
-
+ Once `R` has lauched then enter the following code into the `Terminal`:
+ 
+ ```
+ rm(list = ls(all = TRUE))
+ graphics.off()
+  
+ # load and install necessary packages
+ load_required_packages <- function(packages) {
+   new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+   if (length(new.packages)) install.packages(new.packages)
+   invisible(lapply(packages, library, character.only = TRUE))
+ }
+  
+ required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
+    'shiny', 'shinybusy', 'signal', 'readxl', 'openxlsx')
+ load_required_packages(required.packages)
+  
  # insert your username and repository path
+ UserName <- 'YourUserName' # substitute your UserName here
  UserName <- 'euo9382' # substitute your UserName here
  path_repository <- '/Documents/Repositories/Rfits'
  file_path <- paste0('/Users/', UserName, path_repository)
  source(paste0(file_path, '/nNLS functions.R'))
 
- # launch UI
- analysePSC()
-```
+ ```
 
-  a. **Launch the User Interface**  
+  c. **Launch the User Interface**  
 
-  ```R
+  ```
   analysePSC()
   ```
 
@@ -585,7 +586,7 @@ load_required_packages(required.packages)
 
   The `UI` should open:
 
-  <img src="./images/analysePSCtk_0.png" alt="analysePSCtk_0" width="57.5%" height="57.5%"/> 
+  <img src="./images/analysePSC_1.png" alt="analysePSC_1" width="57.5%" height="57.5%"/> 
  
   b. **Upload `csv` or `xlsx`**  
 
