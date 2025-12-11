@@ -347,7 +347,7 @@ These responses with only differ by added gaussian noise.
 
  # save as spreadsheets
 
- # first create the examples directory in the toot directory (root_dir) if it doesn't exist
+ # first create the examples directory in the root directory (root_dir) if it doesn't exist
  dir.create(file.path(root_dir, 'examples'), showWarnings = FALSE)
 
  # save the data to a CSV file in the examples directory
