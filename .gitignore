@@ -36,7 +36,4 @@ code backups/
 !/nNLS functions.R
 !/NLS functions.R
 
-# Unignore specific example.R files in specific folders
-!Yichen analysis/example.R
-!James analysis/example.R
 
