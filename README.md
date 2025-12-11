@@ -893,8 +893,8 @@ The simulated data is saved in the folder `examples` in the main repository. The
       The function `BoxPlot` can be used on the data frame A to generate a box plot:
 
       ```R
-      BoxPlot(A, yrange=c(-120, 0), wid=0.3, cap=0.1, y_tick_interval=20, 
-         width=3, height=5, tick_length=0.2, lwd=1.25, amount=0.1, p.cex=0.6)
+      BoxPlot(formula=y ~ x + Error(s), data=A, yrange=c(-120, 0), wid=0.3, cap=0.1, y_tick_interval=20,
+        width=3, height=5, tick_length=0.2, lwd=1.25, amount=0.1, p.cex=0.6)
       ```
 
       The box plot output is illustrated:
