@@ -12,9 +12,9 @@
   - [Load data](#load-data)
   - [View imported data](#view-imported-data)
   - [Analyse in R GUI using analyse_PSC](#analyse-in-r-gui-using-analyse_psc)
- 
+  - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
 
-- [Using the analysePSC Shiny Interface](#using-the-analysepsc-shiny-interface)
+
 - [Programmatic Analysis with analyse_PSC](#programmatic-analysis-with-analyse_psc)
   - [Setting the environment](#setting-the-environment)
   - [Simple fitting example](#simple-fitting-example)
@@ -534,183 +534,54 @@ The simulated data is saved in the folder `examples` in the main repository. The
     lwd=1.2, height=5, width=5, save=FALSE)
  ```
 
- ### Average and save `ABF` data using the `UI` interface app
 
- The standalone `UI`s `analyseABFtk()` or `analyseABFshiny()` can average and create 'csv' output from raw `ABF` files.
-
- The following instructions are provided for using the tk interface i.e. by running the function `analyseABFtk()`.
-
- In addition to the tk interface launched using `analyseABFtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analyseABFshiny()`.
-
- The steps, options, and workflow are the same for both interfaces.
-
- The `UI` is designed to normalise selected traces to a chosen baseline period then average and export output to a `csv` file.
-   
- a. **Launch UI**  
- 
- ```R
- # open R from terminal:
- # open -n -a R
-
-  R --no-save
-  rm(list = ls(all = TRUE))
-  graphics.off()
-  
-  # Load and install necessary packages
-  load_required_packages <- function(packages) {
-    new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-    if (length(new.packages)) install.packages(new.packages)
-    invisible(lapply(packages, library, character.only = TRUE))
-  }
-  required.packages <- c('shiny', 'shinybusy', 'readABF', 'openxlsx', 'reticulate')
-  load_required_packages(required.packages)
-  
-  # Setup Python environment (creates if doesn't exist)
-  env_name <- "NWBenv"
-  if (!env_name %in% conda_list()$name) {
-    conda_create(env_name)
-    conda_install(env_name, packages = "pynwb")
-  }
-  use_condaenv(env_name, required = TRUE)
-  
-  # Insert your username and repository path
-  UserName <- 'euo9382'
-  path_repository <- '/Documents/Repositories/ABF2NWB'
-  file_path <- paste0('/Users/', UserName, path_repository)
-  source(paste0(file_path, '/ABF2NWB_functions.R'))
-  
-  # Launch UI
-  analyseABF()
- ```
-
-<img src="./images/analyseABFtk_0.png" alt="analyseABFtk_0" width="57.5%" height="57.5%"/> 
-
- Some options in the settings menu are intentionally blank. These values will autopopulate from the first uploaded file.
- 
- b. **Upload ABF files**  
-
- In the UI, select the ABF folder by pressing **Browse**. At this point, the values for **Units**, **Data Column**, **dt (ms)**, and **# traces** will appear.  
-
- <img src="./images/analyseABFtk_1.png" alt="analyseABFtk_1" width="57.5%" height="57.5%"/> 
-
- Any files present in the chosen directory will appear in the **ABF Files** window. On macOS, use the Option key to highlight the required files to upload by pressing the **Load data** button. 
-
- A new panel will open. At the top, some basic metadata from the first loaded ABF file will appear. Below this, the first 10 rows of the first recorded trace are shown to allow you to determine which column contains the response (in this case column 1).
-
- ![analyseABFtk_3](./images/analyseABFtk_3.png)
-
- In addition, the window below the main menu on the left panel gives a message:
- 
- ```
- Data loaded. Processed 3 file(s).
- Data is consistent
- ```
- 
- The UI checks that all files have the same metadata settings (sample rate, recording mode). Only files that are consistent can be analysed in the same session.  
-
- > **Note:** Ensure that all files analysed in batches are recorded with the same amplifier sample rates. The UI grabs these settings from the header of the first uploaded ABF file and assumes they are the same for all subsequent ABFs (data is consistent). An error will result if this condition is not met.
- 
- c. **Concatenate imported ABFs**  
-
- The default is unchecked. If unchecked, only traces within a given ABF can be averaged together (when each ABF represents an independent condition). In this case, the **# traces** displays the number of traces in each ABF file (here 5).  
-
- If this box is checked and **Load Data** is pressed, the traces from all selected ABF files are placed into one 'master' ABF file. The **# traces** will be updated to 15 (3 'ABF' files each containing 5 traces). This mode is intended when averaging across 'ABF' files is desired.  
- 
- d. **Review Recordings**  
-
- Click the **Review Recordings** button. If **Concatenate imported ABFs** is not checked:
- 
- ![analyseABFtk_4](./images/analyseABFtk_4.png)
- 
- The right-hand panel shows the first trace from the first selected ABF file. Traces can be accepted or rejected. If accepted, they are stored for subsequent averaging. When all traces for that ABF file are reviewed, the left-hand window displays:
- 
- ```
- 24502007.abf complete
- ```
-    
- ![analyseABFtk_5](./images/analyseABFtk_5.png)  
- The UI then moves on to the first trace of the next ABF file. When all ABF files have been processed, the status window displays:
- 
- ```
- Data loaded. Processed 3 file(s).
- Data is consistent
- 24502007.abf complete
- 24522018.abf complete
- 24624006.abf complete
- ```
- 
- e. **Average Approved Recordings**  
-
- Click the **Average Approved Recordings** button. The first average appears; use the **Next** button to cycle through subsequent averages.  
-
- ![analyseABFtk_7](./images/analyseABFtk_7.png)  
-
- The chosen stimulation time is marked with an asterisk, `*`. In this example, the stimulation time must be corrected in the right-hand setting: choose a suitable value (here 230 ms) and press **Average Approved Recordings** again. The `*` should appear just before the rising time of the response. Ensure the baseline is chosen relative to the stimulation.
- 
- Now choose a suitable baseline (e.g. 200 ms) and click **Average Approved Recordings** for a final time. The displayed average should now have a 200 ms baseline and an `*` at the stimulation time.
-
- Cycle through all averages using **Next**.  
-
- ![analyseABFtk_9](./images/analyseABFtk_9.png)
- 
- f. **Download Data**  
-
- When satisfied that baseline and stimulation are correctly specified, click the **Download Data** button to export the traces to a `csv` spreadsheet. A dialog box appears allowing you to choose the name and location of the `csv` file.
-
- As stated the steps, options, and workflow are the same for both interfaces. Some equivalent images obtained from the shiny `UI` launched by `analyseABFshiny()` are:
-
- ![analyseABFshiny_0](./images/analyseABFshiny_0.png)
-
- ![analyseABFshiny_1](./images/analyseABFshiny_1.png)
-
- ![analyseABFshiny_2](./images/analyseABFshiny_2.png)
 
   
  ### Fitting data using the UI interface
 
- The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
+ The following instructions are provided for using the Shiny-based UI interface i.e. by running the function `analysePSC()`.
 
- In addition to the tk interface launched using `analysePSCtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analysePSCshiny()`.
+ Open `Terminal`
 
- The steps, options, and workflow are the same for both interfaces.
+ ```
+ # open R from Terminal
+ R --no-save
+ ```
 
-  ```R
-  # open R from terminal
-  # open -n -a R
+Once `R` has lauched then enter the following code into the `Terminal`:
 
-  # open R from terminal
-  R --no-save
+```
+rm(list = ls(all = TRUE))
+graphics.off()
 
-  rm(list = ls(all = TRUE))
-  graphics.off()
-  
-  # load and install necessary packages
-  load_required_packages <- function(packages) {
-    new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-    if (length(new.packages)) install.packages(new.packages)
-    invisible(lapply(packages, library, character.only = TRUE))
-  }
-  
-  required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-    'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
-  load_required_packages(required.packages)
-  
-   # insert your username and repository path
-   UserName <- 'euo9382' # substitute your UserName here
-   path_repository <- '/Documents/Repositories/Rfits'
-   file_path <- paste0('/Users/', UserName, path_repository)
-   source(paste0(file_path, '/nNLS functions.R'))
-  
-   # launch UI
-   analysePSC()
+# load and install necessary packages
+load_required_packages <- function(packages) {
+  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+  if (length(new.packages)) install.packages(new.packages)
+  invisible(lapply(packages, library, character.only = TRUE))
+}
 
-  ```
+required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
+  'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+load_required_packages(required.packages)
+
+ # insert your username and repository path
+ UserName <- 'euo9382' # substitute your UserName here
+ path_repository <- '/Documents/Repositories/Rfits'
+ file_path <- paste0('/Users/', UserName, path_repository)
+ source(paste0(file_path, '/nNLS functions.R'))
+
+ # launch UI
+ analysePSC()
+```
 
   a. **Launch the User Interface**  
 
   ```R
   analysePSC()
   ```
+
+  This launches an interactive Shiny interface in your default web browser.
 
   The `UI` should open:
 
