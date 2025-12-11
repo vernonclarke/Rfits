@@ -1,3 +1,7 @@
+Analysing an entire data set using the R gui
+
+
+
 # <center>Rfits: Non-Linear Curve Fitting for Postsynaptic Current Analysis
 
 ## Table of Contents
@@ -13,13 +17,11 @@
   - [View imported data](#view-imported-data)
   - [Analyse in R GUI using analyse_PSC](#analyse-in-r-gui-using-analyse_psc)
   - [Fitting data using the UI interface](#fitting-data-using-the-ui-interface)
-
-
-- [Programmatic Analysis with analyse_PSC](#programmatic-analysis-with-analyse_psc)
-  - [Setting the environment](#setting-the-environment)
-  - [Simple fitting example](#simple-fitting-example)
-  - [Batch processing multiple traces](#batch-processing-multiple-traces)
-- [Output Structure](#output-structure)
+  - [Analysing an entire data set using the R gui](#Analysing-an-entire-data-set-using-the-R-gui)
+  - [Retrieving analysed data](#retrieving-analysed-data)
+  - [Examining analysed data](#examining-analysed-data)
+  - [Useful functions](#useful-functions)
+  - [Output file structure](#output-file-structure)
 - [Definitions and Formulae](#definitions-and-formulae)
 
 ## Initial Set Up
