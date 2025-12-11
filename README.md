@@ -316,9 +316,11 @@ These responses with only differ by added gaussian noise.
 
  ### Simulated example
 
- This code creates some example data and saves it in a given folder as an `*.xlsx` excel spreadsheet.
+ This code creates some example data and saves it in a given folder as an `*.xlsx` excel or `*.csv` spreadsheet.
  
  This step is provided to generate some dummy data for the subsequent analysis and should be skipped if analysing raw data(!). 
+
+ The dummy data **is already provided** so this step can be skipped entirely and user can proceed directly to **Load Data** below.
 
  ```R
  # parameters for modelled response
@@ -382,15 +384,41 @@ These responses with only differ by added gaussian noise.
  [10,] -10.9498905 -2.78843376  1.2559864   6.996717  0.9534663 -3.4337208  6.083794268 -3.7968008  4.40553708  6.2209127
  ```
 
+The simulated data is saved in the folder `examples` in the main repository. There are 2 data files (analysis can be performed on both `csv` and `xlsx` files).
+
  ### Load data
 
  The following code allows the user to load simulated data using the functions `load_data` or `load_data2`:
  
- If your data is in the form of a `*.csv` or `*.xlsx` you can use the provided functions `load_data` and `load_data2`, respectively to load it into a session of R (provided step 1 above is executed)
+ If your data is in the form of a `*.csv` or `*.xlsx` you can use the provided functions `load_data` and `load_data2`, respectively to load it into a session of R. 
+ 
+ Examples of simulated data stored as either `*.csv` or `*.xlsx`are already provided in the `examples` folder.
+
+ Again, since this represents the logical startin point for data analysis, run this code to setup the environment correctly:
 
  ```R
- UserName <- 'YourUserName' # substitute your UserName here
+ # Remove all objects from the environment
+ rm(list = ls(all = TRUE))
 
+ # Load and install necessary packages
+ load_required_packages <- function(packages) {
+  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+  if (length(new.packages)) install.packages(new.packages)
+  invisible(lapply(packages, library, character.only = TRUE))
+ }
+
+ required.packages <- c('robustbase', 'minpack.lm', 'Rcpp', 'signal', 'writexl')
+ load_required_packages(required.packages)
+
+ UserName <- 'YourUserName' # substitute your UserName here
+ root_dir <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits')
+ path <- file.path(root_dir, 'nNLS functions.R')
+ source(path)
+ ```
+
+
+
+ ```R
  # create path to the working directory
  wd <- paste0('/Users/', UserName, '/Documents/Repositories/Rfits/examples') 
 
