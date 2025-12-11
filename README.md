@@ -1,7 +1,3 @@
-Analysing an entire data set using the R gui
-
-
-
 # <center>Rfits: Non-Linear Curve Fitting for Postsynaptic Current Analysis
 
 ## Table of Contents
