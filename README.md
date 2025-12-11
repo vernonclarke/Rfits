@@ -642,9 +642,8 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
   The procedure is repeated for all columns with the `User Maximum Time for Fit:` generated values:
   
-  <img src="./images/analysePSC_3.png" alt="analysePSC_4" width="100%" height="100%"/>
+  <img src="./images/analysePSC_4.png" alt="analysePSC_4" width="100%" height="100%"/>
   
-
   i. **`Download RData`**
   
   Click the **`Download RData`** button to save all fit results in a `.RData` file.
