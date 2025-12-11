@@ -665,10 +665,8 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
   In the `UI`, click the **`Export Plot to SVG`** button.
 
-  The exported plot is saved in the download folder. The fit for the last fitted trace in the example (column V10) looks like this:
-     
-   ![trace3](./images/trace3.svg)
-
+  The exported plot is saved in the download folder. 
+  
   l. **Clear Output** _(optional)_  
 
   Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
