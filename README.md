@@ -539,49 +539,49 @@ The simulated data is saved in the folder `examples` in the main repository. The
   
  ### Fitting data using the UI interface
 
- The following instructions are provided for using the tk interface i.e. by running the function `analysePSCtk()`.
+ The following instructions are provided for using the Shiny-based UI interface i.e. by running the function `analysePSC()`.
 
- In addition to the tk interface launched using `analysePSCtk()`, an identical analysis procedure can be performed using the Shiny-based UI by launching `analysePSCshiny()`.
+ Open `Terminal`
 
- The steps, options, and workflow are the same for both interfaces.
+ ```
+ # open R from Terminal
+ R --no-save
+ ```
 
-  ```R
-  # open R from terminal
-  # open -n -a R
+Once `R` has lauched then enter the following code into the `Terminal`:
 
-  # open R from terminal
-  R --no-save
+```
+rm(list = ls(all = TRUE))
+graphics.off()
 
-  rm(list = ls(all = TRUE))
-  graphics.off()
-  
-  # load and install necessary packages
-  load_required_packages <- function(packages) {
-    new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
-    if (length(new.packages)) install.packages(new.packages)
-    invisible(lapply(packages, library, character.only = TRUE))
-  }
-  
-  required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
-    'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
-  load_required_packages(required.packages)
-  
-   # insert your username and repository path
-   UserName <- 'euo9382' # substitute your UserName here
-   path_repository <- '/Documents/Repositories/Rfits'
-   file_path <- paste0('/Users/', UserName, path_repository)
-   source(paste0(file_path, '/nNLS functions.R'))
-  
-   # launch UI
-   analysePSC()
+# load and install necessary packages
+load_required_packages <- function(packages) {
+  new.packages <- packages[!(packages %in% installed.packages()[, 'Package'])]
+  if (length(new.packages)) install.packages(new.packages)
+  invisible(lapply(packages, library, character.only = TRUE))
+}
 
-  ```
+required.packages <- c('dbscan', 'minpack.lm', 'Rcpp', 'robustbase',
+  'shiny', 'shinybusy', 'signal', 'readABF', 'readxl', 'tcltk', 'tkrplot', 'openxlsx')
+load_required_packages(required.packages)
+
+ # insert your username and repository path
+ UserName <- 'euo9382' # substitute your UserName here
+ path_repository <- '/Documents/Repositories/Rfits'
+ file_path <- paste0('/Users/', UserName, path_repository)
+ source(paste0(file_path, '/nNLS functions.R'))
+
+ # launch UI
+ analysePSC()
+```
 
   a. **Launch the User Interface**  
 
   ```R
   analysePSC()
   ```
+
+  This launches an interactive Shiny interface in your default web browser.
 
   The `UI` should open:
 
