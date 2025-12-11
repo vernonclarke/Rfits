@@ -1,7 +1,5 @@
 # <center>Rfits: Non-Linear Curve Fitting for Postsynaptic Current Analysis
 
-An R-based Shiny application (`analysePSC()`) for analyzing postsynaptic current (PSC) waveforms using non-linear least squares fitting.
-
 ## Table of Contents
 - [Initial Set Up](#initial-set-up)
 - [Setting up](#setting-up)
