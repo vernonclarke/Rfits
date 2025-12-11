@@ -586,159 +586,99 @@ The simulated data is saved in the folder `examples` in the main repository. The
 
   The `UI` should open:
 
-  <img src="./images/analysePSC_1.png" alt="analysePSC_1" width="57.5%" height="57.5%"/> 
+  <img src="./images/analysePSC_1.png" alt="analysePSC_1" width="100%" height="100%"/> 
  
-  b. **Upload `csv` or `xlsx`**  
+  d. **Upload `csv` or `xlsx`**  
 
-  In the `UI`, click the **`Browse`** button and select your file (e.g. `examples/data.csv`).
+  In the `UI`, click the **`Browse`** button and select your file (e.g. `data.xlsx`).
 
-  c. **Select column**  
+  e. **Select column**  
 
-  In the `UI`, use the dropdown menu **`Select column`** to select the trace to analyse (in this example choose V1).
+  In the `UI`, use the dropdown menu **`Select Column to Analyse`** to select the trace to analyse. The default is to choose the first column (in this example this is V1).
 
-  d. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
+  f. **Set options in `Main Options` dropdown menu** (all selections in the `ui`)
  
-  - **`dt`**: the trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling)
-  - **`Stimulation time`**: stimulation time was 150 ms
-  - **`Baseline`**: set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the  stimulation time 
+  - **`dt`**: the trace in this example was sampled at 0.1 ms (this is the default setting of 10 KHz sampling).
+  - **`Stimulation time`**: change stimulation time to 150 ms; the asterix used to denote the stimulu should shift into the correct position.
+  - **`Baseline`**: set baseline to some reasonable value (to reproduce this example use 50 ms); the only requirement is that baseline is less than or equal to the stimulation time. 
   - **`n`**: number of fit attempts (30 is default) 
   - **`Fit cutoff`**: default setting 0.1 of the peak response 
   - **`Function`**: default is set to `product1N` to fit one response. For this example choose `product2N`
   - **`Downsample Factor`**: allows the user to downsample the data. This value must be greater than or equal to 1 where 1 indicates no downsampling. Fitting times are directly related to the time window of trace being fitted and the sampling rate, so downsampling can greatly increase fitting speed. However, care should be taken when downsampling a signal, as reducing the sampling rate may compromise the resolution of fast events or distort the shape of rapid transients critical to accurate fitting. It is advisable to verify the integrity of downsampled traces by visual inspection to ensure that key features of the response are preserved.
 
-    e. **Run Initial Analysis**  
+  g. **Run Initial Analysis**  
 
-    In the `UI`, click the **`Run Initial Analysis`** button.
+  In the `UI`, click the **`Run Initial Analysis`** button.
 
-    A plot will appear with horizontal and vertical lines showing the time at which the response falls to the `Fit cutoff` level (e.g. ~508.4 ms).
+  A plot will appear with horizontal and vertical lines showing the time at which the response falls to the `Fit cutoff` level (e.g. ~508.4 ms).
 
-    Enter `510` in the **`User maximum time for fit`** input box in the `UI`. This defines the end point of the time window over which the fitting will be performed for       the displayed trace.
+  Enter `510` in the **`User maximum time for fit`** input box in the `UI`. This defines the end point of the time window over which the fitting will be performed for the displayed trace.
 
-    The `UI` output now looks like this:  
+  The `UI` output now looks like this:  
+    
+  <img src="./images/analysePSC_2.png" alt="analysePSC_2" width="100%" height="100%"/>
 
-    ![analysePSCtk_1](./images/analysePSCtk_1.png)
+  h. **Run Main Analysis**  
 
-    f. **Run Main Analysis**  
+  Click the **`Run Main Analysis`** button to start the fitting procedure.
 
-    Click the **`Run Main Analysis`** button to start the fitting procedure.
+  After a short delay, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
 
-    After a few seconds, the graph will update to show the original response, two fitted responses, and the numerical results in the **`Fit Output`** window.
-
-    The updated output looks like this:
+  The updated output looks like this:
    
-    ![analysePSCtk_2](./images/analysePSCtk_2.png)
+  <img src="./images/analysePSC_2.png" alt="analysePSC_2" width="100%" height="100%"/>
 
-    g. **Download RData**  
+  Having obtained a satisfactory fit, click the **`Add to Results`** button to save the fitted results.
 
-    Click the **`Download RData`** button to save all fit results in a `.RData` file.
+  <img src="./images/analysePSC_3.png" alt="analysePSC_3" width="100%" height="100%"/>
 
-    This allows the user to download the entire results of the fitting process into a format that can be read by R (*.Rdata).
+  This procedure is repeated for all columns:
+  1. **`Select Column to Analyse`**
+  2. **`Run Initial Analysis`**
+  3. **`Run Main Analysis`**
+  4. **`Add to Results`**
 
-    This includes all the fits (in this case 30 as denoted by n above) and the resultant best fit with the lowest gof  (since all fits are to the same number of points to be fitted (same response) and are fitted with the same equations)
-
-    h. **Download output (csv/xlsx)**  
-
-    Click the **`Download output (csv/xlsx)`** button to open the download box, enter a `File name` and hit `save`.  
-
-   The `xlsx` file includes 4 sheets:  
-    - output table  
-    - raw + fitted traces  
-    - AIC/BIC criteria values 
-    - metadata (all dropdown values)
+  The procedure is repeated for all columns with the `User Maximum Time for Fit:` generated values:
   
-  In this scenario a single excel file is generated with 4 separate sheets containing the main output, the raw response and fitterd traces, the associated fit  criterion (both AIC and BIC are given and the metadata associated with the fit (i.e. all the selected values in the 4 dropdown menus to determine the fitting options).
+  <img src="./images/analysePSC_3.png" alt="analysePSC_4" width="100%" height="100%"/>
+  
 
-  This file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
+  i. **`Download RData`**
+  
+  Click the **`Download RData`** button to save all fit results in a `.RData` file.
 
-  i. **Export Plot to SVG**  
+  This allows the user to download the entire results of the fitting process into a format that can be read by R (*.Rdata).
+
+  This includes all the fits (in this case 30 as denoted by n above) and the resultant best fit with the lowest gof  (since all fits are to the same number of points to be fitted (same response) and are fitted with the same equations)
+
+  j. **`Download output (*.xlsx)`**  
+
+  Click the **`Download output (*.xlsx)`** button save the results as a zip file in the `downloads folder`  
+
+   The unzipped folder contains:  
+    - summary data in `summary.xlsx`  
+    - `xlsx` files for each fit that contains 5 sheets with that fit's main `output` , the raw response and fitted `traces` , associated  `fit criterion` (both AIC and BIC), `model message` and any relevant `metadata`.
+
+  These file should be all that is required to pool across experiments, select a single example and allow the reproduciblity (as all metadata is stored).
+
+  k. **Export Plot to SVG**  
 
   In the `UI`, click the **`Export Plot to SVG`** button.
 
-  The exported plot looks like this:
+  The exported plot is saved in the download folder. The fit for the last fitted trace in the example (column V10) looks like this:
      
-  ![analysePSCtk_3](./images/analysePSCtk_3.svg)
+   ![trace3](./images/trace3.svg)
 
-  j. **Clear Output** _(optional)_  
+  l. **Clear Output** _(optional)_  
 
   Click the **`Clear Output`** button to reset the plots and outputs to the `Run Initial Analysis` stage of analysis
 
-  To analyse the next trace in sequence chose a new column of data to analyse and (if analysing data with same settings i.e. otherwise step c remains unchanged) repeat steps c-i.
+  m. **Clear Results** _(optional)_ 
 
-  As stated the steps, options, and workflow are the same for both interfaces. The equivalent images obtained from the shiny `UI` launched by `analysePSCshiny()` are:
-
-  ![analysePSCshiny_0](./images/analysePSCshiny_0.png)
-
-  ![analysePSCshiny_1](./images/analysePSCshiny_1.png)
-
-  ![analysePSCshiny_2](./images/analysePSCshiny_2.png)
-
-  ![analysePSCshiny_3](./images/analysePSCshiny_3.svg)
+   Click the **`Clear Results`** button to clear all resultsbefore selecting a new dataset to load via the **`Browse`** button.
    
-
-
-
-### Clickable App to launch R based UI
-
-The following is a description of how a clickable app for the provided code can be created. 
-
-The provided example creates the PSC analysis app from analysePSCtk(). 
-
-a. In `Terminal` create the launcher file with `nano`:
-
-```bash
- nano ~/Desktop/launch_psc_analysis.command
-```
-
-Paste the following into the editor:
-
-    #!/bin/zsh
-    # launch PSC Analysis via Rscript so the tcltk GUI stays alive
-    RSCRIPT="/Library/Frameworks/R.framework/Resources/bin/Rscript"
-
-    "$RSCRIPT" --vanilla -e "
-      # load/install packages
-      load_required_packages <- function(pkgs) {
-        new.pkgs <- setdiff(pkgs, rownames(installed.packages()))
-        if (length(new.pkgs)) install.packages(new.pkgs)
-        invisible(lapply(pkgs, library, character.only=TRUE))
-      }
-      load_required_packages(c(
-        'dbscan','minpack.lm','Rcpp','robustbase',
-        'shiny','shinybusy','signal','readABF','readxl',
-        'tcltk','tkrplot','openxlsx'
-      ))
-
-      # source your GUI code
-      source('~/Documents/Repositories/Rfits/nNLS functions.R')
-
-      # launch the GUI (blocks until you close the window)
-      analysePSCtk()
-    "
-
-Save and exit nano (`Ctrl+O` ↵, `Ctrl+X`).
-
-b. Make the script executable:
-```bash
- chmod +x ~/Desktop/launch_psc_analysis.command
-```
-
-c. Launch:
-
-Double-click `launch_psc_analysis.command` on your Desktop  
-• A Terminal window opens and runs Rscript  
-• Your tcltk UI (`analysePSCtk()`) pops up and stays open  
-• When you close the UI window, the R session exits automatically  
-
-**Note:**  
-Ensure your `nNLS functions.R` ends the UI function with:
-
-    tkfocus(tt)
-    tcltk::tkwait.window(tt)
    
-Optionally, rename to desired name and  right-click > `Get Info` to set a custom icon.
-  
-
-   ### Analysing an entire data set
+   ### Analysing an entire data set using the `R` gui
 
    ```R
    # Remove all objects from the environment
@@ -760,9 +700,7 @@ Optionally, rename to desired name and  right-click > `Get Info` to set a custom
    path <- file.path(root_dir, 'nNLS functions.R')
    source(path)
 
-   # use 
-
-   # create path to the working directory
+   # create path to the working directory containing the simulated data from before
    wd <- paste0(root_dir, '/examples') 
 
    # load example CSV data
