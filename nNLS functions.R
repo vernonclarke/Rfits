@@ -13556,6 +13556,13 @@ analysePSC2 <- function() {
       accumulated_results=list()
     )
     
+    baseline_debounced <- debounce(reactive(input$baseline), 800)
+    stimulation_time_debounced <- debounce(reactive(input$stimulation_time), 800)
+    dt_debounced <- debounce(reactive(input$dt), 800)
+    smooth_debounced <- debounce(reactive(input$smooth), 800)
+
+
+
     # upload file
     uploaded_data <- reactive({
       req(input$file)
@@ -13759,12 +13766,15 @@ analysePSC2 <- function() {
     # plot output
     output$plot <- renderPlot({
       req(state$response)
+      req(baseline_debounced(), stimulation_time_debounced())
+      req(baseline_debounced() > 0, stimulation_time_debounced() > 0)
+      
       # Compute effective dt using the current ds.
-      dt <- as.numeric(input$dt) * as.numeric(input$ds)
+      dt <- as.numeric(dt_debounced()) * as.numeric(input$ds)
       lwd <- as.numeric(input$lwd)
-      stim_time <- as.numeric(input$stimulation_time)
-      baseline <- as.numeric(input$baseline)
-      smooth <- as.numeric(input$smooth)
+      stim_time <- as.numeric(stimulation_time_debounced())
+      baseline <- as.numeric(baseline_debounced())
+      smooth <- as.numeric(smooth_debounced())
       y_abline <- as.numeric(input$y_abline)
       xbar <- as.numeric(input$xbar)
       ybar <- as.numeric(input$ybar)
@@ -13772,8 +13782,10 @@ analysePSC2 <- function() {
       ybar_lab <- input$ybar_lab
       
       if (is.null(state$analysis)) {
-        determine_tmax2(y=state$response, N=as.numeric(input$N), dt=dt, stimulation_time=stim_time, baseline=baseline, smooth=smooth,
-                        lwd=lwd, cex=1, tmax=NULL, y_abline=y_abline, xbar=xbar, ybar=ybar, xbar_lab=xbar_lab, ybar_lab=ybar_lab)
+        determine_tmax2(y=state$response, N=as.numeric(input$N), dt=dt, 
+                        stimulation_time=stim_time, baseline=baseline, smooth=smooth,
+                        lwd=lwd, cex=1, tmax=NULL, y_abline=y_abline, 
+                        xbar=xbar, ybar=ybar, xbar_lab=xbar_lab, ybar_lab=ybar_lab)
       } else {
         req(state$analysis$traces)
         func <- switch(input$func,
