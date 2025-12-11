@@ -246,7 +246,7 @@ y <- ysignal + rnorm(length(x),sd=std.dev)
  Enter the upper limit for time to use in nFIT (e.g., 400 ms): 
  330
          A1       A2       A3 τrise τdecay tpeak r10_90 d90_10 delay half_width    area1    area2    area3
-1 -149.619 -249.577 -298.555 0.964 30.206  3.43  1.637 66.384 3.981     24.768 5062.796 8445.181 10102.48
+ 1 -148.293 -249.447 -299.051 0.969 30.078  3.44  1.643 66.104 3.978     24.693 5000.808 8411.965 10084.72
  
  Do you want to repeat with "fast constraint" turned on? 
  This constraint ensures the response with the fastest decay also has the fastest rise (y/n): 
