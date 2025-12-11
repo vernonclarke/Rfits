@@ -7551,13 +7551,13 @@ determine_tmax2 <- function(y, N=1, dt=0.1, stimulation_time=0, baseline=0, smoo
     lines(c(min(X), avg_t.abline), c(A_abline, A_abline), col='black', lwd=lwd, lty=3)
     lines(c(avg_t.abline, avg_t.abline), c(A_abline, bottom_axis), col='black', lwd=lwd, lty=3)
     ind3 <- as.integer(avg_t.abline / dt)
-    text(x=max(X[ind1:ind3]) * 1.05, y=A_abline * 1.2, labels=paste0(y_abline * 100, ' %'), pos=4, cex=cex)
-    text(x=max(X[ind1:ind3]) * 1.05, y=bottom_axis * 0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=cex)
+    text(x=max(X[ind1:ind3]) * 1.05, y=A_abline * 1.2, labels=paste0(y_abline * 100, ' %'), pos=4, cex=cex, font=2)
+    text(x=max(X[ind1:ind3]) * 1.05, y=bottom_axis * 0.95, labels=paste0(avg_t.abline, ' ms'), pos=4, cex=cex, font=2)
     stim_index <- round(baseline / dt) + 1
     if (stim_index > length(X)) stim_index <- length(X)
     points(X[stim_index], Y[stim_index], pch=8, col='black', cex=1)
     x_offset <- 0.02 * diff(range(X))
-    text(x=X[stim_index] + x_offset, y=Y[stim_index], labels='stim', pos=4, col='darkgray', cex=cex)
+    text(x=X[stim_index] + x_offset, y=Y[stim_index], labels='stim', pos=4, col='black', cex=cex, font=2)
     x_limit <- avg_t.abline
 
   } else {
@@ -12999,7 +12999,12 @@ analysePSC <- function() {
     state <- reactiveValues(
       response=NULL, analysis=NULL, accumulated_results=list()
     )
-    
+
+    baseline_debounced <- debounce(reactive(input$baseline), 800)
+    stimulation_time_debounced <- debounce(reactive(input$stimulation_time), 800)
+    dt_debounced <- debounce(reactive(input$dt), 800)
+    smooth_debounced <- debounce(reactive(input$smooth), 800)
+
     uploaded_data <- reactive({
       req(input$file)
       ext <- tools::file_ext(input$file$name)
@@ -13095,14 +13100,17 @@ analysePSC <- function() {
 
     output$plot <- renderPlot({
       req(state$response)
-      dt <- as.numeric(input$dt) * as.numeric(input$ds)
+      req(baseline_debounced(), stimulation_time_debounced())
+      req(baseline_debounced() > 0, stimulation_time_debounced() > 0)
+      
+      dt <- as.numeric(dt_debounced()) * as.numeric(input$ds)
       
       if (is.null(state$analysis)) {
         determine_tmax2(
           y=state$response, N=as.numeric(input$N), dt=dt, 
-          stimulation_time=as.numeric(input$stimulation_time),
-          baseline=as.numeric(input$baseline), 
-          smooth=as.numeric(input$smooth),
+          stimulation_time=as.numeric(stimulation_time_debounced()),
+          baseline=as.numeric(baseline_debounced()), 
+          smooth=as.numeric(smooth_debounced()),
           lwd=as.numeric(input$lwd), cex=1, tmax=NULL, 
           y_abline=as.numeric(input$y_abline),
           xbar=as.numeric(input$xbar), ybar=as.numeric(input$ybar),
